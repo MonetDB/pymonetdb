@@ -62,7 +62,7 @@ You can control the testing behavior using environment variables::
  * MAPIPORT - what port is MonetDB running? _50000_ by default
  * TSTHOSTNAME -  where is MonetDB running? _localhost_ by default
  * TSTPASSPHRASE - what passphrase to test control command? _testdb_ by default
- * TSTDB -  what database to use for testing? _testdb_ by default
+ * TSTDB -  what database to use for testing? _demo_ by default
  * TSTUSERNAME - username, _monetdb_ by default
  * TSTPASSWORD - password, _monetdb_ by default
 
