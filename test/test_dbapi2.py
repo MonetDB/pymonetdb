@@ -1,3 +1,4 @@
+ # -*- coding: utf-8 -*-
 # The contents of this file are subject to the MonetDB Public License
 # Version 1.1 (the "License"); you may not use this file except in
 # compliance with the License. You may obtain a copy of the License at
@@ -982,3 +983,20 @@ class DatabaseAPI20Test(unittest.TestCase):
                 self.assertEqual(i, row[0], 'newline not properly converted, got %s, should be %s' % (row[0], i))
         finally:
             con.close()
+
+
+# somehow this doesn't work with python2
+"""
+    def test_non_ascii_string(self):
+        con = self._connect()
+        cur = con.cursor()
+        self.executeDDL1(cur)
+        input = '中文 zhōngwén'
+        args = {'beer': input}
+        cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix,
+                     args)
+        cur.execute('select name from %sbooze' % self.table_prefix)
+        res = cur.fetchall()
+        returned = res[0][0]
+        self.assertEqual(returned, input)
+"""
