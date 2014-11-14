@@ -29,7 +29,7 @@ from monetdb import sql
 from monetdb import mapi
 from monetdb import exceptions
 
-__version__ = '11.19.3'
+__version__ = '11.19.3.1'
 __all__ = ["sql", "mapi"]
 
 # for backwards compatability
