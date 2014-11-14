@@ -23,6 +23,7 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
+from monetdb import six
 
 from monetdb.exceptions import ProgrammingError
 
@@ -60,8 +61,8 @@ def monet_bytes(data):
 def monet_unicode(data):
     return monet_escape(data.encode('utf-8'))
 
-mapping = (
-    (unicode, monet_unicode),
+mapping = [
+
     (str, monet_escape),
     (bytes, monet_bytes),
     (int, str),
@@ -74,7 +75,10 @@ mapping = (
     (datetime.timedelta, monet_escape),
     (bool, monet_bool),
     (type(None), monet_none),
-)
+]
+
+if six.PY2:
+    mapping += (unicode, monet_unicode)
 
 mapping_dict = dict(mapping)
 

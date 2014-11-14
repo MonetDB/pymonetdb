@@ -52,6 +52,24 @@ interactive example on how to use the monetdb SQL API which should get
 you started quite fast.
 
 
+Running the test suite
+======================
+
+Install python-nose and run nosetests in the root.
+
+You can control the testing behavior using environment variables::
+
+ * MAPIPORT - what port is MonetDB running? _50000_ by default
+ * TSTHOSTNAME -  where is MonetDB running? _localhost_ by default
+ * TSTPASSPHRASE - what passphrase to test control command? _testdb_ by default
+ * TSTDB -  what database to use for testing? _testdb_ by default
+ * TSTUSERNAME - username, _monetdb_ by default
+ * TSTPASSWORD - password, _monetdb_ by default
+
+Note that you first need to create and start a monetdb database. Also if you
+want to run the control tests you need to set a passphrase and set control=true.
+
+
 Examples
 ========
 

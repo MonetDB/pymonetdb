@@ -24,13 +24,12 @@ import logging
 import struct
 import hashlib
 import os
-from cStringIO import StringIO
-
+from monetdb.six import BytesIO, PY3
 
 from monetdb.exceptions import OperationalError, DatabaseError,\
     ProgrammingError, NotSupportedError
 
-logger = logging.getLogger("monetdb")
+logger = logging.getLogger(__name__)
 
 MAX_PACKAGE_LENGTH = (1024 * 8) - 2
 
@@ -54,6 +53,19 @@ MSG_OK = "=OK"
 STATE_INIT = 0
 STATE_READY = 1
 
+
+
+def encode(s):
+    """only encode string for python3"""
+    if PY3:
+        return s.encode()
+    return s
+
+def decode(b):
+    """only decode byte for python3"""
+    if PY3:
+        return b.decode()
+    return b
 
 # noinspection PyExceptionInherit
 class Connection(object):
@@ -105,7 +117,8 @@ class Connection(object):
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.connect(unix_socket)
             if self.language != 'control':
-                self.socket.send('0')  # don't know why, but we need to do this
+                # don't know why, but we need to do this
+                self.socket.send(encode('0'))
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
@@ -206,9 +219,9 @@ class Connection(object):
             algo = challenges[5]
             try:
                 h = hashlib.new(algo)
-                h.update(password)
+                h.update(encode(password))
                 password = h.hexdigest()
-            except ValueError, e:
+            except ValueError as e:
                 raise NotSupportedError(e.message)
         else:
             raise NotSupportedError("We only speak protocol v9")
@@ -240,7 +253,7 @@ class Connection(object):
             return self._getblock_inet()
 
     def _getblock_inet(self):
-        result = StringIO()
+        result = BytesIO()
         last = 0
         while not last:
             flag = self._getbytes(2)
@@ -248,10 +261,10 @@ class Connection(object):
             length = unpacked >> 1
             last = unpacked & 1
             result.write(self._getbytes(length))
-        return result.getvalue()
+        return decode(result.getvalue())
 
     def _getblock_socket(self):
-        buffer = StringIO()
+        buffer = BytesIO()
         while True:
             x = self.socket.recv(1)
             if len(x):
@@ -262,7 +275,7 @@ class Connection(object):
 
     def _getbytes(self, bytes_):
         """Read an amount of bytes from the socket"""
-        result = StringIO()
+        result = BytesIO()
         count = bytes_
         while count > 0:
             recv = self.socket.recv(count)
@@ -275,7 +288,7 @@ class Connection(object):
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
         if (self.language == 'control' and not self.hostname):
-            return self.socket.send(block)  # control doesn't do block
+            return self.socket.send(encode(block))  # control doesn't do block
                                             # splitting when using a socket
         else:
             self._putblock_inet(block)
@@ -284,7 +297,7 @@ class Connection(object):
         pos = 0
         last = 0
         while not last:
-            data = block[pos:pos + MAX_PACKAGE_LENGTH]
+            data = encode(block[pos:pos + MAX_PACKAGE_LENGTH])
             length = len(data)
             if length < MAX_PACKAGE_LENGTH:
                 last = 1

@@ -19,6 +19,10 @@
 MonetDB Python API specific exceptions
 """
 
+from monetdb import six
+
+if six.PY3:
+    StandardError = Exception
 
 class Warning(StandardError):
     """Exception raised for important warnings like data

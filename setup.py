@@ -19,12 +19,15 @@
 
 import os
 from distutils.core import setup
+from monetdb import __version__
+
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+
 setup(name='python-monetdb',
-    version='11.19.3',
+    version=__version__,
     description='Native MonetDB client Python API',
     long_description=read('README.rst'),
     author='MonetDB BV',

@@ -18,6 +18,7 @@
 import platform
 from monetdb import mapi
 from monetdb.exceptions import OperationalError, InterfaceError
+from monetdb.six import next
 
 
 def parse_statusline(line):
@@ -42,26 +43,26 @@ def parse_statusline(line):
 
     info = {}
 
-    info['name'] = sub_iter.next()
-    info['path'] = sub_iter.next()
-    info['locked'] = sub_iter.next() == "1"
-    info['state'] = int(sub_iter.next())
-    info['scenarios'] = sub_iter.next().split("'")
+    info['name'] = next(sub_iter)
+    info['path'] = next(sub_iter)
+    info['locked'] = next(sub_iter) == "1"
+    info['state'] = int(next(sub_iter))
+    info['scenarios'] = next(sub_iter).split("'")
     if prot_version == 1:
-        sub_iter.next()
-    info['start_counter'] = int(sub_iter.next())
-    info['stop_counter'] = int(sub_iter.next())
-    info['crash_counter'] = int(sub_iter.next())
-    info['avg_uptime'] = int(sub_iter.next())
-    info['max_uptime'] = int(sub_iter.next())
-    info['min_uptime'] = int(sub_iter.next())
-    info['last_crash'] = int(sub_iter.next())
-    info['last_start'] = int(sub_iter.next())
+        next(sub_iter)
+    info['start_counter'] = int(next(sub_iter))
+    info['stop_counter'] = int(next(sub_iter))
+    info['crash_counter'] = int(next(sub_iter))
+    info['avg_uptime'] = int(next(sub_iter))
+    info['max_uptime'] = int(next(sub_iter))
+    info['min_uptime'] = int(next(sub_iter))
+    info['last_crash'] = int(next(sub_iter))
+    info['last_start'] = int(next(sub_iter))
     if prot_version > 1:
-        info['last_stop'] = int(sub_iter.next())
-    info['crash_avg1'] = sub_iter.next() == "1"
-    info['crash_avg10'] = float(sub_iter.next())
-    info['crash_avg30'] = float(sub_iter.next())
+        info['last_stop'] = int(next(sub_iter))
+    info['crash_avg1'] = next(sub_iter) == "1"
+    info['crash_avg10'] = float(next(sub_iter))
+    info['crash_avg30'] = float(next(sub_iter))
 
     return info
 

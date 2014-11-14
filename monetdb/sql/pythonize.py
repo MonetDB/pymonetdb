@@ -21,9 +21,12 @@ functions for converting monetdb SQL fields to Python objects
 
 import time
 import datetime
+import re
 from decimal import Decimal
+
 from monetdb.sql import types
 from monetdb.exceptions import ProgrammingError
+from monetdb.six import PY3
 
 
 def _extract_timezone(data):
@@ -38,10 +41,17 @@ def _extract_timezone(data):
 
     return data[:-6], datetime.timedelta(hours=sign * int(data[-5:-3]), minutes=sign * int(data[-2:]))
 
+
 def strip(data):
     """ returns a python string, with chopped off quotes,
     and replaced escape characters"""
-    return data[1:-1].decode('string_escape').decode('utf-8')
+    if PY3:
+        return ''.join([w.encode('utf-8').decode('unicode_escape')
+                if '\\' in w
+                else w
+                for w in re.split('([\000-\200]+)', data[1:-1])])
+    else:
+        return data[1:-1].decode('string_escape').decode('utf-8')
 
 
 def py_bool(data):

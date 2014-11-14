@@ -20,6 +20,7 @@ import logging
 from monetdb.sql import monetize, pythonize
 from monetdb.exceptions import *
 from monetdb import mapi
+from monetdb.six import u, PY2
 
 logger = logging.getLogger("monetdb")
 
@@ -137,7 +138,8 @@ class Cursor(object):
         self.messages = []
 
         # convert to utf-8
-        operation = unicode(operation).encode('utf-8')
+        if PY2:
+            operation = u(operation).encode('utf-8')
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
