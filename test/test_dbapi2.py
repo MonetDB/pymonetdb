@@ -906,7 +906,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             if PY3:
                 encoded = args['beer']
             else:
-                encoded = u(args['beer'], 'utf-8')
+                encoded = unicode(args['beer'], 'utf-8')
             self.assertEqual(beer, encoded, 'incorrect data retrieved')
         finally:
             con.close()
@@ -920,7 +920,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             if PY3:
                 s = '\N{latin small letter a with acute}'
             else:
-                s = u('\N{latin small letter a with acute}', 'unicode-escape')
+                s = unicode('\N{latin small letter a with acute}', 'unicode-escape')
             args = {'beer': s}
             encoded = args['beer']
 

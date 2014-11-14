@@ -29,7 +29,7 @@ import unittest
 
 from monetdb.exceptions import ProgrammingError
 import monetdb.sql
-from monetdb.six import u, unichr
+from monetdb.six import unichr, PY2
 
 MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
 TSTDB = os.environ.get('TSTDB', 'demo')
@@ -59,7 +59,9 @@ class DatabaseTest(unittest.TestCase):
         self.cursor = db.cursor()
         self.BLOBText = ''.join([chr(i) for i in range(33,127)] * 100);
         self.BLOBBinary = self.db_module.Binary(''.join([chr(i) for i in range(256)] * 16))
-        self.BLOBUText = u(''.join([unichr(i) for i in range(1,16384)]))
+        self.BLOBUText = ''.join([unichr(i) for i in range(1, 16384)])
+        if PY2:
+            self.BLOBUText = unicode(self.BLOBUText)
 
     def tearDown(self):
         self.connection.close()

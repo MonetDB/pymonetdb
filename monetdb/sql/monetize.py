@@ -78,7 +78,7 @@ mapping = [
 ]
 
 if six.PY2:
-    mapping += (unicode, monet_unicode)
+    mapping += ((unicode, monet_unicode),)
 
 mapping_dict = dict(mapping)
 

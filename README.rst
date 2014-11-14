@@ -55,7 +55,7 @@ you started quite fast.
 Running the test suite
 ======================
 
-Install python-nose and run nosetests in the root.
+Install tox and run tox in the root.
 
 You can control the testing behavior using environment variables::
 
