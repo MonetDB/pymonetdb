@@ -37,7 +37,7 @@ import time
 import os
 
 import monetdb
-from monetdb.six import u, PY3
+from monetdb.six import text_type, PY3
 
 # $Log$
 # Revision 1.2  2009/05/19 12:04:13  sjoerd
@@ -985,8 +985,6 @@ class DatabaseAPI20Test(unittest.TestCase):
             con.close()
 
 
-# somehow this doesn't work with python2
-"""
     def test_non_ascii_string(self):
         con = self._connect()
         cur = con.cursor()
@@ -998,5 +996,9 @@ class DatabaseAPI20Test(unittest.TestCase):
         cur.execute('select name from %sbooze' % self.table_prefix)
         res = cur.fetchall()
         returned = res[0][0]
-        self.assertEqual(returned, input)
-"""
+        if PY3:
+            encoded = input
+        else:
+            encoded = unicode(input, 'utf-8')
+        self.assertEqual(returned, encoded)
+        self.assertEqual(type(returned), text_type)
