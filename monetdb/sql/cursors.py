@@ -139,7 +139,11 @@ class Cursor(object):
 
         # convert to utf-8
         if PY2:
-            operation = u(operation).encode('utf-8')
+            if type(operation) == unicode:
+                # don't decode if it is already unicode
+                operation = operation.encode('utf-8')
+            else:
+                operation = u(operation).encode('utf-8')
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
