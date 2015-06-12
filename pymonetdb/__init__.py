@@ -18,16 +18,38 @@
 """
 This is a MonetDB Python API.
 
-The MAPI (MonetDB API) related code is in pymonetdb.mapi.
-
-The SQL related code is in pymonetdb.sql.
-
-To set up a connection use pymonetdb.sql.connect()
+To set up a connection use pymonetdb.connect()
 
 """
-from pymonetdb import sql
-from pymonetdb import mapi
-from pymonetdb import exceptions
+import sql
+import mapi
+import exceptions
+
+from pymonetdb.sql.connections import Connection
+from pymonetdb.sql.pythonize import *
+from pymonetdb.exceptions import *
+
 
 __version__ = '0.1'
-__all__ = ["sql", "mapi"]
+__all__ = ["sql", "mapi", "exceptions"]
+apilevel = "2.0"
+threadsafety = 0
+paramstyle = "pyformat"
+
+__all__ = ['BINARY', 'Binary', 'connect', 'Connection', 'DATE',
+           'Date', 'Time', 'Timestamp', 'DateFromTicks', 'TimeFromTicks',
+           'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
+           'FIELD_TYPE', 'IntegrityError', 'InterfaceError', 'InternalError',
+           'MySQLError', 'NULL', 'NUMBER', 'NotSupportedError', 'DBAPISet',
+           'OperationalError', 'ProgrammingError', 'ROWID', 'STRING', 'TIME',
+           'TIMESTAMP', 'Set', 'Warning', 'apilevel', 'connect',
+           'connections', 'constants', 'cursors', 'debug', 'escape',
+           'escape_dict', 'escape_sequence', 'escape_string',
+           'get_client_info', 'paramstyle', 'string_literal', 'threadsafety',
+           'version_info']
+
+
+def connect(*args, **kwargs):
+    return Connection(*args, **kwargs)
+
+connect.__doc__ = Connection.__init__.__doc__

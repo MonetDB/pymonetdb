@@ -19,6 +19,7 @@ before_install:
   - sudo monetdb release demo
   - sudo monetdbd set control=yes /var/lib/monetdb
   - sudo monetdbd set passphrase=testdb /var/lib/monetdb
+  - pip install pep8
 install:
   - python setup.py install
 before_script:

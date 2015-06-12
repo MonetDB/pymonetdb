@@ -14,10 +14,10 @@ TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
 
 class TestUnicode(unittest.TestCase):
     def setUp(self):
-        self.con = pymonetdb.sql.connect(database=TSTDB, port=MAPIPORT,
-                                       hostname=TSTHOSTNAME,
-                                       username=TSTUSERNAME,
-                                       password=TSTPASSWORD)
+        self.con = pymonetdb.connect(database=TSTDB, port=MAPIPORT,
+                                     hostname=TSTHOSTNAME,
+                                     username=TSTUSERNAME,
+                                     password=TSTPASSWORD)
         cursor = self.con.cursor()
         cursor.execute('create table bla (s VARCHAR(1000))')
 

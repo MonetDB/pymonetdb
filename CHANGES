@@ -1,0 +1,10 @@
+
+
+# 0.1
+
+- cleanup, pep8 compatiblity
+- Use tox and travis for testing
+- Fix Python3 support
+- Fix an issue where query contains unicode chars
+- Improved error handling (#2)
+- Forked from python-monetdb

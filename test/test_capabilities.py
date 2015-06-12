@@ -46,7 +46,7 @@ class DatabaseTest(unittest.TestCase):
     create_table_extra = ''
     rows = 10
 
-    db_module = pymonetdb.sql
+    db_module = pymonetdb
     connect_args = ()
     connect_kwargs = dict(database=TSTDB, port=MAPIPORT, hostname=TSTHOSTNAME,
                           username=TSTUSERNAME, password=TSTPASSWORD,
@@ -392,9 +392,9 @@ class DatabaseTest(unittest.TestCase):
 
     def test_customtype(self):
         t = ["list", "test"]
-        self.assertRaises(ProgrammingError, self.db_module.monetize.convert, t)
-        self.db_module.monetize.mapping_dict[list] = str
-        self.assertEqual(self.db_module.monetize.convert(t), "['list', 'test']")
+        self.assertRaises(ProgrammingError, self.db_module.sql.monetize.convert, t)
+        self.db_module.sql.monetize.mapping_dict[list] = str
+        self.assertEqual(self.db_module.sql.monetize.convert(t), "['list', 'test']")
 
     def test_multiple_queries(self):
         table1 = self.new_table_name()

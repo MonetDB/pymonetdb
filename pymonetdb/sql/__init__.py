@@ -14,29 +14,3 @@
 # Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
 # Copyright August 2008-2014 MonetDB B.V.
 # All Rights Reserved.
-
-from pymonetdb.sql.connections import Connection
-from pymonetdb.sql.pythonize import *
-from pymonetdb.exceptions import *
-
-apilevel = "2.0"
-threadsafety = 0
-paramstyle = "pyformat"
-
-
-def connect(*args, **kwargs):
-    return Connection(*args, **kwargs)
-
-connect.__doc__ = Connection.__init__.__doc__
-
-__all__ = ['BINARY', 'Binary', 'connect', 'Connection', 'DATE',
-           'Date', 'Time', 'Timestamp', 'DateFromTicks', 'TimeFromTicks',
-           'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
-           'FIELD_TYPE', 'IntegrityError', 'InterfaceError', 'InternalError',
-           'MySQLError', 'NULL', 'NUMBER', 'NotSupportedError', 'DBAPISet',
-           'OperationalError', 'ProgrammingError', 'ROWID', 'STRING', 'TIME',
-           'TIMESTAMP', 'Set', 'Warning', 'apilevel', 'connect',
-           'connections', 'constants', 'cursors', 'debug', 'escape',
-           'escape_dict', 'escape_sequence', 'escape_string',
-           'get_client_info', 'paramstyle', 'string_literal', 'threadsafety',
-           'version_info']

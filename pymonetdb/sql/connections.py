@@ -34,14 +34,18 @@ class Connection(object):
                  host=None, user=None):
         """ Set up a connection to a MonetDB SQL database.
 
-        database    -- name of the database
-        hostname    -- Hostname where monetDB is running
-        port        -- port to connect to (default: 50000)
-        username    -- username for connection (default: "monetdb")
-        password    -- password for connection (default: "monetdb")
-        unix_socket -- socket to connect to. used when hostname not set
-                            (default: "/tmp/.s.monetdb.50000")
-        autocommit  -- enable/disable auto commit (default: False)
+        args:
+            database (str): name of the database
+            hostname (str): Hostname where monetDB is running
+            port (int): port to connect to (default: 50000)
+            username (str): username for connection (default: "monetdb")
+            password (str): password for connection (default: "monetdb")
+            unix_socket (str): socket to connect to. used when hostname not set
+                                (default: "/tmp/.s.monetdb.50000")
+            autocommit (bool):  enable/disable auto commit (default: False)
+
+        returns:
+            Connection object
 
         """
 
@@ -63,8 +67,10 @@ class Connection(object):
         self.set_replysize(100)
 
     def close(self):
-        """ Close the connection. The connection will be unusable from this
-        point forward; an Error  exception will be raised if any operation
+        """ Close the connection.
+
+        The connection will be unusable from this
+        point forward; an Error exception will be raised if any operation
         is attempted with the connection. The same applies to all cursor
         objects trying to use the connection.  Note that closing a connection
         without committing the changes first will cause an implicit rollback

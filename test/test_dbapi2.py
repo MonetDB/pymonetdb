@@ -133,7 +133,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         confuse the unit tester - just 'import dbapi20'.
     '''
 
-    driver = pymonetdb.sql
+    driver = pymonetdb
     connect_args = ()
     connect_kwargs = dict(database=TSTDB, port=MAPIPORT, hostname=TSTHOSTNAME,
             username=TSTUSERNAME, password=TSTPASSWORD, autocommit=False)

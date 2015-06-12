@@ -18,7 +18,7 @@
 import logging
 
 from pymonetdb.sql import monetize, pythonize
-from pymonetdb.exceptions import *
+from pymonetdb.exceptions import ProgrammingError, InterfaceError
 from pymonetdb import mapi
 from pymonetdb.six import u, PY2
 
