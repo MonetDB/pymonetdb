@@ -1,0 +1,31 @@
+language: python
+python:
+  - 2.6
+  - 2.7
+  - 3.4
+  - nightly
+  - pypy
+before_install:
+  - sudo apt-get install software-properties-common
+  - sudo apt-get update -q
+  - sudo sh -c "echo 'deb http://dev.monetdb.org/downloads/deb/ precise monetdb' > /etc/apt/sources.list.d/monetdb.list"
+  - wget --output-document=- http://dev.monetdb.org/downloads/MonetDB-GPG-KEY | sudo
+    apt-key add -
+  - sudo apt-get update -q
+  - sudo apt-get install -qy monetdb5-sql monetdb-client
+  - sudo sh -c "echo 'STARTUP=yes\nDBFARM=/var/lib/monetdb\n' > /etc/default/monetdb5-sql"
+  - sudo service monetdb5-sql start
+  - sudo monetdb create demo
+  - sudo monetdb release demo
+  - sudo monetdbd set control=yes /var/lib/monetdb
+  - sudo monetdbd set passphrase=testdb /var/lib/monetdb
+install:
+  - python setup.py install
+script: py.test
+deploy:
+  provider: pypi
+  user: gijzelaerr
+  password:
+    secure: I4bmfyVLt/A5bvP6AmucK6YCWcaiMtfuF3HZL2snhddqJhnBRQkO7MhgZ5xk3Fdheq6/Rlwk8obsMdGsKKPzGx6bHvCE5RXTIRhZNCrotwpdU0FNg0fBUcmOS981YaHxpZEDmBD7KjaZdOo5SpTyAyLp7rUl4RVvDu9vqICLlGk=
+  on:
+    tags: true
