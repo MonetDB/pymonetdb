@@ -16,7 +16,7 @@
 # All Rights Reserved.
 
 """
-This is the MonetDB Python API.
+This is a MonetDB Python API.
 
 The MAPI (MonetDB API) related code is in pymonetdb.mapi.
 
@@ -29,8 +29,5 @@ from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
 
-__version__ = '11.19.3.2'
+__version__ = '0.1'
 __all__ = ["sql", "mapi"]
-
-# for backwards compatability
-monetdb_exceptions = exceptions
