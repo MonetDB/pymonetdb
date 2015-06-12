@@ -27,7 +27,7 @@ import os
 from pymonetdb.six import BytesIO, PY3
 
 from pymonetdb.exceptions import OperationalError, DatabaseError,\
-    ProgrammingError, NotSupportedError
+    ProgrammingError, NotSupportedError, IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,31 @@ MSG_OK = "=OK"
 
 STATE_INIT = 0
 STATE_READY = 1
+
+
+# MonetDB error codes
+errors = {
+    '42S02!': OperationalError,  # no such table
+    'M0M29!': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
+}
+
+
+def handle_error(error):
+    """Return exception matching error code.
+
+    args:
+        error (str): error string, potentially containing mapi error code
+
+    returns:
+        tuple (Exception, formatted error): returns OperationalError if unknown
+            error or no error code in string
+
+    """
+
+    if len(error) > 6 and error[:6] in errors:
+        return errors[error[:6]], error[6:]
+    else:
+        return OperationalError, error
 
 
 def encode(s):
@@ -200,8 +225,9 @@ class Connection(object):
         if response[0] in [MSG_Q, MSG_HEADER, MSG_TUPLE]:
             return response
         elif response[0] == MSG_ERROR:
-            raise OperationalError(response[1:])
-        elif (self.language == 'control' and not self.hostname):
+            exception, string = handle_error(response[1:])
+            raise exception(string)
+        elif self.language == 'control' and not self.hostname:
             if response.startswith("OK"):
                 return response[2:].strip() or ""
             else:
