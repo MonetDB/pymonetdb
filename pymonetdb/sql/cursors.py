@@ -72,8 +72,8 @@ class Cursor(object):
         # operation invoked via the .execute*() method yet.
         self.description = None
 
-        #This read-only attribute indicates at which row
-        #we currently are
+        # This read-only attribute indicates at which row
+        # we currently are
         self.rownumber = -1
 
         self.__executed = None
@@ -85,7 +85,7 @@ class Cursor(object):
         self.__rows = []
 
         # used to identify a query during server contact.
-        #Only select queries have query ID
+        # Only select queries have query ID
         self.__query_id = -1
 
         # This is a Python list object to which the interface appends
@@ -150,7 +150,7 @@ class Cursor(object):
             self.connection.set_replysize(self.arraysize)
 
         if operation == self.operation:
-            #same operation, DBAPI mentioned something about reuse
+            # same operation, DBAPI mentioned something about reuse
             # but monetdb doesn't support this
             pass
         else:
@@ -352,11 +352,11 @@ class Cursor(object):
 
                 columns = int(columns)   # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
-                #tuples = int(tuples)     # number of rows in this set
+                # tuples = int(tuples)     # number of rows in this set
                 self.__rows = []
 
                 # set up fields for description
-                #table_name = [None] * columns
+                # table_name = [None] * columns
                 column_name = [None] * columns
                 type_ = [None] * columns
                 display_size = [None] * columns
@@ -364,7 +364,7 @@ class Cursor(object):
                 precision = [None] * columns
                 scale = [None] * columns
                 null_ok = [None] * columns
-                #typesizes = [(0, 0)] * columns
+                # typesizes = [(0, 0)] * columns
                 self.__offset = 0
                 self.lastrowid = None
 
@@ -375,11 +375,11 @@ class Cursor(object):
 
                 if identity == "name":
                     column_name = values
-                #elif identity == "table_name":
+                # elif identity == "table_name":
                 #    table_name = values
                 elif identity == "type":
                     type_ = values
-                #elif identity == "length":
+                # elif identity == "length":
                 #   length = values
                 elif identity == "typesizes":
                     typesizes = [[int(j) for j in i.split()] for i in values]
@@ -388,7 +388,7 @@ class Cursor(object):
                         if typeelem in ['decimal']:
                             precision[num] = typesizes[num][0]
                             scale[num] = typesizes[num][1]
-                #else:
+                # else:
                 #    msg = "unknown header field"
                 #    self.messages.append((InterfaceError, msg))
                 #    self.__exception_handler(InterfaceError, msg)

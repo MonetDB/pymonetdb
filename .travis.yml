@@ -21,7 +21,10 @@ before_install:
   - sudo monetdbd set passphrase=testdb /var/lib/monetdb
 install:
   - python setup.py install
-script: py.test
+before_script:
+  -  pep8 pymonetdb --ignore=E501
+script:
+  - py.test
 deploy:
   provider: pypi
   user: gijzelaerr

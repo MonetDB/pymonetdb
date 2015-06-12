@@ -24,6 +24,7 @@ from pymonetdb import six
 if six.PY3:
     StandardError = Exception
 
+
 class Warning(StandardError):
     """Exception raised for important warnings like data
     truncations while inserting, etc. It must be a subclass of

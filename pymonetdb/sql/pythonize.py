@@ -39,7 +39,8 @@ def _extract_timezone(data):
     else:
         raise ProgrammingError("no + or - in %s" % data)
 
-    return data[:-6], datetime.timedelta(hours=sign * int(data[-5:-3]), minutes=sign * int(data[-2:]))
+    return data[:-6], datetime.timedelta(hours=sign * int(data[-5:-3]),
+                                         minutes=sign * int(data[-2:]))
 
 
 def strip(data):
@@ -47,9 +48,8 @@ def strip(data):
     and replaced escape characters"""
     if PY3:
         return ''.join([w.encode('utf-8').decode('unicode_escape')
-                if '\\' in w
-                else w
-                for w in re.split('([\000-\200]+)', data[1:-1])])
+                        if '\\' in w else w
+                        for w in re.split('([\000-\200]+)', data[1:-1])])
     else:
         return data[1:-1].decode('string_escape').decode('utf-8')
 
@@ -91,6 +91,7 @@ def py_timestamp(data):
         return datetime.datetime.strptime(data, '%Y-%m-%d %H:%M:%S.%f')
     else:
         return datetime.datetime.strptime(data, '%Y-%m-%d %H:%M:%S')
+
 
 def py_timestamptz(data):
     """ Returns a python Timestamp where data contains a tz code
@@ -148,7 +149,7 @@ def convert(data, type_code):
         raise ProgrammingError("type %s is not supported" % type_code)
 
 
-# below us stuff required by the DBAPI
+# below stuff required by the DBAPI
 
 def Binary(data):
     """returns binary encoding of data"""

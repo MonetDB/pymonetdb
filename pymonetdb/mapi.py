@@ -54,18 +54,19 @@ STATE_INIT = 0
 STATE_READY = 1
 
 
-
 def encode(s):
     """only encode string for python3"""
     if PY3:
         return s.encode()
     return s
 
+
 def decode(b):
     """only decode byte for python3"""
     if PY3:
         return b.decode()
     return b
+
 
 # noinspection PyExceptionInherit
 class Connection(object):
@@ -208,7 +209,6 @@ class Connection(object):
         else:
             raise ProgrammingError("unknown state: %s" % response)
 
-
     def _challenge_response(self, challenge):
         """ generate a response to a mapi login challenge """
         challenges = challenge.split(':')
@@ -247,8 +247,7 @@ class Connection(object):
     def _getblock(self):
         """ read one mapi encoded block """
         if (self.language == 'control' and not self.hostname):
-            return self._getblock_socket()  # control doesn't do block
-                                            # splitting when using a socket
+            return self._getblock_socket()  # control doesn't do block splitting when using a socket
         else:
             return self._getblock_inet()
 
@@ -288,8 +287,7 @@ class Connection(object):
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
         if (self.language == 'control' and not self.hostname):
-            return self.socket.send(encode(block))  # control doesn't do block
-                                            # splitting when using a socket
+            return self.socket.send(encode(block))  # control doesn't do block splitting when using a socket
         else:
             self._putblock_inet(block)
 
@@ -309,6 +307,3 @@ class Connection(object):
     def __del__(self):
         if self.socket:
             self.socket.close()
-
-#backwards compatiblity
-Server = Connection
