@@ -21,9 +21,9 @@ This is a MonetDB Python API.
 To set up a connection use pymonetdb.connect()
 
 """
-import sql
-import mapi
-import exceptions
+from pymonetdb import sql
+from pymonetdb import mapi
+from pymonetdb import exceptions
 
 from pymonetdb.sql.connections import Connection
 from pymonetdb.sql.pythonize import *
