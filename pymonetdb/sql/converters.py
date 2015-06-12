@@ -19,22 +19,22 @@
 Backwards compatible converterts
 """
 
-from monetdb.sql import monetize
-from monetdb.sql import pythonize
+from pymonetdb.sql import monetize
+from pymonetdb.sql import pythonize
 
 
 class Pythonizer:
     """
     backwards compatible class, was used for convertion from
     MonetDB column types to python types. You should use
-    monetdb.sql.pythonize now.
+    pymonetdb.sql.pythonize now.
     """
     def __init__(self, use_unicode):
         pass
 
     def convert(self, data, type_code):
         """
-        use a type_code defined in monetdb.sql.types
+        use a type_code defined in pymonetdb.sql.types
         """
         return pythonize.convert(data, type_code)
 
@@ -43,7 +43,7 @@ class Monetizer:
     """
     backwards compatible class, was used for convertion from
     python types to MonetDB column types. You should use
-    monetdb.sql.monetize now.
+    pymonetdb.sql.monetize now.
     """
     def __init__(self):
         pass

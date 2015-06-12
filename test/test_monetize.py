@@ -16,8 +16,8 @@
 # All Rights Reserved.
 
 import unittest
-from monetdb.sql.monetize import convert, monet_escape
-from monetdb.exceptions import ProgrammingError
+from pymonetdb.sql.monetize import convert, monet_escape
+from pymonetdb.exceptions import ProgrammingError
 
 
 class TestMonetize(unittest.TestCase):

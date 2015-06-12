@@ -17,12 +17,12 @@
 
 import logging
 
-from monetdb.sql import monetize, pythonize
-from monetdb.exceptions import *
-from monetdb import mapi
-from monetdb.six import u, PY2
+from pymonetdb.sql import monetize, pythonize
+from pymonetdb.exceptions import *
+from pymonetdb import mapi
+from pymonetdb.six import u, PY2
 
-logger = logging.getLogger("monetdb")
+logger = logging.getLogger("pymonetdb")
 
 
 class Cursor(object):

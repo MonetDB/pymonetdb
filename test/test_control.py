@@ -20,17 +20,17 @@ import unittest
 import logging
 
 try:
-    import monetdb
+    import pymonetdb
 except ImportError:
     logging.warning("monetdb python API not found, using local monetdb python API")
     import sys, os
     here = os.path.dirname(__file__)
     parent = os.path.join(here, os.pardir)
     sys.path.append(parent)
-    import monetdb
+    import pymonetdb
 
-from monetdb.control import Control
-from monetdb.exceptions import OperationalError
+from pymonetdb.control import Control
+from pymonetdb.exceptions import OperationalError
 
 #logging.basicConfig(level=logging.DEBUG)
 

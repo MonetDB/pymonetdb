@@ -18,16 +18,16 @@
 """
 This is the MonetDB Python API.
 
-The MAPI (MonetDB API) related code is in monetdb.mapi.
+The MAPI (MonetDB API) related code is in pymonetdb.mapi.
 
-The SQL related code is in monetdb.sql.
+The SQL related code is in pymonetdb.sql.
 
-To set up a connection use monetdb.sql.connect()
+To set up a connection use pymonetdb.sql.connect()
 
 """
-from monetdb import sql
-from monetdb import mapi
-from monetdb import exceptions
+from pymonetdb import sql
+from pymonetdb import mapi
+from pymonetdb import exceptions
 
 __version__ = '11.19.3.2'
 __all__ = ["sql", "mapi"]

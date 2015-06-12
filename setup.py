@@ -19,14 +19,14 @@
 
 import os
 from distutils.core import setup
-from monetdb import __version__
+from pymonetdb import __version__
 
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-setup(name='python-monetdb',
+setup(name='pymonetdb',
     version=__version__,
     description='Native MonetDB client Python API',
     long_description=read('README.rst'),
@@ -34,7 +34,7 @@ setup(name='python-monetdb',
     author_email='info@monetdb.org',
     url='http://www.monetdb.org/',
     packages=['monetdb', 'monetdb.sql'],
-    download_url='http://dev.monetdb.org/downloads/sources/Oct2014/python2-monetdb-11.19.3.tar.gz',
+    download_url='https://github.com/gijzelaerr/pymonetdb',
     classifiers=[
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",
@@ -42,6 +42,8 @@ setup(name='python-monetdb',
         "Intended Audience :: Developers",
         "License :: Other/Proprietary License",
         "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: Implementation :: PyPy",
     ]
 )
 

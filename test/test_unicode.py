@@ -2,7 +2,7 @@
 
 import os
 import unittest
-import monetdb
+import pymonetdb
 
 
 MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
@@ -14,7 +14,7 @@ TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
 
 class TestUnicode(unittest.TestCase):
     def setUp(self):
-        self.con = monetdb.sql.connect(database=TSTDB, port=MAPIPORT,
+        self.con = pymonetdb.sql.connect(database=TSTDB, port=MAPIPORT,
                                        hostname=TSTHOSTNAME,
                                        username=TSTUSERNAME,
                                        password=TSTPASSWORD)

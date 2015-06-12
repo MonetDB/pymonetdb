@@ -24,9 +24,9 @@ import logging
 import struct
 import hashlib
 import os
-from monetdb.six import BytesIO, PY3
+from pymonetdb.six import BytesIO, PY3
 
-from monetdb.exceptions import OperationalError, DatabaseError,\
+from pymonetdb.exceptions import OperationalError, DatabaseError,\
     ProgrammingError, NotSupportedError
 
 logger = logging.getLogger(__name__)

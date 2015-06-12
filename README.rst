@@ -77,10 +77,11 @@ There are some examples in the 'examples' folder, but here are is a
 line by line example of the SQL API::
 
  > # import the SQL module
- > import monetdb.sql
+ > import pymonetdb.sql
  > 
  > # set up a connection. arguments below are the defaults
- > connection = monetdb.sql.connect(username="monetdb", password="monetdb", hostname="localhost", database="demo")
+ > connection = pymonetdb.sql.connect(username="monetdb", password="monetdb",
+ >                                    hostname="localhost", database="demo")
  > 
  > # create a cursor
  > cursor = connection.cursor()
@@ -125,9 +126,10 @@ line by line example of the SQL API::
 If you would like to communicate with the database at a lower level
 you can use the MAPI library::
 
- > from monetdb import mapi
+ > from pymonetdb import mapi
  > server = mapi.Server()
- > server.connect(hostname="localhost", port=50000, username="monetdb", password="monetdb", database="demo", language="sql")
+ > server.connect(hostname="localhost", port=50000, username="monetdb",
+                  password="monetdb", database="demo", language="sql")
  > server.cmd("sSELECT * FROM tables;")
  ...
 

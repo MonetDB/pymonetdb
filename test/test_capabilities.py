@@ -27,9 +27,9 @@ import os
 from time import time
 import unittest
 
-from monetdb.exceptions import ProgrammingError
-import monetdb.sql
-from monetdb.six import unichr, PY2
+from pymonetdb.exceptions import ProgrammingError
+import pymonetdb.sql
+from pymonetdb.six import unichr, PY2
 
 MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
 TSTDB = os.environ.get('TSTDB', 'demo')
@@ -46,7 +46,7 @@ class DatabaseTest(unittest.TestCase):
     create_table_extra = ''
     rows = 10
 
-    db_module = monetdb.sql
+    db_module = pymonetdb.sql
     connect_args = ()
     connect_kwargs = dict(database=TSTDB, port=MAPIPORT, hostname=TSTHOSTNAME,
                           username=TSTUSERNAME, password=TSTPASSWORD,

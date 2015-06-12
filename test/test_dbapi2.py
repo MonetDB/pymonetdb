@@ -36,8 +36,8 @@ import unittest
 import time
 import os
 
-import monetdb
-from monetdb.six import text_type, PY3
+import pymonetdb
+from pymonetdb.six import text_type, PY3
 
 # $Log$
 # Revision 1.2  2009/05/19 12:04:13  sjoerd
@@ -133,7 +133,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         confuse the unit tester - just 'import dbapi20'.
     '''
 
-    driver = monetdb.sql
+    driver = pymonetdb.sql
     connect_args = ()
     connect_kwargs = dict(database=TSTDB, port=MAPIPORT, hostname=TSTHOSTNAME,
             username=TSTUSERNAME, password=TSTPASSWORD, autocommit=False)

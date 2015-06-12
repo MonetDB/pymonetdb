@@ -18,11 +18,11 @@
 import logging
 import platform
 
-from monetdb.sql import cursors
-from monetdb import exceptions
-from monetdb import mapi
+from pymonetdb.sql import cursors
+from pymonetdb import exceptions
+from pymonetdb import mapi
 
-logger = logging.getLogger("monetdb")
+logger = logging.getLogger("pymonetdb")
 
 
 class Connection(object):

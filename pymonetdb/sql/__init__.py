@@ -15,9 +15,9 @@
 # Copyright August 2008-2014 MonetDB B.V.
 # All Rights Reserved.
 
-from monetdb.sql.connections import Connection
-from monetdb.sql.pythonize import *
-from monetdb.exceptions import *
+from pymonetdb.sql.connections import Connection
+from pymonetdb.sql.pythonize import *
+from pymonetdb.exceptions import *
 
 apilevel = "2.0"
 threadsafety = 0

@@ -1,5 +1,5 @@
 Metadata-Version: 1.1
-Name: python-monetdb
+Name: pymonetdb
 Version: 11.19.3
 Summary: Native MonetDB client Python API
 Home-page: http://www.monetdb.org/

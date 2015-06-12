@@ -24,9 +24,9 @@ import datetime
 import re
 from decimal import Decimal
 
-from monetdb.sql import types
-from monetdb.exceptions import ProgrammingError
-from monetdb.six import PY3
+from pymonetdb.sql import types
+from pymonetdb.exceptions import ProgrammingError
+from pymonetdb.six import PY3
 
 
 def _extract_timezone(data):

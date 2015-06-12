@@ -16,9 +16,9 @@
 # All Rights Reserved.
 
 import platform
-from monetdb import mapi
-from monetdb.exceptions import OperationalError, InterfaceError
-from monetdb.six import next
+from pymonetdb import mapi
+from pymonetdb.exceptions import OperationalError, InterfaceError
+from pymonetdb.six import next
 
 
 def parse_statusline(line):
@@ -117,7 +117,7 @@ class Control:
         """
         Initialises a new database or multiplexfunnel in the MonetDB Server.
         A database created with this command makes it available  for use,
-        however in maintenance mode (see monetdb lock).
+        however in maintenance mode (see pymonetdb lock).
         """
         return isempty(self._send_command(database_name, "create"))
 
@@ -186,7 +186,7 @@ class Control:
     def set(self, database_name, property_, value):
         """
         sets property to value for the given database
-        for a list of properties, use `monetdb get all`
+        for a list of properties, use `pymonetdb get all`
         """
         return isempty(self._send_command(database_name, "%s=%s" % (property_,
                                                                     value)))

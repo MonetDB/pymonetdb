@@ -23,9 +23,9 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
-from monetdb import six
+from pymonetdb import six
 
-from monetdb.exceptions import ProgrammingError
+from pymonetdb.exceptions import ProgrammingError
 
 
 def monet_none(data):

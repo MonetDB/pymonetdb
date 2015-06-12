@@ -19,7 +19,7 @@
 MonetDB Python API specific exceptions
 """
 
-from monetdb import six
+from pymonetdb import six
 
 if six.PY3:
     StandardError = Exception
