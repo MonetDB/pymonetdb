@@ -3,7 +3,7 @@ python:
   - 2.6
   - 2.7
   - 3.4
-  - nightly
+    #  - nightly
   - pypy
 before_install:
   - sudo apt-get install software-properties-common
