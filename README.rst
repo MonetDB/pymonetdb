@@ -27,10 +27,17 @@ The MonetDB MAPI and SQL client python API
 Introduction
 ============
 
-This is the new native python client API.  This API is cross-platform,
+pymonetdb is a native python client API for monetDB. This API is cross-platform,
 and doesn't depend on any monetdb libraries.  It has support for
-python 2.5+ and is Python DBAPI 2.0 compatible.
+python 2.5+, including Python 3 and PyPy and is Python DBAPI 2.0 compatible.
 
+This is a fork of the original python-monetdb API. python-monetdb is bundled
+with the MonetDB software suite, but the release cycle is too long to fix
+ small issues. Also I prefer working in github which also enables the use
+ of travis-ci.
+
+.. image:: https://travis-ci.org/gijzelaerr/pymonetdb.svg?branch=master
+    :target: https://travis-ci.org/gijzelaerr/pymonetdb
 
 Installation
 ============
@@ -66,15 +73,20 @@ You can control the testing behavior using environment variables::
  * TSTUSERNAME - username, _monetdb_ by default
  * TSTPASSWORD - password, _monetdb_ by default
 
-Note that you first need to create and start a monetdb database. Also if you
-want to run the control tests you need to set a passphrase and set control=true.
+Note that you first need to create and start a monetdb database. If you
+want to run the control tests you need to set a passphrase and enable remote
+control:
 
+```
+$ monetdb create demo
+$ monetdb release demo
+$ monetdbd set control=yes <path to dbfarm>
+$ monetdbd set passphrase=testdb <path to dbfarm>
+```
 
 Examples
 ========
 
-There are some examples in the 'examples' folder, but here are is a
-line by line example of the SQL API::
 
  > # import the SQL module
  > import pymonetdb
@@ -134,10 +146,3 @@ you can use the MAPI library::
  ...
 
 
-Travis
-======
-
-Tested with Travis-CI
-
-.. image:: https://travis-ci.org/gijzelaerr/pymonetdb.svg?branch=master
-    :target: https://travis-ci.org/gijzelaerr/pymonetdb
