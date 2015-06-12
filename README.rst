@@ -33,8 +33,8 @@ python 2.5+, including Python 3 and PyPy and is Python DBAPI 2.0 compatible.
 
 This is a fork of the original python-monetdb API. python-monetdb is bundled
 with the MonetDB software suite, but the release cycle is too long to fix
- small issues. Also I prefer working in github which also enables the use
- of travis-ci.
+small issues. Also I prefer working in github which also enables the use
+of travis-ci.
 
 .. image:: https://travis-ci.org/gijzelaerr/pymonetdb.svg?branch=master
     :target: https://travis-ci.org/gijzelaerr/pymonetdb
