@@ -38,5 +38,6 @@ class TestExceptions(unittest.TestCase):
         """
         cursor = self.con.cursor()
 
-        with self.assertRaises(pymonetdb.exceptions.OperationalError):
-             cursor.execute(u'select id from thistableshouldnotexist limit 1')
+        self.assertRaises(pymonetdb.exceptions.OperationalError,
+                          cursor.execute,
+                          u'select id from thistableshouldnotexist limit 1')
