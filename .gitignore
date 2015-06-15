@@ -2,4 +2,4 @@ MANIFEST
 dist/
 build/
 .tox
-
+pymonetdb.egg-info/
