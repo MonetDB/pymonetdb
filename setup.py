@@ -18,7 +18,7 @@
 # All Rights Reserved.
 
 import os
-from distutils.core import setup
+from setuptools import setup
 from pymonetdb import __version__
 
 
