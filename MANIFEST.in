@@ -1,1 +1,1 @@
-include README.rst *.py
+include requirements.txt README.rst *.py CHANGES

@@ -8,3 +8,4 @@
 - Fix an issue where query contains unicode chars
 - Improved error handling (#2)
 - Forked from python-monetdb
+- switched to setuptools from distutils
