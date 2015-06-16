@@ -62,6 +62,7 @@ errors = {
     '40000!': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
 }
 
+
 def handle_error(error):
     """Return exception matching error code.
 
