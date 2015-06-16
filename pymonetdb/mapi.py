@@ -59,8 +59,8 @@ errors = {
     '42S02!': OperationalError,  # no such table
     'M0M29!': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
     '2D000!': IntegrityError,    # COMMIT: failed
+    '40000!': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
 }
-
 
 def handle_error(error):
     """Return exception matching error code.
