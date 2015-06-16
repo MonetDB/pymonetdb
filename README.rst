@@ -75,18 +75,18 @@ You can control the testing behavior using environment variables::
 
 Note that you first need to create and start a monetdb database. If you
 want to run the control tests you need to set a passphrase and enable remote
-control:
+control::
 
-```
-$ monetdb create demo
-$ monetdb release demo
-$ monetdbd set control=yes <path to dbfarm>
-$ monetdbd set passphrase=testdb <path to dbfarm>
-```
+ $ monetdb create demo
+ $ monetdb release demo
+ $ monetdbd set control=yes <path to dbfarm>
+ $ monetdbd set passphrase=testdb <path to dbfarm>
+
 
 Examples
 ========
 
+examples usage below::
 
  > # import the SQL module
  > import pymonetdb
