@@ -129,6 +129,7 @@ mapping = {
     types.SHORTINT: int,
     types.MEDIUMINT: int,
     types.LONGINT: int,
+    types.HUGEINT: int,
     types.FLOAT: float,
     types.URL: strip,
     types.INET: str,
