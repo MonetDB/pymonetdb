@@ -12,7 +12,7 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
-from pymonetdb import six
+import six
 
 from pymonetdb.exceptions import ProgrammingError
 

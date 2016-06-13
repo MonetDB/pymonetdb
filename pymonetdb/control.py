@@ -7,7 +7,7 @@
 import platform
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
-from pymonetdb.six import next
+from six import next
 
 
 def parse_statusline(line):

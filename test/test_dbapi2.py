@@ -27,7 +27,7 @@ import time
 import os
 
 import pymonetdb
-from pymonetdb.six import text_type, PY3
+from six import text_type, PY3
 
 # $Log$
 # Revision 1.2  2009/05/19 12:04:13  sjoerd

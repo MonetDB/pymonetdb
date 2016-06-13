@@ -16,24 +16,27 @@ def read(fname):
 
 
 setup(name='pymonetdb',
-    version=__version__,
-    description='Native MonetDB client Python API',
-    long_description=read('README.rst'),
-    author='MonetDB BV',
-    author_email='info@monetdb.org',
-    url='http://www.monetdb.org/',
-    packages=['pymonetdb', 'pymonetdb.sql'],
-    download_url='https://github.com/gijzelaerr/pymonetdb',
-    classifiers=[
-        "Topic :: Database",
-        "Topic :: Database :: Database Engines/Servers",
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Developers",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: Implementation :: PyPy",
-    ]
-        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+      version=__version__,
+      description='Native MonetDB client Python API',
+      long_description=read('README.rst'),
+      author='MonetDB BV',
+      author_email='info@monetdb.org',
+      url='http://www.monetdb.org/',
+      packages=['pymonetdb', 'pymonetdb.sql'],
+      download_url='https://dev.monetdb.org/hg/python-monetdb',
+      classifiers=[
+          "Topic :: Database",
+          "Topic :: Database :: Database Engines/Servers",
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+          "Programming Language :: Python :: 2",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: Implementation :: PyPy",
+      ],
+      install_requires=[
+          'six'
+      ]
 )
 
 

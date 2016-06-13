@@ -18,7 +18,7 @@ import unittest
 
 from pymonetdb.exceptions import ProgrammingError
 import pymonetdb.sql
-from pymonetdb.six import unichr, PY2
+from six import unichr, PY2
 
 MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
 TSTDB = os.environ.get('TSTDB', 'demo')

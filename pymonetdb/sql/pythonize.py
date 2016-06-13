@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
-from pymonetdb.six import PY3
+from six import PY3
 
 
 def _extract_timezone(data):

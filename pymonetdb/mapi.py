@@ -13,7 +13,7 @@ import logging
 import struct
 import hashlib
 import os
-from pymonetdb.six import BytesIO, PY3
+from six import BytesIO, PY3
 
 from pymonetdb.exceptions import OperationalError, DatabaseError,\
     ProgrammingError, NotSupportedError, IntegrityError
