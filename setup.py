@@ -14,6 +14,7 @@ from pymonetdb import __version__
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+__version__ = '1.0'
 
 setup(name='pymonetdb',
       version=__version__,
@@ -23,7 +24,7 @@ setup(name='pymonetdb',
       author_email='info@monetdb.org',
       url='http://www.monetdb.org/',
       packages=['pymonetdb', 'pymonetdb.sql'],
-      download_url='https://dev.monetdb.org/hg/python-monetdb',
+      download_url='https://github.com/gijzelaerr/pymonetdb',
       classifiers=[
           "Topic :: Database",
           "Topic :: Database :: Database Engines/Servers",
@@ -32,6 +33,10 @@ setup(name='pymonetdb',
           "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
           "Programming Language :: Python :: 2",
           "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 2.6",
+          "Programming Language :: Python :: 2.7",
+          "Programming Language :: Python :: 3.4",
+          "Programming Language :: Python :: 3.5",
           "Programming Language :: Python :: Implementation :: PyPy",
       ],
       install_requires=[
