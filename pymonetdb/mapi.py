@@ -5,7 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 """
-This is the python2 implementation of the mapi protocol.
+This is the python implementation of the mapi protocol.
 """
 
 import socket
