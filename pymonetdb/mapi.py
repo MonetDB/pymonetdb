@@ -1,19 +1,8 @@
-# The contents of this file are subject to the MonetDB Public License
-# Version 1.1 (the "License"); you may not use this file except in
-# compliance with the License. You may obtain a copy of the License at
-# http://www.monetdb.org/Legal/MonetDBLicense
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-# License for the specific language governing rights and limitations
-# under the License.
-#
-# The Original Code is the MonetDB Database System.
-#
-# The Initial Developer of the Original Code is CWI.
-# Portions created by CWI are Copyright (C) 1997-July 2008 CWI.
-# Copyright August 2008-2014 MonetDB B.V.
-# All Rights Reserved.
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 """
 This is the python2 implementation of the mapi protocol.
@@ -24,7 +13,7 @@ import logging
 import struct
 import hashlib
 import os
-from pymonetdb.six import BytesIO, PY3
+from six import BytesIO, PY3
 
 from pymonetdb.exceptions import OperationalError, DatabaseError,\
     ProgrammingError, NotSupportedError, IntegrityError
@@ -194,8 +183,9 @@ class Connection(object):
                 logger.info("redirect to monetdb://%s:%s/%s" %
                             (self.hostname, self.port, self.database))
                 self.socket.close()
-                self.connect(self.hostname, self.port, self.username,
-                             self.password, self.database, self.language)
+                self.connect(hostname=self.hostname, port=self.port,
+                             username=self.username, password=self.password,
+                             database=self.database, language=self.language)
 
             else:
                 raise ProgrammingError("unknown redirect: %s" % prompt)
