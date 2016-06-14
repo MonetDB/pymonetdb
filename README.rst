@@ -20,11 +20,6 @@ pymonetdb is a native python client API for monetDB. This API is cross-platform,
 and doesn't depend on any monetdb libraries.  It has support for
 python 2.5+, including Python 3 and PyPy and is Python DBAPI 2.0 compatible.
 
-This is a fork of the original python-monetdb API. python-monetdb is bundled
-with the MonetDB software suite, but the release cycle is too long to fix
-small issues. Also I prefer working in github which also enables the use
-of travis-ci.
-
 .. image:: https://travis-ci.org/gijzelaerr/pymonetdb.svg?branch=master
     :target: https://travis-ci.org/gijzelaerr/pymonetdb
 
@@ -34,7 +29,11 @@ Installation
 To install the MonetDB python API run the following command from the
 python source directory::
 
- # python setup.py install
+ $ python setup.py install
+ 
+pymonetdb is also available on pypi:
+
+ $ pip install pymonetdb
 
 That's all, now you are ready to start using the API.
 
@@ -47,29 +46,6 @@ documentation you should have a look at the source code.  Below is an
 interactive example on how to use the monetdb SQL API which should get
 you started quite fast.
 
-
-Running the test suite
-======================
-
-Install tox and run tox in the root.
-
-You can control the testing behavior using environment variables::
-
- * MAPIPORT - what port is MonetDB running? _50000_ by default
- * TSTHOSTNAME -  where is MonetDB running? _localhost_ by default
- * TSTPASSPHRASE - what passphrase to test control command? _testdb_ by default
- * TSTDB -  what database to use for testing? _demo_ by default
- * TSTUSERNAME - username, _monetdb_ by default
- * TSTPASSWORD - password, _monetdb_ by default
-
-Note that you first need to create and start a monetdb database. If you
-want to run the control tests you need to set a passphrase and enable remote
-control::
-
- $ monetdb create demo
- $ monetdb release demo
- $ monetdbd set control=yes <path to dbfarm>
- $ monetdbd set passphrase=testdb <path to dbfarm>
 
 
 Examples
@@ -134,4 +110,27 @@ you can use the MAPI library::
  > server.cmd("sSELECT * FROM tables;")
  ...
 
+
+Running the test suite
+======================
+
+Install tox and run tox in the root.
+
+You can control the testing behavior using environment variables::
+
+ * MAPIPORT - what port is MonetDB running? _50000_ by default
+ * TSTHOSTNAME -  where is MonetDB running? _localhost_ by default
+ * TSTPASSPHRASE - what passphrase to test control command? _testdb_ by default
+ * TSTDB -  what database to use for testing? _demo_ by default
+ * TSTUSERNAME - username, _monetdb_ by default
+ * TSTPASSWORD - password, _monetdb_ by default
+
+Note that you first need to create and start a monetdb database. If you
+want to run the control tests you need to set a passphrase and enable remote
+control::
+
+ $ monetdb create demo
+ $ monetdb release demo
+ $ monetdbd set control=yes <path to dbfarm>
+ $ monetdbd set passphrase=testdb <path to dbfarm>
 
