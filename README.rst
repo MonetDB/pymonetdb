@@ -31,7 +31,7 @@ python source directory::
 
  $ python setup.py install
  
-pymonetdb is also available on pypi:
+pymonetdb is also available on pypi::
 
  $ pip install pymonetdb
 
