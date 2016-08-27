@@ -8,9 +8,11 @@
 functions for converting monetdb SQL fields to Python objects
 """
 
+import json
 import time
 import datetime
 import re
+import uuid
 from decimal import Decimal
 
 from pymonetdb.sql import types
@@ -97,31 +99,30 @@ mapping = {
     types.VARCHAR: strip,
     types.CLOB: strip,
     types.BLOB: str,
-    types.DECIMAL: Decimal,
+    types.TINYINT: int,
     types.SMALLINT: int,
     types.INT: int,
-    types.WRD: int,
     types.BIGINT: int,
-    types.SERIAL: int,
+    types.HUGEINT: int,
+    types.OID: int,
+    types.WRD: int,
     types.REAL: float,
     types.DOUBLE: float,
+    types.DECIMAL: Decimal,
     types.BOOLEAN: py_bool,
     types.DATE: py_date,
     types.TIME: py_time,
     types.TIMESTAMP: py_timestamp,
-    types.TIMESTAMPTZ: py_timestamptz,
     types.TIMETZ: py_timetz,
-    types.INTERVAL: strip,
+    types.TIMESTAMPTZ: py_timestamptz,
     types.MONTH_INTERVAL: strip,
     types.SEC_INTERVAL: strip,
-    types.TINYINT: int,
-    types.SHORTINT: int,
-    types.MEDIUMINT: int,
-    types.LONGINT: int,
-    types.HUGEINT: int,
-    types.FLOAT: float,
     types.URL: strip,
     types.INET: str,
+    types.UUID: uuid.UUID,
+    types.JSON: json.loads,
+    types.GEOMETRY: strip,
+    types.GEOMETRYA: strip
 }
 
 

@@ -13,41 +13,32 @@ CHAR = 'char'                      # (L) character string with length L
 VARCHAR = 'varchar'                # (L) string with atmost length L
 CLOB = 'clob'
 BLOB = 'blob'
-DECIMAL = 'decimal'                # (P,S)
+
+TINYINT = 'tinyint'                # 8 bit integer
 SMALLINT = 'smallint'              # 16 bit integer
 INT = 'int'                        # 32 bit integer
 BIGINT = 'bigint'                  # 64 bit integer
-SERIAL = 'serial'                  # special 64 bit integer sequence generator
+HUGEINT = 'hugeint'                # 128 bit integer
 REAL = 'real'                      # 32 bit floating point
 DOUBLE = 'double'                  # 64 bit floating point
+DECIMAL = 'decimal'                # (P,S)
 BOOLEAN = 'boolean'
+
 DATE = 'date'
 TIME = 'time'                      # (T) time of day
 TIMESTAMP = 'timestamp'            # (T) date concatenated with unique time
-INTERVAL = 'interval'              # (Q) a temporal interval
-
 MONTH_INTERVAL = 'month_interval'
 SEC_INTERVAL = 'sec_interval'
-WRD = 'wrd'
-TINYINT = 'tinyint'
 
 URL = 'url'
 INET = 'inet'
+UUID = 'uuid'
+JSON = 'json'
+GEOMETRY = 'geometry'
+GEOMETRYA = 'geometrya'
 
 # Not on the website:
-SHORTINT = 'shortint'
-MEDIUMINT = 'mediumint'
-LONGINT = 'longint'
-HUGEINT = 'hugeint'
-FLOAT = 'float'
-TIMESTAMPTZ = 'timestamptz'
-TIMETZ = 'timetz'
-
-
-# full names and aliases, spaces are replaced with underscores
-CHARACTER = CHAR
-CHARACTER_VARYING = VARCHAR
-CHARACHTER_LARGE_OBJECT = CLOB
-BINARY_LARGE_OBJECT = BLOB
-NUMERIC = DECIMAL
-DOUBLE_PRECISION = DOUBLE
+OID = 'oid'
+WRD = 'wrd'                        # 64 bit integer
+TIMESTAMPTZ = 'timestamptz'        # with timezone
+TIMETZ = 'timetz'                  # with timezone
