@@ -115,7 +115,7 @@ class TestControl(unittest.TestCase):
     def testInherit(self):
         self.control.set(database_name, "readonly", "yes")
         self.assertTrue(self.control.inherit(database_name, "readonly"))
-        self.assertFalse("readonly" in self.control.get(database_name))
+        self.assertTrue("readonly" in self.control.get(database_name))
 
     def testRename(self):
         old = database_prefix + "old"
