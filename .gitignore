@@ -6,4 +6,4 @@ pymonetdb.egg-info/
 .cache/
 .virtualenv/
 doc/_build/
-
+.coverage

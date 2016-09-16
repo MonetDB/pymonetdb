@@ -13,7 +13,7 @@ from setuptools import setup
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 setup(name='pymonetdb',
       version=__version__,
