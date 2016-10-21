@@ -219,6 +219,8 @@ class Connection(object):
         elif response[0] == MSG_ERROR:
             exception, string = handle_error(response[1:])
             raise exception(string)
+        elif response[0] == MSG_INFO:
+            logger.info("%s" % (response[1:]))
         elif self.language == 'control' and not self.hostname:
             if response.startswith("OK"):
                 return response[2:].strip() or ""
