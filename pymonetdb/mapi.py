@@ -214,6 +214,20 @@ class Connection(object):
         if response == MSG_MORE:
             # tell server it isn't going to get more
             return self.cmd("")
+
+        # If we are performing an update test for errors such as a failed
+        # transaction.
+
+        # We are splitting the response into lines and checking each one if it
+        # starts with MSG_ERROR. If this is the case, find which line records
+        # the error and use it to call handle_error.
+        if response[:2] == MSG_QUPDATE:
+            lines = response.split('\n')
+            if any([l.startswith(MSG_ERROR) for l in lines]):
+                index = next(i for i,v in enumerate(lines) if v.startswith(MSG_ERROR))
+                exception, string = handle_error(lines[index][1:])
+                raise exception(string)
+
         if response[0] in [MSG_Q, MSG_HEADER, MSG_TUPLE]:
             return response
         elif response[0] == MSG_ERROR:
