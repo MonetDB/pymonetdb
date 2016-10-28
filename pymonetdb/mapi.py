@@ -224,7 +224,7 @@ class Connection(object):
         if response[:2] == MSG_QUPDATE:
             lines = response.split('\n')
             if any([l.startswith(MSG_ERROR) for l in lines]):
-                index = next(i for i,v in enumerate(lines) if v.startswith(MSG_ERROR))
+                index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
                 exception, string = handle_error(lines[index][1:])
                 raise exception(string)
 
