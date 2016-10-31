@@ -5,3 +5,4 @@ tox
 nose
 Sphinx
 sphinx_rtd_theme
+mock
