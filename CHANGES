@@ -1,3 +1,7 @@
+# 1.0.4
+
+- Multiline response handling (issue #12)
+
 # 1.0.3
 
 - Handle MSG_INFO as a command response (issue #10)
