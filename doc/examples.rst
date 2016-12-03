@@ -54,7 +54,7 @@ If you would like to communicate with the database at a lower level
 you can use the MAPI library::
 
  > from pymonetdb import mapi
- > server = mapi.Server()
+ > server = mapi.Connection()
  > server.connect(hostname="localhost", port=50000, username="monetdb",
                   password="monetdb", database="demo", language="sql")
  > server.cmd("sSELECT * FROM tables;")
