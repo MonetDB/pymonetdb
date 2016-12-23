@@ -328,8 +328,9 @@ class Connection(object):
     def _putblock_inet(self, block):
         pos = 0
         last = 0
+        block = encode(block)
         while not last:
-            data = encode(block[pos:pos + MAX_PACKAGE_LENGTH])
+            data = block[pos:pos + MAX_PACKAGE_LENGTH]
             length = len(data)
             if length < MAX_PACKAGE_LENGTH:
                 last = 1
