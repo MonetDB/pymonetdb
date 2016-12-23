@@ -320,6 +320,9 @@ class Cursor(object):
             raise StopIteration
         return row
 
+    def __next__(self):
+        return self.next()
+
     def __store_result(self, block):
         """ parses the mapi result into a resultset"""
 
