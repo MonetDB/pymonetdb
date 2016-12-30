@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -ve
+#!/bin/bash -ve
 
 # install monetdb
 sudo apt-get install software-properties-common

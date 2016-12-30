@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -ve
+#!/bin/bash -ve
 
 # run tests
 nosetests --with-coverage  --cover-package=pymonetdb
