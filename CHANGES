@@ -1,3 +1,10 @@
+# 1.0.5
+
+changes since 1.0.4:
+
+- fix cutoff long packets with utf-8 characters (#16)
+- In python3 next has been renamed to __next__ (#17)
+
 # 1.0.4
 
 - Multiline response handling (issue #12)
