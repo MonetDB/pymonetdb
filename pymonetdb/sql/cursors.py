@@ -340,7 +340,7 @@ class Cursor(object):
                 self.messages.append((Warning, line[1:]))
 
             elif line.startswith(mapi.MSG_QTABLE):
-                (self.__query_id, rowcount, columns, tuples) = line[2:].split()
+                (self.__query_id, rowcount, columns, tuples) = line[2:].split()[:4]
 
                 columns = int(columns)   # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
@@ -409,7 +409,7 @@ class Cursor(object):
                 self.rowcount = -1
 
             elif line.startswith(mapi.MSG_QUPDATE):
-                (affected, identity) = line[2:].split()
+                (affected, identity) = line[2:].split()[:2]
                 self.__offset = 0
                 self.__rows = []
                 self.description = None
