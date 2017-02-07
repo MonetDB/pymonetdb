@@ -409,7 +409,7 @@ class Cursor(object):
                 self.rowcount = -1
 
             elif line.startswith(mapi.MSG_QUPDATE):
-                (affected, identity) = line[2:].split()
+                (affected, identity) = line[2:].split()[:2]
                 self.__offset = 0
                 self.__rows = []
                 self.description = None
