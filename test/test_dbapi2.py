@@ -1014,3 +1014,13 @@ class DatabaseAPI20Test(unittest.TestCase):
             encoded = unicode(input, 'utf-8')
         self.assertEqual(returned, encoded)
         self.assertEqual(type(returned), text_type)
+
+    def test_query_ending_with_comment(self):
+        con = self._connect()
+        cur = con.cursor()
+        self.executeDDL1(cur)
+        cur.execute("insert into %sbooze values ('foo')" % self.table_prefix)
+        cur.execute('select * from %sbooze --This is a SQL comment' % self.table_prefix)
+        # the above line should execute without problems
+        self.assertEqual(1, cur.rowcount,
+                         'queries ending in comments should be executed correctly')
