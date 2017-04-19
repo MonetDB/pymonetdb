@@ -20,7 +20,7 @@ class Connection(object):
 
     def __init__(self, database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None):
+                 host=None, user=None, connect_timeout=-1):
         """ Set up a connection to a MonetDB SQL database.
 
         args:
@@ -32,6 +32,8 @@ class Connection(object):
             unix_socket (str): socket to connect to. used when hostname not set
                                 (default: "/tmp/.s.monetdb.50000")
             autocommit (bool):  enable/disable auto commit (default: False)
+            connect_timeout -- the socket timeout while connecting
+                               (default: see python socket module)
 
         returns:
             Connection object
@@ -50,7 +52,7 @@ class Connection(object):
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
-                          unix_socket=unix_socket)
+                          unix_socket=unix_socket, connect_timeout=connect_timeout)
         self.set_autocommit(autocommit)
         self.set_sizeheader(True)
         self.set_replysize(100)

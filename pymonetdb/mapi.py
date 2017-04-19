@@ -100,9 +100,10 @@ class Connection(object):
         self.password = ""
         self.database = ""
         self.language = ""
+        self.connect_timeout = socket.getdefaulttimeout()
 
     def connect(self, database, username, password, language, hostname=None,
-                port=None, unix_socket=None):
+                port=None, unix_socket=None, connect_timeout=-1):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
@@ -115,6 +116,11 @@ class Connection(object):
             unix_socket = "/tmp/.s.monetdb.%i" % port
         elif not hostname:
             hostname = 'localhost'
+
+        # None and zero are allowed values
+        if connect_timeout != -1:
+            assert connect_timeout is None or connect_timeout >= 0
+            self.connect_timeout = connect_timeout
 
         self.hostname = hostname
         self.port = port
@@ -129,9 +135,11 @@ class Connection(object):
             # For performance, mirror MonetDB/src/common/stream.c socket settings.
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0)
             self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.socket.settimeout(self.connect_timeout)
             self.socket.connect((hostname, port))
         else:
             self.socket = socket.socket(socket.AF_UNIX)
+            self.socket.settimeout(self.connect_timeout)
             self.socket.connect(unix_socket)
             if self.language != 'control':
                 # don't know why, but we need to do this
@@ -141,6 +149,7 @@ class Connection(object):
             # control doesn't require authentication over socket
             self._login()
 
+        self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
     def _login(self, iteration=0):
