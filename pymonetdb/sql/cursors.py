@@ -181,6 +181,116 @@ class Cursor(object):
         self.rowcount = count
         return count
 
+    def debug_function(self, query, fname, trace=False):
+        # first gather information from the function
+        self.execute("SELECT func, type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
+        data = self.fetchall();
+        if len(data) == 0:
+            raise Exception("Function not found!");
+
+        # gather the input arguments of the function
+        self.execute("SELECT args.name, args.type FROM args INNER JOIN functions ON args.func_id=functions.id WHERE functions.name='%s' AND args.inout=1 ORDER BY args.number;" % fname )
+        input_types = self.fetchall()
+
+        fcode = data[0][0]
+        ftype = data[0][1]
+
+        #now create our dummy function for exporting parameters
+        if ftype == 5:
+            # table producing function
+            return_type = "TABLE(s STRING)"
+        else:
+            return_type = "STRING"
+
+        export_function = """
+CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
+{
+    import inspect, cPickle
+    frame = inspect.currentframe();
+    args, _, _, values = inspect.getargvalues(frame);
+    dd = {x: values[x] for x in args};
+    del dd['_conn']
+    return cPickle.dumps(dd);
+};""" % return_type
+
+        if fname not in query:
+            raise Exception("Function %s not found in query!" % fname)
+
+        import cPickle
+        query = query.replace(fname, 'export_parameters')
+        self.execute(export_function)
+        self.execute(query)
+        input_data = self.fetchall();
+        self.execute('DROP FUNCTION export_parameters;')
+        if len(input_data) <= 0:
+            raise Exception("Could not load input data!")
+        arguments = cPickle.loads(str(input_data[0][0]));
+        if len(arguments) != len(input_types) + 2:
+            raise Exception("Incorrect amount of input arguments found!")
+
+        arglist = "_columns, _column_types, _conn"
+        cleaned_arguments = dict()
+        for i in range(len(input_types)):
+            argname = "arg%d" % (i + 1)
+            if argname not in arguments:
+                raise Exception("Argument %d not found!" % (i + 1))
+            input_name = str(input_types[i][0])
+            cleaned_arguments[input_name] = arguments[argname]
+            arglist += ", %s" % input_name
+        cleaned_arguments['_columns'] = arguments['_columns']
+        cleaned_arguments['_column_types'] = arguments['_column_types']
+
+        import tempfile
+        with tempfile.NamedTemporaryFile() as f:
+            import re
+            fcode = fcode.strip()
+            fcode = re.sub('^{', '', fcode)
+            fcode = re.sub('};$', '', fcode)
+            fcode = re.sub('^\n', '', fcode)
+            function_definition = "def pyfun(%s):\n %s\n" % (arglist,
+                fcode.replace("\n", "\n "))
+            f.write(function_definition)
+            f.flush();
+            execfile(f.name, globals(), locals());
+
+
+            class LoopbackObject(object):
+                def __init__(self, connection):
+                    self.__conn = connection
+                def execute(self, query):
+                    self.__conn.execute("""
+CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS TABLE(s STRING) LANGUAGE PYTHON
+{
+    import inspect, cPickle
+    frame = inspect.currentframe();
+    args, _, _, values = inspect.getargvalues(frame);
+    dd = {x: values[x] for x in args};
+    del dd['_conn']
+    del dd['_columns']
+    del dd['_column_types']
+    return cPickle.dumps(dd);
+};""")
+                    self.__conn.execute('SELECT * FROM (%s) AS xx LIMIT 1' % query);
+                    query_description = self.__conn.description
+                    self.__conn.execute('SELECT * FROM export_parameters ( (%s) );' % query)
+                    data = self.__conn.fetchall();
+                    import cPickle
+                    arguments = cPickle.loads(str(data[0][0]))
+                    self.__conn.execute('DROP FUNCTION export_parameters;')
+                    if len(arguments) != len(query_description):
+                        raise Exception("Incorrect number of input parameters!")
+                    result = dict()
+                    for i in range(len(arguments)):
+                        argname = "arg%d" % (i + 1)
+                        result[query_description[i][0]] = arguments[argname]
+                    return result
+
+            cleaned_arguments['_conn'] = LoopbackObject(self)
+            if trace:
+                import pdb
+                pdb.set_trace()
+            return locals()['pyfun'](*[], **cleaned_arguments)
+
     def fetchone(self):
         """Fetch the next row of a query result set, returning a
         single sequence, or None when no more data is available."""
