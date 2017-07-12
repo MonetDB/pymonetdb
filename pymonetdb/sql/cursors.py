@@ -114,6 +114,7 @@ class Cursor(object):
         if any operation is attempted with the cursor."""
         self.connection = None
 
+
     def execute(self, operation, parameters=None):
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
@@ -181,6 +182,93 @@ class Cursor(object):
         self.rowcount = count
         return count
 
+    def exportparameters(self,ftype,fname,query,quantity_parameters):
+        if ftype == 5:
+            # table producing function
+            return_type = "TABLE(s STRING)"
+        else:
+            return_type = "STRING"
+        export_function = """
+            CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
+            {
+                import inspect, cPickle
+                frame = inspect.currentframe();
+                args, _, _, values = inspect.getargvalues(frame);
+                dd = {x: values[x] for x in args};
+                del dd['_conn']
+                return cPickle.dumps(dd);
+            };""" % return_type
+
+        if fname not in query:
+            raise Exception("Function %s not found in query!" % fname)
+
+        import cPickle
+        query = query.replace(fname, 'export_parameters')
+        self.execute(export_function)
+        self.execute(query)
+        input_data = self.fetchall();
+        self.execute('DROP FUNCTION export_parameters;')
+        if len(input_data) <= 0:
+            raise Exception("Could not load input data!")
+        arguments = cPickle.loads(str(input_data[0][0]));
+
+        if len(arguments) != quantity_parameters + 2:
+            raise Exception("Incorrect amount of input arguments found!")
+      
+        return arguments          
+
+
+    def exportudf(self, query, fname, filespath='./'):         #Export python UDF for IDE usage
+        self.execute("SELECT func,type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
+        data = self.fetchall();
+        self.execute("SELECT args.name FROM args INNER JOIN functions ON args.func_id=functions.id WHERE functions.name='%s' AND args.inout=1 ORDER BY args.number;" % fname )
+        input_names = self.fetchall()
+        quantity_parameters = len(input_names)
+        fcode = data[0][0]
+        ftype = data[0][1]
+        parameter_list = []
+        #Exporting Python UDF Function        
+        if len(data) == 0:
+            raise Exception("Function not found!");
+        else:
+            parameters = '('
+            for x in range (0,len(input_names) ):
+                parameter = str(input_names[x]).split('\'')
+                if x < len(input_names) -1:
+                    parameter_list.append(parameter[1])
+                    parameters = parameters + parameter[1] + ','
+                else:
+                    parameter_list.append(parameter[1])
+                    parameters = parameters + parameter[1]+ '): \n'
+
+            data = str(data[0]).split('\\n')
+            pythonUDF = 'import cPickle \n \ndef '+ fname+ parameters
+            for x in range(1,len(data)-1):
+                pythonUDF = pythonUDF + '\t' + str(data[x]) + '\n'
+
+        #Exporting Columns as Binary Files
+        arguments = self.exportparameters(ftype,fname,query,quantity_parameters)
+        result = dict()
+        for i in range(len(arguments)-2):
+            argname = "arg%d" % (i + 1)
+            result[[i][0]] = arguments[argname]
+
+        for i in range(0,len(result)):
+            import cPickle
+            cPickle.dump(result[i], open(filespath + parameter_list[i] + '.bin','wb'))
+
+        #Loading Columns in Pyhton & Call Function
+        pythonUDF = pythonUDF +'\n' +  fname +'('
+        for i in range (0,quantity_parameters):
+            if i < quantity_parameters -1:
+                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] + '\',\'rb\')),'
+            else:
+                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] + '\',\'rb\')))'
+
+        file = open(filespath + fname + '.py','w')
+        file.write(pythonUDF)
+        file.close()
+
     def debug_function(self, query, fname, trace=False):
         # first gather information from the function
         self.execute("SELECT func, type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
@@ -195,38 +283,7 @@ class Cursor(object):
         fcode = data[0][0]
         ftype = data[0][1]
 
-        #now create our dummy function for exporting parameters
-        if ftype == 5:
-            # table producing function
-            return_type = "TABLE(s STRING)"
-        else:
-            return_type = "STRING"
-
-        export_function = """
-CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
-{
-    import inspect, cPickle
-    frame = inspect.currentframe();
-    args, _, _, values = inspect.getargvalues(frame);
-    dd = {x: values[x] for x in args};
-    del dd['_conn']
-    return cPickle.dumps(dd);
-};""" % return_type
-
-        if fname not in query:
-            raise Exception("Function %s not found in query!" % fname)
-
-        import cPickle
-        query = query.replace(fname, 'export_parameters')
-        self.execute(export_function)
-        self.execute(query)
-        input_data = self.fetchall();
-        self.execute('DROP FUNCTION export_parameters;')
-        if len(input_data) <= 0:
-            raise Exception("Could not load input data!")
-        arguments = cPickle.loads(str(input_data[0][0]));
-        if len(arguments) != len(input_types) + 2:
-            raise Exception("Incorrect amount of input arguments found!")
+        arguments = self.exportparameters(ftype,fname,query,len(input_types))
 
         arglist = "_columns, _column_types, _conn"
         cleaned_arguments = dict()
@@ -252,24 +309,22 @@ CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
             f.write(function_definition)
             f.flush();
             execfile(f.name, globals(), locals());
-
-
             class LoopbackObject(object):
                 def __init__(self, connection):
                     self.__conn = connection
                 def execute(self, query):
                     self.__conn.execute("""
-CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS TABLE(s STRING) LANGUAGE PYTHON
-{
-    import inspect, cPickle
-    frame = inspect.currentframe();
-    args, _, _, values = inspect.getargvalues(frame);
-    dd = {x: values[x] for x in args};
-    del dd['_conn']
-    del dd['_columns']
-    del dd['_column_types']
-    return cPickle.dumps(dd);
-};""")
+                        CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS TABLE(s STRING) LANGUAGE PYTHON
+                        {
+                            import inspect, cPickle
+                            frame = inspect.currentframe();
+                            args, _, _, values = inspect.getargvalues(frame);
+                            dd = {x: values[x] for x in args};
+                            del dd['_conn']
+                            del dd['_columns']
+                            del dd['_column_types']
+                            return cPickle.dumps(dd);
+                        };""")
                     self.__conn.execute('SELECT * FROM (%s) AS xx LIMIT 1' % query);
                     query_description = self.__conn.description
                     self.__conn.execute('SELECT * FROM export_parameters ( (%s) );' % query)
