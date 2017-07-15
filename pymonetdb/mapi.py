@@ -13,6 +13,7 @@ import logging
 import struct
 import hashlib
 import os
+import string
 from six import BytesIO, PY3
 
 from pymonetdb.exceptions import OperationalError, DatabaseError,\
@@ -45,10 +46,10 @@ STATE_READY = 1
 
 # MonetDB error codes
 errors = {
-    '42S02!': OperationalError,  # no such table
-    'M0M29!': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
-    '2D000!': IntegrityError,    # COMMIT: failed
-    '40000!': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
+    '42S02': OperationalError,  # no such table
+    'M0M29': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
+    '2D000': IntegrityError,    # COMMIT: failed
+    '40000': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
 }
 
 
@@ -64,8 +65,11 @@ def handle_error(error):
 
     """
 
-    if len(error) > 6 and error[:6] in errors:
-        return errors[error[:6]], error[6:]
+    if error[:13] == 'SQLException:':
+        idx = string.index(error, ':', 14)
+        error = error[idx+10:]
+    if len(error) > 5 and error[:5] in errors:
+        return errors[error[:5]], error[6:]
     else:
         return OperationalError, error
 
