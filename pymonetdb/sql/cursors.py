@@ -269,7 +269,7 @@ class Cursor(object):
         file.write(pythonUDF)
         file.close()
 
-    def debug_function(self, query, fname, trace=False):
+    def debug_function(self, query, fname):
         # first gather information from the function
         self.execute("SELECT func, type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
         data = self.fetchall();
@@ -340,10 +340,9 @@ class Cursor(object):
                         result[query_description[i][0]] = arguments[argname]
                     return result
 
-            cleaned_arguments['_conn'] = LoopbackObject(self)
-            if trace:
-                import pdb
-                pdb.set_trace()
+            cleaned_arguments['_conn'] = LoopbackObject(self)            
+            import pdb
+            pdb.set_trace()
             return locals()['pyfun'](*[], **cleaned_arguments)
 
     def fetchone(self):
