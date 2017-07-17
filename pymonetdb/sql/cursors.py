@@ -242,7 +242,7 @@ class Cursor(object):
                     parameters = parameters + parameter[1]+ '): \n'
 
             data = str(data[0]).split('\\n')
-            pythonUDF = 'import cPickle \n \ndef '+ fname+ parameters
+            pythonUDF = 'import cPickle \n \n \ndef '+ fname+ parameters
             for x in range(1,len(data)-1):
                 pythonUDF = pythonUDF + '\t' + str(data[x]) + '\n'
 
@@ -261,9 +261,9 @@ class Cursor(object):
         pythonUDF = pythonUDF +'\n' +  fname +'('
         for i in range (0,quantity_parameters):
             if i < quantity_parameters -1:
-                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] + '\',\'rb\')),'
+                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] +'.bin'+ '\',\'rb\')),'
             else:
-                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] + '\',\'rb\')))'
+                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] +'.bin'+ '\',\'rb\')))'
 
         file = open(filespath + fname + '.py','w')
         file.write(pythonUDF)
