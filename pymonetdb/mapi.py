@@ -67,7 +67,7 @@ def handle_error(error):
 
     if error[:13] == 'SQLException:':
         idx = string.index(error, ':', 14)
-        error = error[idx+10:]
+        error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
         return errors[error[:5]], error[6:]
     else:
