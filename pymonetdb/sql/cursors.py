@@ -241,7 +241,8 @@ class Cursor(object):
                     parameter_list.append(parameter[1])
                     parameters = parameters + parameter[1]+ '): \n'
 
-            data = str(data[0]).split('\\n')
+            data = str(data[0]).replace('\\t','\t').split('\\n')
+            
             pythonUDF = 'import cPickle \n \n \ndef '+ fname+ parameters
             for x in range(1,len(data)-1):
                 pythonUDF = pythonUDF + '\t' + str(data[x]) + '\n'
@@ -251,19 +252,17 @@ class Cursor(object):
         result = dict()
         for i in range(len(arguments)-2):
             argname = "arg%d" % (i + 1)
-            result[[i][0]] = arguments[argname]
-
-        for i in range(0,len(result)):
-            import cPickle
-            cPickle.dump(result[i], open(filespath + parameter_list[i] + '.bin','wb'))
+            result[parameter_list[i]] = arguments[argname]
+        import cPickle
+        cPickle.dump(result, open(filespath + 'input_data.bin','wb'))
 
         #Loading Columns in Pyhton & Call Function
-        pythonUDF = pythonUDF +'\n' +  fname +'('
+        pythonUDF = pythonUDF +'\n' + 'input_parameters = cPickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' +  fname +'('
         for i in range (0,quantity_parameters):
             if i < quantity_parameters -1:
-                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] +'.bin'+ '\',\'rb\')),'
+                pythonUDF = pythonUDF + 'input_parameters[\''+ parameter_list[i] +'\'],'
             else:
-                pythonUDF = pythonUDF + 'cPickle.load(open(\''+ filespath + parameter_list[i] +'.bin'+ '\',\'rb\')))'
+                pythonUDF = pythonUDF + 'input_parameters[\'' +parameter_list[i] +'\'])'
 
         file = open(filespath + fname + '.py','w')
         file.write(pythonUDF)
