@@ -218,7 +218,7 @@ class Cursor(object):
         return arguments          
 
 
-    def exportudf(self, query, fname, filespath='./'):         #Export python UDF for IDE usage
+    def export(self, query, fname, filespath='./'):         #Export python UDF for IDE usage
         self.execute("SELECT func,type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
         data = self.fetchall();
         self.execute("SELECT args.name FROM args INNER JOIN functions ON args.func_id=functions.id WHERE functions.name='%s' AND args.inout=1 ORDER BY args.number;" % fname )
@@ -268,7 +268,7 @@ class Cursor(object):
         file.write(pythonUDF)
         file.close()
 
-    def debug_function(self, query, fname):
+    def debug(self, query, fname):
         # first gather information from the function
         self.execute("SELECT func, type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
         data = self.fetchall();
