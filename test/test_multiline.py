@@ -2,6 +2,7 @@ import unittest
 from mock import patch
 import pymonetdb
 
+
 class MultilineResponseTest(unittest.TestCase):
     """MonetDB sometimes sends back multi-line responses. Most notably when there
        are more than one concurrent update transactions due to the Optimistic

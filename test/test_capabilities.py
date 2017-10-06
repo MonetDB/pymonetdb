@@ -28,10 +28,6 @@ TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
 
 
 class DatabaseTest(unittest.TestCase):
-
-    db_module = None
-    connect_args = ()
-    connect_kwargs = dict()
     create_table_extra = ''
     rows = 10
 
@@ -145,6 +141,7 @@ class DatabaseTest(unittest.TestCase):
 
     def test_truncation(self):
         columndefs = ( 'col1 INT', 'col2 VARCHAR(255)')
+
         def generator(row, col):
             if col == 0:
                 return row
@@ -366,11 +363,11 @@ class DatabaseTest(unittest.TestCase):
             self.cursor.execute('drop table %s' % (self.table))
 
     def test_bigresult(self):
-        self.cursor.execute('select count(*) from tables')
+        self.cursor.execute('select count(*) from types')
         r = self.cursor.fetchone()
         n = r[0]
         self.cursor.arraysize=100000
-        self.cursor.execute('select * from tables, tables t')
+        self.cursor.execute('select * from types, types')
         r = self.cursor.fetchall()
         self.assertEqual(len(r), n**2)
 

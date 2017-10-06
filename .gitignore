@@ -4,6 +4,10 @@ build/
 .tox
 pymonetdb.egg-info/
 .cache/
-.virtualenv/
 doc/_build/
 .coverage
+.virtualenv/
+.virtualenv3/
+.eggs/
+.venv2/
+.venv3/
