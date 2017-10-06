@@ -97,7 +97,8 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = ""
+        self.socket = None  # type: socket.socket
+        self.unix_socket = None
         self.hostname = ""
         self.port = 0
         self.username = ""
@@ -118,7 +119,7 @@ class Connection(object):
             hostname = None
         if not unix_socket and os.path.exists("/tmp/.s.monetdb.%i" % port):
             unix_socket = "/tmp/.s.monetdb.%i" % port
-        elif not hostname:
+        elif not unix_socket and not hostname:
             hostname = 'localhost'
 
         # None and zero are allowed values
@@ -208,6 +209,7 @@ class Connection(object):
 
     def disconnect(self):
         """ disconnect from the monetdb server """
+        logger.info("disconnecting from database")
         self.state = STATE_INIT
         self.socket.close()
 
@@ -269,7 +271,7 @@ class Connection(object):
                 h.update(encode(password))
                 password = h.hexdigest()
             except ValueError as e:
-                raise NotSupportedError(e.message)
+                raise NotSupportedError(str(e))
         else:
             raise NotSupportedError("We only speak protocol v9")
 
@@ -293,7 +295,7 @@ class Connection(object):
 
     def _getblock(self):
         """ read one mapi encoded block """
-        if (self.language == 'control' and not self.hostname):
+        if self.language == 'control' and not self.hostname:
             return self._getblock_socket()  # control doesn't do block splitting when using a socket
         else:
             return self._getblock_inet()
@@ -317,7 +319,7 @@ class Connection(object):
                 buffer.write(x)
             else:
                 break
-        return buffer.getvalue().strip()
+        return decode(buffer.getvalue().strip())
 
     def _getbytes(self, bytes_):
         """Read an amount of bytes from the socket"""
@@ -333,7 +335,7 @@ class Connection(object):
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
-        if (self.language == 'control' and not self.hostname):
+        if self.language == 'control' and not self.hostname:
             return self.socket.send(encode(block))  # control doesn't do block splitting when using a socket
         else:
             self._putblock_inet(block)
