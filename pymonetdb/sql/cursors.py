@@ -5,7 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import logging
-
+from collections import namedtuple
 from pymonetdb.sql import monetize, pythonize
 from pymonetdb.exceptions import ProgrammingError, InterfaceError
 from pymonetdb import mapi
@@ -13,6 +13,9 @@ from six import u, PY2
 
 logger = logging.getLogger("pymonetdb")
 
+
+Description = namedtuple('Description', ('name', 'type_code', 'display_size', 'internal_size', 'precision', 'scale',
+                                         'null_ok'))
 
 class Cursor(object):
     """This object represents a database cursor, which is used to manage
@@ -65,17 +68,17 @@ class Cursor(object):
         # we currently are
         self.rownumber = -1
 
-        self.__executed = None
+        self._executed = None
 
         # the offset of the current resultset in the total resultset
-        self.__offset = 0
+        self._offset = 0
 
         # the resultset
-        self.__rows = []
+        self._rows = []
 
         # used to identify a query during server contact.
         # Only select queries have query ID
-        self.__query_id = -1
+        self._query_id = -1
 
         # This is a Python list object to which the interface appends
         # tuples (exception class, exception value) for all messages
@@ -103,9 +106,9 @@ class Cursor(object):
         # using INSERT with .executemany().
         self.lastrowid = None
 
-    def __check_executed(self):
-        if not self.__executed:
-            self.__exception_handler(ProgrammingError, "do a execute() first")
+    def _check_executed(self):
+        if not self._executed:
+            self._exception_handler(ProgrammingError, "do a execute() first")
 
     def close(self):
         """ Close the cursor now (rather than whenever __del__ is
@@ -121,7 +124,7 @@ class Cursor(object):
         """
 
         if not self.connection:
-            self.__exception_handler(ProgrammingError, "cursor is closed")
+            self._exception_handler(ProgrammingError, "cursor is closed")
 
         # clear message history
         self.messages = []
@@ -157,14 +160,14 @@ class Cursor(object):
                 query = operation % monetize.convert(parameters)
             else:
                 msg = "Parameters should be None, dict or list, now it is %s"
-                self.__exception_handler(ValueError, msg % type(parameters))
+                self._exception_handler(ValueError, msg % type(parameters))
         else:
             query = operation
 
         block = self.connection.execute(query)
-        self.__store_result(block)
+        self._store_result(block)
         self.rownumber = 0
-        self.__executed = operation
+        self._executed = operation
         return self.rowcount
 
     def executemany(self, operation, seq_of_parameters):
@@ -185,19 +188,19 @@ class Cursor(object):
         """Fetch the next row of a query result set, returning a
         single sequence, or None when no more data is available."""
 
-        self.__check_executed()
+        self._check_executed()
 
-        if self.__query_id == -1:
+        if self._query_id == -1:
             msg = "query didn't result in a resultset"
-            self.__exception_handler(ProgrammingError, msg)
+            self._exception_handler(ProgrammingError, msg)
 
         if self.rownumber >= self.rowcount:
             return None
 
-        if self.rownumber >= (self.__offset + len(self.__rows)):
+        if self.rownumber >= (self._offset + len(self._rows)):
             self.nextset()
 
-        result = self.__rows[self.rownumber - self.__offset]
+        result = self._rows[self.rownumber - self._offset]
         self.rownumber += 1
         return result
 
@@ -224,21 +227,18 @@ class Cursor(object):
         parameter is used, then it is best for it to retain the
         same value from one .fetchmany() call to the next."""
 
-        self.__check_executed()
+        self._check_executed()
 
         if self.rownumber >= self.rowcount:
             return []
 
-        end = self.rownumber + (size or self.arraysize)
-        end = min(end, self.rowcount)
-        result = self.__rows[self.rownumber -
-                             self.__offset:end - self.__offset]
-        self.rownumber = min(end, len(self.__rows) + self.__offset)
+        end = min(self.rownumber + (size or self.arraysize), self.rowcount)
+        result = self._rows[self.rownumber - self._offset:end - self._offset]
+        self.rownumber = min(end, len(self._rows) + self._offset)
 
         while (end > self.rownumber) and self.nextset():
-                result += self.__rows[self.rownumber -
-                                      self.__offset:end - self.__offset]
-                self.rownumber = min(end, len(self.__rows) + self.__offset)
+                result += self._rows[self.rownumber - self._offset:end - self._offset]
+                self.rownumber = min(end, len(self._rows) + self._offset)
         return result
 
     def fetchall(self):
@@ -251,19 +251,19 @@ class Cursor(object):
         call to .execute*() did not produce any result set or no
         call was issued yet."""
 
-        self.__check_executed()
+        self._check_executed()
 
-        if self.__query_id == -1:
+        if self._query_id == -1:
             msg = "query didn't result in a resultset"
-            self.__exception_handler(ProgrammingError, msg)
+            self._exception_handler(ProgrammingError, msg)
 
-        result = self.__rows[self.rownumber - self.__offset:]
-        self.rownumber = len(self.__rows) + self.__offset
+        result = self._rows[self.rownumber - self._offset:]
+        self.rownumber = len(self._rows) + self._offset
 
         # slide the window over the resultset
         while self.nextset():
-            result += self.__rows
-            self.rownumber = len(self.__rows) + self.__offset
+            result += self._rows
+            self.rownumber = len(self._rows) + self._offset
 
         return result
 
@@ -281,19 +281,19 @@ class Cursor(object):
         call to .execute*() did not produce any result set or no
         call was issued yet."""
 
-        self.__check_executed()
+        self._check_executed()
 
         if self.rownumber >= self.rowcount:
             return False
 
-        self.__offset += len(self.__rows)
+        self._offset += len(self._rows)
 
         end = min(self.rowcount, self.rownumber + self.arraysize)
-        amount = end - self.__offset
+        amount = end - self._offset
 
-        command = 'Xexport %s %s %s' % (self.__query_id, self.__offset, amount)
+        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
         block = self.connection.command(command)
-        self.__store_result(block)
+        self._store_result(block)
         return True
 
     def setinputsizes(self, sizes):
@@ -323,12 +323,13 @@ class Cursor(object):
     def __next__(self):
         return self.next()
 
-    def __store_result(self, block):
+    def _store_result(self, block):
         """ parses the mapi result into a resultset"""
 
         if not block:
             block = ""
 
+        columns = 0
         column_name = ""
         scale = display_size = internal_size = precision = 0
         null_ok = False
@@ -340,12 +341,12 @@ class Cursor(object):
                 self.messages.append((Warning, line[1:]))
 
             elif line.startswith(mapi.MSG_QTABLE):
-                (self.__query_id, rowcount, columns, tuples) = line[2:].split()[:4]
+                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
 
                 columns = int(columns)   # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
                 # tuples = int(tuples)     # number of rows in this set
-                self.__rows = []
+                self._rows = []
 
                 # set up fields for description
                 # table_name = [None] * columns
@@ -357,7 +358,8 @@ class Cursor(object):
                 scale = [None] * columns
                 null_ok = [None] * columns
                 # typesizes = [(0, 0)] * columns
-                self.__offset = 0
+
+                self._offset = 0
                 self.lastrowid = None
 
             elif line.startswith(mapi.MSG_HEADER):
@@ -367,12 +369,12 @@ class Cursor(object):
 
                 if identity == "name":
                     column_name = values
-                # elif identity == "table_name":
-                #    table_name = values
+                elif identity == "table_name":
+                    table_name = values   # not used
                 elif identity == "type":
                     type_ = values
-                # elif identity == "length":
-                #   length = values
+                elif identity == "length":
+                   length = values   # not used
                 elif identity == "typesizes":
                     typesizes = [[int(j) for j in i.split()] for i in values]
                     internal_size = [x[0] for x in typesizes]
@@ -380,47 +382,49 @@ class Cursor(object):
                         if typeelem in ['decimal']:
                             precision[num] = typesizes[num][0]
                             scale[num] = typesizes[num][1]
-                # else:
-                #    msg = "unknown header field"
-                #    self.messages.append((InterfaceError, msg))
-                #    self.__exception_handler(InterfaceError, msg)
+                else:
+                    msg = "unknown header field: {}".format(identity)
+                    logger.warning(msg)
+                    self.messages.append((Warning, msg))
 
-                self.description = list(zip(column_name, type_, display_size,
-                                            internal_size, precision, scale,
-                                            null_ok))
-                self.__offset = 0
+                description = []
+                for i in range(columns):
+                    description.append(Description(column_name[i], type_[i], display_size[i], internal_size[i],
+                                                   precision[i], scale[i], null_ok[i]))
+                self.description = description
+                self._offset = 0
                 self.lastrowid = None
 
             elif line.startswith(mapi.MSG_TUPLE):
-                values = self.__parse_tuple(line)
-                self.__rows.append(values)
+                values = self._parse_tuple(line)
+                self._rows.append(values)
 
             elif line.startswith(mapi.MSG_TUPLE_NOSLICE):
-                self.__rows.append((line[1:],))
+                self._rows.append((line[1:],))
 
             elif line.startswith(mapi.MSG_QBLOCK):
-                self.__rows = []
+                self._rows = []
 
             elif line.startswith(mapi.MSG_QSCHEMA):
-                self.__offset = 0
+                self._offset = 0
                 self.lastrowid = None
-                self.__rows = []
+                self._rows = []
                 self.description = None
                 self.rowcount = -1
 
             elif line.startswith(mapi.MSG_QUPDATE):
                 (affected, identity) = line[2:].split()[:2]
-                self.__offset = 0
-                self.__rows = []
+                self._offset = 0
+                self._rows = []
                 self.description = None
                 self.rowcount = int(affected)
                 self.lastrowid = int(identity)
-                self.__query_id = -1
+                self._query_id = -1
 
             elif line.startswith(mapi.MSG_QTRANS):
-                self.__offset = 0
+                self._offset = 0
                 self.lastrowid = None
-                self.__rows = []
+                self._rows = []
                 self.description = None
                 self.rowcount = -1
 
@@ -428,23 +432,25 @@ class Cursor(object):
                 return
 
             elif line.startswith(mapi.MSG_ERROR):
-                self.__exception_handler(ProgrammingError, line[1:])
+                self._exception_handler(ProgrammingError, line[1:])
 
-        self.__exception_handler(InterfaceError, "Unknown state, %s" % block)
+        self._exception_handler(InterfaceError, "Unknown state, %s" % block)
 
-    def __parse_tuple(self, line):
-        """ parses a mapi data tuple, and returns a list of python types"""
+    def _parse_tuple(self, line):
+        """
+        parses a mapi data tuple, and returns a list of python types
+        """
         elements = line[1:-1].split(',\t')
         if len(elements) == len(self.description):
             return tuple([pythonize.convert(element.strip(), description[1])
                           for (element, description) in zip(elements,
                                                             self.description)])
         else:
-            self.__exception_handler(InterfaceError,
-                                     "length of row doesn't match header")
+            self._exception_handler(InterfaceError, "length of row doesn't match header")
 
     def scroll(self, value, mode='relative'):
-        """Scroll the cursor in the result set to a new position according
+        """
+        Scroll the cursor in the result set to a new position according
         to mode.
 
         If mode is 'relative' (default), value is taken as offset to
@@ -454,28 +460,29 @@ class Cursor(object):
         An IndexError is raised in case a scroll operation would
         leave the result set.
         """
-        self.__check_executed()
+        self._check_executed()
 
         if mode not in ['relative', 'absolute']:
             msg = "unknown mode '%s'" % mode
-            self.__exception_handler(ProgrammingError, msg)
+            self._exception_handler(ProgrammingError, msg)
 
         if mode == 'relative':
             value += self.rownumber
 
         if value > self.rowcount:
-            self.__exception_handler(IndexError,
-                                     "value beyond length of resultset")
+            self._exception_handler(IndexError, "value beyond length of resultset")
 
-        self.__offset = value
+        self._offset = value
         end = min(self.rowcount, self.rownumber + self.arraysize)
-        amount = end - self.__offset
-        command = 'Xexport %s %s %s' % (self.__query_id, self.__offset, amount)
+        amount = end - self._offset
+        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
         block = self.connection.command(command)
-        self.__store_result(block)
+        self._store_result(block)
 
-    def __exception_handler(self, exception_class, message):
-        """ raises the exception specified by exception, and add the error
-        to the message list """
+    def _exception_handler(self, exception_class, message):
+        """
+        raises the exception specified by exception, and add the error
+        to the message list
+        """
         self.messages.append((exception_class, message))
         raise exception_class(message)
