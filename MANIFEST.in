@@ -1,1 +1,1 @@
-include requirements.txt README.rst *.py CHANGES
+include README.rst *.py CHANGES LICENSE
