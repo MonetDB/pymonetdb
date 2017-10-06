@@ -17,6 +17,7 @@ logger = logging.getLogger("pymonetdb")
 Description = namedtuple('Description', ('name', 'type_code', 'display_size', 'internal_size', 'precision', 'scale',
                                          'null_ok'))
 
+
 class Cursor(object):
     """This object represents a database cursor, which is used to manage
     the context of a fetch operation. Cursors created from the same
@@ -374,7 +375,7 @@ class Cursor(object):
                 elif identity == "type":
                     type_ = values
                 elif identity == "length":
-                   length = values   # not used
+                    length = values   # not used
                 elif identity == "typesizes":
                     typesizes = [[int(j) for j in i.split()] for i in values]
                     internal_size = [x[0] for x in typesizes]
