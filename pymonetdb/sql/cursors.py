@@ -5,6 +5,10 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import logging
+import tempfile
+import re
+import pickle
+import pdb
 
 from pymonetdb.sql import monetize, pythonize
 from pymonetdb.exceptions import ProgrammingError, InterfaceError
@@ -182,7 +186,15 @@ class Cursor(object):
         self.rowcount = count
         return count
 
-    def exportparameters(self,ftype,fname,query,quantity_parameters,sample):
+    def __exportparameters(self, ftype, fname, query,
+                            quantity_parameters, sample):
+        """ Exports the input parameters of a given UDF execution
+            to the Python process. Used internally for .debug() and
+            .export() functions.
+        """
+
+        # create a dummy function that only exports its parameters
+        # using the pickle module
         if ftype == 5:
             # table producing function
             return_type = "TABLE(s STRING)"
@@ -190,20 +202,25 @@ class Cursor(object):
             return_type = "STRING"
         if sample == -1:
             export_function = """
-                CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
+                CREATE OR REPLACE FUNCTION export_parameters(*)
+                RETURNS %s LANGUAGE PYTHON
                 {
-                    import inspect, cPickle
+                    import inspect
+                    import pickle
                     frame = inspect.currentframe();
                     args, _, _, values = inspect.getargvalues(frame);
                     dd = {x: values[x] for x in args};
                     del dd['_conn']
-                    return cPickle.dumps(dd);
+                    return pickle.dumps(dd);
                 };""" % return_type
         else:
             export_function = """
-                CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS %s LANGUAGE PYTHON
+                CREATE OR REPLACE FUNCTION export_parameters(*)
+                RETURNS %s LANGUAGE PYTHON
                 {
-                import inspect, cPickle, numpy
+                import inspect
+                import pickle
+                import numpy
                 frame = inspect.currentframe();
                 args, _, _, values = inspect.getargvalues(frame);
                 dd = {x: values[x] for x in args};
@@ -221,14 +238,13 @@ class Cursor(object):
                     dd[argname] = aux
                     print(dd[argname])
                 print(x)
-                return cPickle.dumps(dd);
+                return pickle.dumps(dd);
                 };
                 """ % (return_type,str(sample))
 
         if fname not in query:
             raise Exception("Function %s not found in query!" % fname)
 
-        import cPickle
         query = query.replace(fname, 'export_parameters')
         query = query.replace(';', ' sample 1;')
 
@@ -238,24 +254,35 @@ class Cursor(object):
         self.execute('DROP FUNCTION export_parameters;')
         if len(input_data) <= 0:
             raise Exception("Could not load input data!")
-        arguments = cPickle.loads(str(input_data[0][0]));
+        arguments = pickle.loads(str(input_data[0][0]));
 
         if len(arguments) != quantity_parameters + 2:
             raise Exception("Incorrect amount of input arguments found!")
       
         return arguments          
 
+    def export(self, query, fname, sample = -1, filespath='./'):
+        """ Exports a Python UDF and its input parameters to a given
+            file so it can be called locally in an IDE environment.
+        """
 
-    def export(self, query, fname,sample = -1, filespath='./'):         #Export python UDF for IDE usage
-        self.execute("SELECT func,type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
+        # first retrieve UDF information from the server
+        self.execute("""
+            SELECT func,type
+            FROM functions
+            WHERE language >= 6 AND language <= 11 AND name='%s';""" % fname)
         data = self.fetchall();
-        self.execute("SELECT args.name FROM args INNER JOIN functions ON args.func_id=functions.id WHERE functions.name='%s' AND args.inout=1 ORDER BY args.number;" % fname )
+        self.execute("""
+            SELECT args.name 
+            FROM args INNER JOIN functions ON args.func_id=functions.id
+            WHERE functions.name='%s' AND args.inout=1
+            ORDER BY args.number;""" % fname);
         input_names = self.fetchall()
         quantity_parameters = len(input_names)
         fcode = data[0][0]
         ftype = data[0][1]
         parameter_list = []
-        #Exporting Python UDF Function        
+        # exporting Python UDF Function        
         if len(data) == 0:
             raise Exception("Function not found!");
         else:
@@ -271,46 +298,61 @@ class Cursor(object):
 
             data = str(data[0]).replace('\\t','\t').split('\\n')
             
-            pythonUDF = 'import cPickle \n \n \ndef '+ fname+ parameters
-            for x in range(1,len(data)-1):
-                pythonUDF = pythonUDF + '\t' + str(data[x]) + '\n'
+            python_udf = 'import pickle \n \n \ndef '+ fname+ parameters
+            for x in range(1, len(data) - 1):
+                python_udf = python_udf + '\t' + str(data[x]) + '\n'
 
-        #Exporting Columns as Binary Files
-        arguments = self.exportparameters(ftype,fname,query,quantity_parameters,sample)
+        # exporting Columns as Binary Files
+        arguments = self.__exportparameters(ftype, fname, query,
+            quantity_parameters, sample)
         result = dict()
         for i in range(len(arguments)-2):
             argname = "arg%d" % (i + 1)
             result[parameter_list[i]] = arguments[argname]
-        import cPickle
-        cPickle.dump(result, open(filespath + 'input_data.bin','wb'))
+        pickle.dump(result, open(filespath + 'input_data.bin','wb'))
 
-        #Loading Columns in Pyhton & Call Function
-        pythonUDF = pythonUDF +'\n' + 'input_parameters = cPickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' +  fname +'('
+        # loading Columns in Pyhton & Call Function
+        python_udf += '\n' + 'input_parameters = pickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' +  fname +'('
         for i in range (0,quantity_parameters):
             if i < quantity_parameters -1:
-                pythonUDF = pythonUDF + 'input_parameters[\''+ parameter_list[i] +'\'],'
+                python_udf += 'input_parameters[\''+ parameter_list[i] +'\'],'
             else:
-                pythonUDF = pythonUDF + 'input_parameters[\'' +parameter_list[i] +'\'])'
+                python_udf += 'input_parameters[\'' +parameter_list[i] +'\'])'
 
         file = open(filespath + fname + '.py','w')
-        file.write(pythonUDF)
+        file.write(python_udf)
         file.close()
 
-    def debug(self, query, fname,sample = -1):
-        # first gather information from the function
-        self.execute("SELECT func, type FROM functions WHERE language>=6 AND language <= 11 AND name='%s';" % fname)
+    def debug(self, query, fname, sample = -1):
+        """ Locally debug a given Python UDF function in a SQL query
+            using the PDB debugger. Optionally can run on only a 
+            sample of the input data, for faster data export.
+        """
+
+        # first gather information about the function
+        self.execute("""
+            SELECT func, type
+            FROM functions
+            WHERE language>=6 AND language <= 11 AND name='%s';""" % fname)
         data = self.fetchall();
         if len(data) == 0:
             raise Exception("Function not found!");
 
-        # gather the input arguments of the function
-        self.execute("SELECT args.name, args.type FROM args INNER JOIN functions ON args.func_id=functions.id WHERE functions.name='%s' AND args.inout=1 ORDER BY args.number;" % fname )
+        # then gather the input arguments of the function
+        self.execute("""
+            SELECT args.name, args.type
+            FROM args
+            INNER JOIN functions ON args.func_id=functions.id
+            WHERE functions.name='%s' AND args.inout=1
+            ORDER BY args.number;""" % fname )
         input_types = self.fetchall()
 
         fcode = data[0][0]
         ftype = data[0][1]
 
-        arguments = self.exportparameters(ftype,fname,query,len(input_types),sample)
+        # now obtain the input columns
+        arguments = self.__exportparameters(ftype, fname, query,
+                len(input_types), sample)
 
         arglist = "_columns, _column_types, _conn"
         cleaned_arguments = dict()
@@ -324,9 +366,8 @@ class Cursor(object):
         cleaned_arguments['_columns'] = arguments['_columns']
         cleaned_arguments['_column_types'] = arguments['_column_types']
 
-        import tempfile
+        # create a temporary file for the function execution and run it
         with tempfile.NamedTemporaryFile() as f:
-            import re
             fcode = fcode.strip()
             fcode = re.sub('^{', '', fcode)
             fcode = re.sub('};$', '', fcode)
@@ -341,34 +382,39 @@ class Cursor(object):
                     self.__conn = connection
                 def execute(self, query):
                     self.__conn.execute("""
-                        CREATE OR REPLACE FUNCTION export_parameters(*) RETURNS TABLE(s STRING) LANGUAGE PYTHON
+                        CREATE OR REPLACE FUNCTION export_parameters(*)
+                        RETURNS TABLE(s STRING) LANGUAGE PYTHON
                         {
-                            import inspect, cPickle
+                            import inspect
+                            import pickle
                             frame = inspect.currentframe();
                             args, _, _, values = inspect.getargvalues(frame);
                             dd = {x: values[x] for x in args};
                             del dd['_conn']
                             del dd['_columns']
                             del dd['_column_types']
-                            return cPickle.dumps(dd);
+                            return pickle.dumps(dd);
                         };""")
-                    self.__conn.execute('SELECT * FROM (%s) AS xx LIMIT 1' % query);
+                    self.__conn.execute("""
+                        SELECT *
+                        FROM (%s) AS xx 
+                        LIMIT 1""" % query);
                     query_description = self.__conn.description
-                    self.__conn.execute('SELECT * FROM export_parameters ( (%s) );' % query)
+                    self.__conn.execute("""
+                        SELECT * 
+                        FROM export_parameters ( (%s) );""" % query)
                     data = self.__conn.fetchall();
-                    import cPickle
-                    arguments = cPickle.loads(str(data[0][0]))
+                    arguments = pickle.loads(str(data[0][0]))
                     self.__conn.execute('DROP FUNCTION export_parameters;')
                     if len(arguments) != len(query_description):
-                        raise Exception("Incorrect number of input parameters!")
+                        raise Exception("Incorrect number of parameters!")
                     result = dict()
                     for i in range(len(arguments)):
                         argname = "arg%d" % (i + 1)
                         result[query_description[i][0]] = arguments[argname]
                     return result
 
-            cleaned_arguments['_conn'] = LoopbackObject(self)            
-            import pdb
+            cleaned_arguments['_conn'] = LoopbackObject(self)
             pdb.set_trace()
             return locals()['pyfun'](*[], **cleaned_arguments)
 
