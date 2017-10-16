@@ -322,7 +322,7 @@ class Cursor(object):
         python_udf += fname + '('
         for i in range(0, quantity_parameters):
             if i < quantity_parameters - 1:
-                python_udf += 'input_parameters[\'' +
+                python_udf += 'input_parameters[\''
                 python_udf += parameter_list[i] + '\'],'
             else:
                 python_udf += 'input_parameters[\''
