@@ -413,14 +413,15 @@ class DatabaseTest(unittest.TestCase):
             # python UDFs are disabled or not compiled in, skip this test
             return
         result = self.cursor.fetchall()
-        self.assertEqual(result, [(2)])
+        self.assertEqual(result, [(2,)])
         # test python debugging capabilities
         with tempfile.NamedTemporaryFile(delete=False) as f:
             fname = f.name
         self.cursor.export('SELECT test_python_udf(1)', 'test_python_udf', filespath=fname)
+        fname += "test_python_udf.py"
         with open(fname) as f:
             code = f.read()
-            print(code)
+            self.assertEqual('test_python_udf(i)' in code, True)
 
 
 

@@ -24,6 +24,7 @@ class Cursor(object):
     connection are not isolated, i.e., any changes done to the
     database by a cursor are immediately visible by the other
     cursors"""
+
     def __init__(self, connection):
         """This read-only attribute return a reference to the Connection
         object on which the cursor was created."""
@@ -118,7 +119,6 @@ class Cursor(object):
         if any operation is attempted with the cursor."""
         self.connection = None
 
-
     def execute(self, operation, parameters=None):
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
@@ -154,10 +154,10 @@ class Cursor(object):
         if parameters:
             if isinstance(parameters, dict):
                 query = operation % dict([(k, monetize.convert(v))
-                                         for (k, v) in parameters.items()])
+                                          for (k, v) in parameters.items()])
             elif type(parameters) == list or type(parameters) == tuple:
-                query = operation % tuple([monetize.convert(item) for item
-                                           in parameters])
+                query = operation % tuple(
+                    [monetize.convert(item) for item in parameters])
             elif isinstance(parameters, str):
                 query = operation % monetize.convert(parameters)
             else:
@@ -186,8 +186,8 @@ class Cursor(object):
         self.rowcount = count
         return count
 
-    def __exportparameters(self, ftype, fname, query,
-                            quantity_parameters, sample):
+    def __exportparameters(self, ftype, fname, query, quantity_parameters,
+                           sample):
         """ Exports the input parameters of a given UDF execution
             to the Python process. Used internally for .debug() and
             .export() functions.
@@ -240,7 +240,7 @@ class Cursor(object):
                 print(x)
                 return pickle.dumps(dd);
                 };
-                """ % (return_type,str(sample))
+                """ % (return_type, str(sample))
 
         if fname not in query:
             raise Exception("Function %s not found in query!" % fname)
@@ -250,18 +250,18 @@ class Cursor(object):
 
         self.execute(export_function)
         self.execute(query)
-        input_data = self.fetchall();
+        input_data = self.fetchall()
         self.execute('DROP FUNCTION export_parameters;')
         if len(input_data) <= 0:
             raise Exception("Could not load input data!")
-        arguments = pickle.loads(str(input_data[0][0]));
+        arguments = pickle.loads(str(input_data[0][0]))
 
         if len(arguments) != quantity_parameters + 2:
             raise Exception("Incorrect amount of input arguments found!")
-      
-        return arguments          
 
-    def export(self, query, fname, sample = -1, filespath='./'):
+        return arguments
+
+    def export(self, query, fname, sample=-1, filespath='./'):
         """ Exports a Python UDF and its input parameters to a given
             file so it can be called locally in an IDE environment.
         """
@@ -271,61 +271,61 @@ class Cursor(object):
             SELECT func,type
             FROM functions
             WHERE language >= 6 AND language <= 11 AND name='%s';""" % fname)
-        data = self.fetchall();
+        data = self.fetchall()
         self.execute("""
-            SELECT args.name 
+            SELECT args.name
             FROM args INNER JOIN functions ON args.func_id=functions.id
             WHERE functions.name='%s' AND args.inout=1
-            ORDER BY args.number;""" % fname);
+            ORDER BY args.number;""" % fname)
         input_names = self.fetchall()
         quantity_parameters = len(input_names)
         fcode = data[0][0]
         ftype = data[0][1]
         parameter_list = []
-        # exporting Python UDF Function        
+        # exporting Python UDF Function
         if len(data) == 0:
-            raise Exception("Function not found!");
+            raise Exception("Function not found!")
         else:
             parameters = '('
-            for x in range (0,len(input_names) ):
+            for x in range(0, len(input_names)):
                 parameter = str(input_names[x]).split('\'')
-                if x < len(input_names) -1:
+                if x < len(input_names) - 1:
                     parameter_list.append(parameter[1])
                     parameters = parameters + parameter[1] + ','
                 else:
                     parameter_list.append(parameter[1])
-                    parameters = parameters + parameter[1]+ '): \n'
+                    parameters = parameters + parameter[1] + '): \n'
 
-            data = str(data[0]).replace('\\t','\t').split('\\n')
-            
-            python_udf = 'import pickle \n \n \ndef '+ fname+ parameters
+            data = str(data[0]).replace('\\t', '\t').split('\\n')
+
+            python_udf = 'import pickle \n \n \ndef ' + fname + parameters
             for x in range(1, len(data) - 1):
                 python_udf = python_udf + '\t' + str(data[x]) + '\n'
 
         # exporting Columns as Binary Files
         arguments = self.__exportparameters(ftype, fname, query,
-            quantity_parameters, sample)
+                                            quantity_parameters, sample)
         result = dict()
-        for i in range(len(arguments)-2):
+        for i in range(len(arguments) - 2):
             argname = "arg%d" % (i + 1)
             result[parameter_list[i]] = arguments[argname]
-        pickle.dump(result, open(filespath + 'input_data.bin','wb'))
+        pickle.dump(result, open(filespath + 'input_data.bin', 'wb'))
 
         # loading Columns in Pyhton & Call Function
-        python_udf += '\n' + 'input_parameters = pickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' +  fname +'('
-        for i in range (0,quantity_parameters):
-            if i < quantity_parameters -1:
-                python_udf += 'input_parameters[\''+ parameter_list[i] +'\'],'
+        python_udf += '\n' + 'input_parameters = pickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' + fname + '('
+        for i in range(0, quantity_parameters):
+            if i < quantity_parameters - 1:
+                python_udf += 'input_parameters[\'' + parameter_list[i] + '\'],'
             else:
-                python_udf += 'input_parameters[\'' +parameter_list[i] +'\'])'
+                python_udf += 'input_parameters[\'' + parameter_list[i] + '\'])'
 
-        file = open(filespath + fname + '.py','w')
+        file = open(filespath + fname + '.py', 'w')
         file.write(python_udf)
         file.close()
 
-    def debug(self, query, fname, sample = -1):
+    def debug(self, query, fname, sample=-1):
         """ Locally debug a given Python UDF function in a SQL query
-            using the PDB debugger. Optionally can run on only a 
+            using the PDB debugger. Optionally can run on only a
             sample of the input data, for faster data export.
         """
 
@@ -334,9 +334,9 @@ class Cursor(object):
             SELECT func, type
             FROM functions
             WHERE language>=6 AND language <= 11 AND name='%s';""" % fname)
-        data = self.fetchall();
+        data = self.fetchall()
         if len(data) == 0:
-            raise Exception("Function not found!");
+            raise Exception("Function not found!")
 
         # then gather the input arguments of the function
         self.execute("""
@@ -344,7 +344,7 @@ class Cursor(object):
             FROM args
             INNER JOIN functions ON args.func_id=functions.id
             WHERE functions.name='%s' AND args.inout=1
-            ORDER BY args.number;""" % fname )
+            ORDER BY args.number;""" % fname)
         input_types = self.fetchall()
 
         fcode = data[0][0]
@@ -352,7 +352,7 @@ class Cursor(object):
 
         # now obtain the input columns
         arguments = self.__exportparameters(ftype, fname, query,
-                len(input_types), sample)
+                                            len(input_types), sample)
 
         arglist = "_columns, _column_types, _conn"
         cleaned_arguments = dict()
@@ -372,14 +372,16 @@ class Cursor(object):
             fcode = re.sub('^{', '', fcode)
             fcode = re.sub('};$', '', fcode)
             fcode = re.sub('^\n', '', fcode)
-            function_definition = "def pyfun(%s):\n %s\n" % (arglist,
-                fcode.replace("\n", "\n "))
+            function_definition = "def pyfun(%s):\n %s\n" % (
+                arglist, fcode.replace("\n", "\n "))
             f.write(function_definition)
-            f.flush();
-            execfile(f.name, globals(), locals());
+            f.flush()
+            execfile(f.name, globals(), locals())
+
             class LoopbackObject(object):
                 def __init__(self, connection):
                     self.__conn = connection
+
                 def execute(self, query):
                     self.__conn.execute("""
                         CREATE OR REPLACE FUNCTION export_parameters(*)
@@ -397,13 +399,13 @@ class Cursor(object):
                         };""")
                     self.__conn.execute("""
                         SELECT *
-                        FROM (%s) AS xx 
-                        LIMIT 1""" % query);
+                        FROM (%s) AS xx
+                        LIMIT 1""" % query)
                     query_description = self.__conn.description
                     self.__conn.execute("""
-                        SELECT * 
+                        SELECT *
                         FROM export_parameters ( (%s) );""" % query)
-                    data = self.__conn.fetchall();
+                    data = self.__conn.fetchall()
                     arguments = pickle.loads(str(data[0][0]))
                     self.__conn.execute('DROP FUNCTION export_parameters;')
                     if len(arguments) != len(query_description):
@@ -468,14 +470,14 @@ class Cursor(object):
 
         end = self.rownumber + (size or self.arraysize)
         end = min(end, self.rowcount)
-        result = self.__rows[self.rownumber -
-                             self.__offset:end - self.__offset]
+        result = self.__rows[self.rownumber - self.__offset:
+                             end - self.__offset]
         self.rownumber = min(end, len(self.__rows) + self.__offset)
 
         while (end > self.rownumber) and self.nextset():
-                result += self.__rows[self.rownumber -
-                                      self.__offset:end - self.__offset]
-                self.rownumber = min(end, len(self.__rows) + self.__offset)
+            result += self.__rows[self.rownumber - self.__offset:
+                                  end - self.__offset]
+            self.rownumber = min(end, len(self.__rows) + self.__offset)
         return result
 
     def fetchall(self):
@@ -577,9 +579,10 @@ class Cursor(object):
                 self.messages.append((Warning, line[1:]))
 
             elif line.startswith(mapi.MSG_QTABLE):
-                (self.__query_id, rowcount, columns, tuples) = line[2:].split()[:4]
+                (self.__query_id, rowcount, columns,
+                 tuples) = line[2:].split()[:4]
 
-                columns = int(columns)   # number of columns in result
+                columns = int(columns)  # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
                 # tuples = int(tuples)     # number of rows in this set
                 self.__rows = []
@@ -622,9 +625,9 @@ class Cursor(object):
                 #    self.messages.append((InterfaceError, msg))
                 #    self.__exception_handler(InterfaceError, msg)
 
-                self.description = list(zip(column_name, type_, display_size,
-                                            internal_size, precision, scale,
-                                            null_ok))
+                self.description = list(
+                    zip(column_name, type_, display_size, internal_size,
+                        precision, scale, null_ok))
                 self.__offset = 0
                 self.lastrowid = None
 
@@ -633,7 +636,7 @@ class Cursor(object):
                 self.__rows.append(values)
 
             elif line.startswith(mapi.MSG_TUPLE_NOSLICE):
-                self.__rows.append((line[1:],))
+                self.__rows.append((line[1:], ))
 
             elif line.startswith(mapi.MSG_QBLOCK):
                 self.__rows = []
@@ -673,9 +676,10 @@ class Cursor(object):
         """ parses a mapi data tuple, and returns a list of python types"""
         elements = line[1:-1].split(',\t')
         if len(elements) == len(self.description):
-            return tuple([pythonize.convert(element.strip(), description[1])
-                          for (element, description) in zip(elements,
-                                                            self.description)])
+            return tuple([
+                pythonize.convert(element.strip(), description[1])
+                for (element, description) in zip(elements, self.description)
+            ])
         else:
             self.__exception_handler(InterfaceError,
                                      "length of row doesn't match header")
