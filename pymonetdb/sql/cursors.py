@@ -311,13 +311,17 @@ class Cursor(object):
             result[parameter_list[i]] = arguments[argname]
         pickle.dump(result, open(filespath + 'input_data.bin', 'wb'))
 
-        # loading Columns in Pyhton & Call Function
-        python_udf += '\n' + 'input_parameters = pickle.load(open(\'' + filespath + 'input_data.bin\',\'rb\'))' + '\n' + fname + '('
+        # loading Columns in Python & Call Function
+        python_udf += '\n' + 'input_parameters = pickle.load(open(\''
+        python_udf += filespath + 'input_data.bin\',\'rb\'))' + '\n'
+        python_udf += fname + '('
         for i in range(0, quantity_parameters):
             if i < quantity_parameters - 1:
-                python_udf += 'input_parameters[\'' + parameter_list[i] + '\'],'
+                python_udf += 'input_parameters[\'' +
+                python_udf += parameter_list[i] + '\'],'
             else:
-                python_udf += 'input_parameters[\'' + parameter_list[i] + '\'])'
+                python_udf += 'input_parameters[\''
+                python_udf += parameter_list[i] + '\'])'
 
         file = open(filespath + fname + '.py', 'w')
         file.write(python_udf)
