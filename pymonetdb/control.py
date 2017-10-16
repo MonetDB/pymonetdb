@@ -5,9 +5,13 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import platform
+import logging
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
 from six import next
+
+
+logger = logging.getLogger(__name__)
 
 
 def parse_statusline(line):
@@ -94,16 +98,15 @@ class Control:
         self.server.disconnect()
 
     def _send_command(self, database_name, command):
+        logger.info("sending '{}' command to database {}".format(command, database_name))
         self.server.connect(hostname=self.hostname, port=self.port,
                             username='monetdb', password=self.passphrase,
                             database='merovingian', language='control',
                             unix_socket=self.unix_socket,
                             connect_timeout=self.connect_timeout)
-        try:
-            return self.server.cmd("%s %s\n" % (database_name, command))
-        finally:
-            # always close connection
-            self.server.disconnect()
+        result = self.server.cmd("%s %s\n" % (database_name, command))
+        self.server.disconnect()
+        return result
 
     def create(self, database_name):
         """
