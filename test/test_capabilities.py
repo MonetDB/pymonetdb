@@ -15,6 +15,7 @@
 import os
 from time import time
 import unittest
+import tempfile
 
 from pymonetdb.exceptions import ProgrammingError
 import pymonetdb.sql
@@ -366,7 +367,7 @@ class DatabaseTest(unittest.TestCase):
         self.cursor.execute('select count(*) from types')
         r = self.cursor.fetchone()
         n = r[0]
-        self.cursor.arraysize=100000
+        self.cursor.arraysize = 100000
         self.cursor.execute('select * from types, types')
         r = self.cursor.fetchall()
         self.assertEqual(len(r), n**2)
@@ -393,3 +394,32 @@ class DatabaseTest(unittest.TestCase):
                             (table1, table2))
         result = self.cursor.fetchall()
         self.assertEqual(result, [(50, 50)])
+
+    def test_debug_udf(self):
+        self.cursor.execute("""
+            CREATE FUNCTION test_python_udf(i INTEGER)
+            RETURNS INTEGER
+            LANGUAGE PYTHON {
+                return i * 2;
+            };
+            """)
+        # test if Python UDFs are enabled on the server
+        try:
+            self.cursor.execute('SELECT test_python_udf(1);')
+        except:
+            # python UDFs are disabled or not compiled in, skip this test
+            return
+        result = self.cursor.fetchall()
+        self.assertEqual(result, [(2,)])
+        # test python debugging capabilities
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            fname = f.name
+        self.cursor.export('SELECT test_python_udf(1)', 'test_python_udf', filespath=fname)
+        fname += "test_python_udf.py"
+        with open(fname) as f:
+            code = f.read()
+            self.assertEqual('test_python_udf(i)' in code, True)
+
+
+
+
