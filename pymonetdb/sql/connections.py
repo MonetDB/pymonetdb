@@ -55,12 +55,7 @@ class Connection(object):
                           unix_socket=unix_socket, connect_timeout=connect_timeout)
         self.set_autocommit(autocommit)
         self.set_sizeheader(True)
-
         self.set_replysize(100)
-
-        self.autocommit = autocommit
-        self.sizeheader = True
-        self.replysize = None
 
     def close(self):
         """ Close the connection.
