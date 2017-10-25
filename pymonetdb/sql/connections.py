@@ -40,6 +40,10 @@ class Connection(object):
 
         """
 
+        self.autocommit = autocommit
+        self.sizeheader = True
+        self.replysize = None
+
         # The DB API spec is not specific about this
         if host:
             hostname = host
@@ -53,14 +57,10 @@ class Connection(object):
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout)
+
         self.set_autocommit(autocommit)
         self.set_sizeheader(True)
-
         self.set_replysize(100)
-
-        self.autocommit = autocommit
-        self.sizeheader = True
-        self.replysize = None
 
     def close(self):
         """ Close the connection.
