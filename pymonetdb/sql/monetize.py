@@ -47,6 +47,34 @@ def monet_bytes(data):
     return monet_escape(data)
 
 
+def monet_datetime(data):
+    """
+    returns a casted timestamp
+    """
+    return "TIMESTAMP %s" % monet_escape(data)
+
+
+def monet_date(data):
+    """
+    returns a casted date
+    """
+    return "DATE %s" % monet_escape(data)
+
+
+def monet_time(data):
+    """
+    returns a casted time
+    """
+    return "TIME %s" % monet_escape(data)
+
+
+def monet_timedelta(data):
+    """
+    returns timedelta casted to interval seconds
+    """
+    return "INTERVAL %s SECOND" % monet_escape(int(data.total_seconds()))
+
+
 def monet_unicode(data):
     return monet_escape(data.encode('utf-8'))
 
@@ -58,10 +86,10 @@ mapping = [
     (complex, str),
     (float, str),
     (decimal.Decimal, str),
-    (datetime.datetime, monet_escape),
-    (datetime.time, monet_escape),
-    (datetime.date, monet_escape),
-    (datetime.timedelta, monet_escape),
+    (datetime.datetime, monet_datetime),
+    (datetime.time, monet_time),
+    (datetime.date, monet_date),
+    (datetime.timedelta, monet_timedelta),
     (bool, monet_bool),
     (type(None), monet_none),
 ]
