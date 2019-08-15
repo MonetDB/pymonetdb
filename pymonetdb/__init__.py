@@ -14,7 +14,9 @@ import pkg_resources
 from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
+from pymonetdb import profiler
 
+from pymonetdb.profiler import ProfilerConnection
 from pymonetdb.sql.connections import Connection
 from pymonetdb.sql.pythonize import *
 from pymonetdb.exceptions import *
@@ -46,5 +48,10 @@ __all__ = ['BINARY', 'Binary', 'connect', 'Connection', 'DATE',
 
 def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
+
+def profiler_connection(*args, **kwargs):
+    c = ProfilerConnection()
+    c.connect(*args, **kwargs)
+    return c
 
 connect.__doc__ = Connection.__init__.__doc__
