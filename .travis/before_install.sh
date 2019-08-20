@@ -3,7 +3,7 @@
 # install monetdb
 sudo apt-get install software-properties-common
 sudo apt-get update -q
-sudo sh -c "echo 'deb http://dev.monetdb.org/downloads/deb/ precise monetdb' > /etc/apt/sources.list.d/monetdb.list"
+sudo sh -c "echo 'deb http://dev.monetdb.org/downloads/deb/ xenial monetdb' > /etc/apt/sources.list.d/monetdb.list"
 wget --output-document=- http://dev.monetdb.org/downloads/MonetDB-GPG-KEY | sudo apt-key add -
 sudo apt-get update -q
 sudo apt-get install -qy monetdb5-sql monetdb-client
