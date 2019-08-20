@@ -11,7 +11,7 @@ sudo apt-get install -qy monetdb5-sql monetdb-client
 # start database
 sudo sh -c "echo 'STARTUP=yes\nDBFARM=/var/lib/monetdb\n' > /etc/default/monetdb5-sql"
 sudo service monetdb5-sql start
-sudo service monetdb5-sql status
+sudo service monetdb5-sql status -l
 
 # set up test database
 sudo monetdb create demo
