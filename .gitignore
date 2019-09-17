@@ -6,8 +6,6 @@ pymonetdb.egg-info/
 .cache/
 doc/_build/
 .coverage
-.virtualenv/
-.virtualenv3/
+.virtualenv*/
 .eggs/
-.venv2/
-.venv3/
+.venv*/
