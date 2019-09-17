@@ -6,7 +6,7 @@
 import unittest
 from mock import patch
 import pymonetdb
-from test import util
+from tests import util
 
 
 class ProfilerTest(unittest.TestCase):
