@@ -184,71 +184,7 @@ class Cursor(object):
         self.rowcount = count
         return count
 
-    def export(self, query, fname, sample=-1, filespath='./'):
-        """ Exports a Python UDF and its input parameters to a given
-            file so it can be called locally in an IDE environment.
-        """
 
-        # first retrieve UDF information from the server
-        self.execute("""
-            SELECT func,type
-            FROM functions
-            WHERE language >= 6 AND language <= 11 AND name='%s';""" % fname)
-        data = self.fetchall()
-        self.execute("""
-            SELECT args.name
-            FROM args INNER JOIN functions ON args.func_id=functions.id
-            WHERE functions.name='%s' AND args.inout=1
-            ORDER BY args.number;""" % fname)
-        input_names = self.fetchall()
-        quantity_parameters = len(input_names)
-        # fcode = data[0][0]
-        ftype = data[0][1]
-        parameter_list = []
-        # exporting Python UDF Function
-        if len(data) == 0:
-            raise Exception("Function not found!")
-        else:
-            parameters = '('
-            for x in range(0, len(input_names)):
-                parameter = str(input_names[x]).split('\'')
-                if x < len(input_names) - 1:
-                    parameter_list.append(parameter[1])
-                    parameters = parameters + parameter[1] + ','
-                else:
-                    parameter_list.append(parameter[1])
-                    parameters = parameters + parameter[1] + '): \n'
-
-            data = str(data[0]).replace('\\t', '\t').split('\\n')
-
-            python_udf = 'import pickle \n \n \ndef ' + fname + parameters
-            for x in range(1, len(data) - 1):
-                python_udf = python_udf + '\t' + str(data[x]) + '\n'
-
-        # exporting Columns as Binary Files
-        arguments = self.__exportparameters(ftype, fname, query,
-                                            quantity_parameters, sample)
-        result = dict()
-        for i in range(len(arguments) - 2):
-            argname = "arg%d" % (i + 1)
-            result[parameter_list[i]] = arguments[argname]
-        pickle.dump(result, open(filespath + 'input_data.bin', 'wb'))
-
-        # loading Columns in Python & Call Function
-        python_udf += '\n' + 'input_parameters = pickle.load(open(\''
-        python_udf += filespath + 'input_data.bin\',\'rb\'))' + '\n'
-        python_udf += fname + '('
-        for i in range(0, quantity_parameters):
-            if i < quantity_parameters - 1:
-                python_udf += 'input_parameters[\''
-                python_udf += parameter_list[i] + '\'],'
-            else:
-                python_udf += 'input_parameters[\''
-                python_udf += parameter_list[i] + '\'])'
-
-        file = open(filespath + fname + '.py', 'w')
-        file.write(python_udf)
-        file.close()
 
     def debug(self, query, fname, sample=-1):
         """ Locally debug a given Python UDF function in a SQL query
