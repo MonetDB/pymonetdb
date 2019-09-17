@@ -17,7 +17,7 @@ import six
 from pymonetdb.exceptions import ProgrammingError
 
 
-def monet_none(data):
+def monet_none(_):
     """
     returns a NULL string
     """
@@ -77,6 +77,7 @@ def monet_timedelta(data):
 
 def monet_unicode(data):
     return monet_escape(data.encode('utf-8'))
+
 
 mapping = [
 

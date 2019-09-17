@@ -17,8 +17,9 @@ sudo -u monetdb monetdbd set control=yes /var/lib/monetdb
 sudo -u monetdb monetdbd set passphrase=testdb /var/lib/monetdb
 
 # set up test database
-sudo monetdb create demo
-sudo monetdb release demo
+sudo -u monetdb monetdb create demo
+sudo -u monetdb monetdb set embedpy=true demo
+sudo -u monetdb monetdb release demo
 
 # install python test requirements
-pip install -r test/requirements.txt
+pip install -r tests/requirements.txt

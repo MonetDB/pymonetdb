@@ -6,7 +6,7 @@
 
 import datetime
 import unittest
-from pymonetdb.sql.monetize import convert, monet_escape
+from pymonetdb.sql.monetize import convert
 from pymonetdb.exceptions import ProgrammingError
 
 
