@@ -21,4 +21,4 @@ sudo monetdb create demo
 sudo monetdb release demo
 
 # install python test requirements
-pip install -r test/requirements.txt
+pip install -r tests/requirements.txt

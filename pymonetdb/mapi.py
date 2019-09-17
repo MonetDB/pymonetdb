@@ -1,22 +1,22 @@
+"""
+This is the python implementation of the mapi protocol.
+"""
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-"""
-This is the python implementation of the mapi protocol.
-"""
 
 import socket
 import logging
 import struct
 import hashlib
 import os
-import string
 from six import BytesIO, PY3
+from typing import Optional
 
-from pymonetdb.exceptions import OperationalError, DatabaseError,\
+from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
 
 logger = logging.getLogger(__name__)
@@ -43,13 +43,12 @@ MSG_OK = "=OK"
 STATE_INIT = 0
 STATE_READY = 1
 
-
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
-    'M0M29': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
-    '2D000': IntegrityError,    # COMMIT: failed
-    '40000': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
+    'M0M29': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
+    '2D000': IntegrityError,  # COMMIT: failed
+    '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
 }
 
 
@@ -66,7 +65,7 @@ def handle_error(error):
     """
 
     if error[:13] == 'SQLException:':
-        idx = string.index(error, ':', 14)
+        idx = str.index(error, ':', 14)
         error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
         return errors[error[:5]], error[6:]
@@ -97,7 +96,7 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = None  # type: socket.socket
+        self.socket = None  # type: Optional[socket.socket]
         self.unix_socket = None
         self.hostname = ""
         self.port = 0
@@ -218,7 +217,7 @@ class Connection(object):
         logger.debug("executing command %s" % operation)
 
         if self.state != STATE_READY:
-            raise(ProgrammingError, "Not connected")
+            raise (ProgrammingError, "Not connected")
 
         self._putblock(operation)
         response = self._getblock()
@@ -240,14 +239,14 @@ class Connection(object):
             lines = response.split('\n')
             if any([l.startswith(MSG_ERROR) for l in lines]):
                 index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
-                exception, string = handle_error(lines[index][1:])
-                raise exception(string)
+                exception, msg = handle_error(lines[index][1:])
+                raise exception(msg)
 
         if response[0] in [MSG_Q, MSG_HEADER, MSG_TUPLE]:
             return response
         elif response[0] == MSG_ERROR:
-            exception, string = handle_error(response[1:])
-            raise exception(string)
+            exception, msg = handle_error(response[1:])
+            raise exception(msg)
         elif response[0] == MSG_INFO:
             logger.info("%s" % (response[1:]))
         elif self.language == 'control' and not self.hostname:
@@ -357,3 +356,14 @@ class Connection(object):
     def __del__(self):
         if self.socket:
             self.socket.close()
+
+    def set_reply_size(self, size):
+        # type: (int) -> None
+        """
+        Set the amount of rows returned by the server.
+
+        args:
+            size: The number of rows
+        """
+
+        self.cmd("Xreply_size %s" % size)

@@ -7,6 +7,7 @@
 import unittest
 import pymonetdb.sql.pythonize
 
+
 class TestPythonize(unittest.TestCase):
     def test_Binary(self):
         input1 = ''.join([chr(i) for i in range(256)])
@@ -18,4 +19,3 @@ class TestPythonize(unittest.TestCase):
         output2 = '09646861726D61'
         result2 = pymonetdb.sql.pythonize.Binary(input2)
         self.assertEqual(output2, result2)
-

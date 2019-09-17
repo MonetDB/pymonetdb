@@ -167,6 +167,7 @@ def TimestampFromTicks(ticks):
     """Convert ticks to python Timestamp"""
     return Timestamp(*time.localtime(ticks)[:6])
 
+
 Date = datetime.date
 Time = datetime.time
 Timestamp = datetime.datetime

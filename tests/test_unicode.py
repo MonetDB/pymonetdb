@@ -6,24 +6,14 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-import os
 import unittest
 import pymonetdb
-
-
-MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
-TSTDB = os.environ.get('TSTDB', 'demo')
-TSTHOSTNAME = os.environ.get('TSTHOSTNAME', 'localhost')
-TSTUSERNAME = os.environ.get('TSTUSERNAME', 'monetdb')
-TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
+from tests.util import test_args
 
 
 class TestUnicode(unittest.TestCase):
     def setUp(self):
-        self.con = pymonetdb.connect(database=TSTDB, port=MAPIPORT,
-                                     hostname=TSTHOSTNAME,
-                                     username=TSTUSERNAME,
-                                     password=TSTPASSWORD)
+        self.con = pymonetdb.connect(**test_args)
         cursor = self.con.cursor()
         cursor.execute('create table bla (s VARCHAR(1000))')
 
