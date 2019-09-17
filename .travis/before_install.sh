@@ -9,7 +9,7 @@ sudo apt-get update -q
 sudo apt-get install -qy monetdb5-sql monetdb-client
 
 # start database
-sudo mkdir -m 770 /var/lib/monetdb
+sudo mkdir -p -m 770 /var/lib/monetdb
 sudo chown -R monetdb.monetdb /var/lib/monetdb
 sudo -u monetdb monetdbd create /var/lib/monetdb
 sudo -u monetdb monetdbd start /var/lib/monetdb
