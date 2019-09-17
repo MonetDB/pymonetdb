@@ -42,7 +42,7 @@ class Connection(object):
 
         self.autocommit = autocommit
         self.sizeheader = True
-        self.replysize = None
+        self.replysize = 0
 
         # The DB API spec is not specific about this
         if host:
