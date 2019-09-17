@@ -6,16 +6,14 @@
 
 import logging
 from collections import namedtuple
-import pickle
 from typing import Optional, Dict
-from pymonetdb.sql.debug import debug
+from pymonetdb.sql.debug import debug, export
 from pymonetdb.sql import monetize, pythonize
 from pymonetdb.exceptions import ProgrammingError, InterfaceError
 from pymonetdb import mapi
 from six import PY2, ensure_binary
 
 logger = logging.getLogger("pymonetdb")
-
 
 Description = namedtuple('Description', ('name', 'type_code', 'display_size', 'internal_size', 'precision', 'scale',
                                          'null_ok'))
@@ -191,6 +189,9 @@ class Cursor(object):
         """
         debug(self, query, fname, sample)
 
+    def export(self, query, fname, sample=-1, filespath='./'):
+        return export(self, query, fname, sample, filespath)
+
     def fetchone(self):
         """Fetch the next row of a query result set, returning a
         single sequence, or None when no more data is available."""
@@ -350,7 +351,7 @@ class Cursor(object):
             elif line.startswith(mapi.MSG_QTABLE):
                 self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
 
-                columns = int(columns)   # number of columns in result
+                columns = int(columns)  # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
                 # tuples = int(tuples)     # number of rows in this set
                 self._rows = []
@@ -377,11 +378,11 @@ class Cursor(object):
                 if identity == "name":
                     column_name = values
                 elif identity == "table_name":
-                    _ = values   # not used
+                    _ = values  # not used
                 elif identity == "type":
                     type_ = values
                 elif identity == "length":
-                    _ = values   # not used
+                    _ = values  # not used
                 elif identity == "typesizes":
                     typesizes = [[int(j) for j in i.split()] for i in values]
                     internal_size = [x[0] for x in typesizes]

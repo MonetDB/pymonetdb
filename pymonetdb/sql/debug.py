@@ -121,6 +121,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
         return_type = "TABLE(s STRING)"
     else:
         return_type = "STRING"
+
     if sample == -1:
         export_function = """
             CREATE OR REPLACE FUNCTION export_parameters(*)
@@ -163,24 +164,24 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
             };
             """ % (return_type, str(sample))
 
-        if fname not in query:
-            raise Exception("Function %s not found in query!" % fname)
+    if fname not in query:
+        raise Exception("Function %s not found in query!" % fname)
 
-        query = query.replace(fname, 'export_parameters')
-        query = query.replace(';', ' sample 1;')
+    query = query.replace(fname, 'export_parameters')
+    query = query.replace(';', ' sample 1;')
 
-        cursor.execute(export_function)
-        cursor.execute(query)
-        input_data = cursor.fetchall()
-        cursor.execute('DROP FUNCTION export_parameters;')
-        if len(input_data) <= 0:
-            raise Exception("Could not load input data!")
-        arguments = pickle.loads(str(input_data[0][0]))
+    cursor.execute(export_function)
+    cursor.execute(query)
+    input_data = cursor.fetchall()
+    cursor.execute('DROP FUNCTION export_parameters;')
+    if len(input_data) <= 0:
+        raise Exception("Could not load input data!")
+    arguments = pickle.loads(str(input_data[0][0]))
 
-        if len(arguments) != quantity_parameters + 2:
-            raise Exception("Incorrect amount of input arguments found!")
+    if len(arguments) != quantity_parameters + 2:
+        raise Exception("Incorrect amount of input arguments found!")
 
-        return arguments
+    return arguments
 
 
 def export(cursor, query, fname, sample=-1, filespath='./'):
