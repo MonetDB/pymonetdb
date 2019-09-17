@@ -12,10 +12,13 @@ from test import util
 class ProfilerTest(unittest.TestCase):
     """Test the profiler connection."""
 
-    #@patch('pymonetdb.mapi.Connection._getblock')
-    def test_profiler_connection(self):
+    @classmethod
+    def setUpClass(cls):
+        cls.conn = pymonetdb.profiler.ProfilerConnection()
+        cls.conn.connect(**util.test_args)
+
+    @patch('pymonetdb.mapi.Connection._getblock')
+    def test_profiler_connection(self, mock_getblock):
         response = '{"key":"value"}\n'  # A random JSON object
-        #mock_getblock.return_value = response
-        c = pymonetdb.profiler.ProfilerConnection()
-        c.connect(**util.test_args)
-        self.assertEqual(c.read_object(), response[:-1])
+        mock_getblock.return_value = response
+        self.assertEqual(self.conn.read_object(), response[:-1])
