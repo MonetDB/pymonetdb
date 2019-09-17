@@ -9,3 +9,4 @@ doc/_build/
 .virtualenv*/
 .eggs/
 .venv*/
+.mypy_cache/

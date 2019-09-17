@@ -1,5 +1,5 @@
 coveralls
-pep8
+pycodestyle
 pytest
 Sphinx
 sphinx_rtd_theme
