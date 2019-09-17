@@ -184,8 +184,6 @@ class Cursor(object):
         self.rowcount = count
         return count
 
-
-
     def debug(self, query, fname, sample=-1):
         """ Locally debug a given Python UDF function in a SQL query
             using the PDB debugger. Optionally can run on only a

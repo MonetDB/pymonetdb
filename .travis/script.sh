@@ -2,7 +2,7 @@
 
 # run tests
 nosetests --with-coverage  --cover-package=pymonetdb
-pep8 pymonetdb --ignore=E501
+pycodestyle pymonetdb --ignore=E501
 
 # build doc
 if [ "${TRAVIS_PYTHON_VERSION}" = "3.5" ]; then
