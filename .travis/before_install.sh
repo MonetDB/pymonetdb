@@ -9,11 +9,9 @@ sudo apt-get update -q
 sudo apt-get install -qy monetdb5-sql monetdb-client
 
 # start database
-sudo sh -c "echo 'STARTUP=yes\nDBFARM=/var/lib/monetdb\n' > /etc/default/monetdb5-sql"
-#sudo service monetdb5-sql start
+sudo -u monetdb mkdir -m 700 /var/lib/monetddb
+sudo -u monetdb /usr/bin/monetdbd create /var/lib/monetdb
 sudo -u monetdb /usr/bin/monetdbd start /var/lib/monetdb
-#sudo service monetdb5-sql status -l
-sudo  cat /var/lib/monetdb/merovingian.log 
 
 # set up test database
 sudo monetdb create demo
