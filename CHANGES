@@ -1,3 +1,13 @@
+# 1.2.1
+
+changes since 1.2.0
+
+ - Get MonetDB profiler events (#35)
+ - low level MAPI interface: Increase the return array size? (#33)
+ - Complete cleanup (#46)
+ - Enable TCP_KEEPALIVE to keep consistent with stream.c (#34)
+
+
 # 1.2.0
 
 changes since 1.1.1
