@@ -171,5 +171,6 @@ class TestUnicode(unittest.TestCase):
         self.assertEqual(1, cur.rowcount,
                          'queries ending in comments should be executed correctly')
 
+
 if __name__ == '__main__':
     unittest.main()
