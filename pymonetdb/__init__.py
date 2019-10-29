@@ -27,7 +27,7 @@ except pkg_resources.DistributionNotFound:
     __version__ = "1.0rc"
 
 apilevel = "2.0"
-threadsafety = 0
+threadsafety = 1
 paramstyle = "pyformat"
 
 __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connection', 'DATE', 'Date', 'Time',

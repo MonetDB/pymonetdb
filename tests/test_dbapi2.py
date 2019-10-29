@@ -1,53 +1,26 @@
-# -*- coding: utf-8 -*-
-""" Python DB API 2.0 driver compliance unit test suite.
-
-   This software is Public Domain and may be used without restrictions.
-
-"Now we have booze and barflies entering the discussion, plus rumours of
- DBAs on drugs... and I won't tell you what flashes through my mind each
- time I read the subject line with 'Anal Compliance' in it.  All around
- this is turning out to be a thoroughly unwholesome unit test."
-
-   -- Ian Bicking
+"""
+Python DB API 2.0 driver compliance unit test suite.
 """
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
-
+#
+#
+# this code is modified version of (public domain):
+#
+# https://github.com/psycopg/psycopg2/blob/master/tests/dbapi20.py
+#
 import unittest
 import time
-from six import text_type, PY3
-
+import sys
 import pymonetdb
-from pymonetdb.compat import unicode_string
 from tests.util import test_args
-
-if PY3:
-    StandardError = Exception
 
 
 class DatabaseAPI20Test(unittest.TestCase):
-    """ Test a database pymonetdb for DB API 2.0 compatibility.
-        This implementation tests Gadfly, but the TestCase
-        is structured so that other pymonetdbs can subclass this
-        test case to ensure compiliance with the DB-API. It is
-        expected that this TestCase may be expanded in the future
-        if ambiguities or edge conditions are discovered.
-
-        The 'Optional Extensions' are not yet being tested.
-
-        pymonetdbs should subclass this test, overriding setUp, tearDown,
-        pymonetdb, connect_args and connect_kwargs. Class specification
-        should be as follows:
-
-        import dbapi20
-        class mytest(dbapi20.DatabaseAPI20Test):
-           [...]
-
-        Don't 'import DatabaseAPI20Test from dbapi20', or you will
-        confuse the unit tester - just 'import dbapi20'.
+    """ Test pymonetdb for DB API 2.0 compatibility.
     """
 
     table_prefix = 'dbapi20test_'  # If you need to specify a prefix for tables
@@ -68,22 +41,16 @@ class DatabaseAPI20Test(unittest.TestCase):
         cursor.execute(self.ddl2)
 
     def setUp(self):
-        """ pymonetdbs should override this method to perform required setup
-            if any is necessary, such as creating the database.
-        """
         pass
 
     def tearDown(self):
-        """ pymonetdbs should override this method to perform required cleanup
-            if any is necessary, such as deleting the test database.
-            The default drops the tables that may be created.
-        """
         con = self._connect()
         try:
             cur = con.cursor()
             for ddl in (self.xddl1, self.xddl2):
                 try:
                     cur.execute(ddl)
+                    con.commit()
                 except pymonetdb.Error:
                     # Assume table didn't exist. Other tests will check if
                     # execute is busted.
@@ -93,7 +60,7 @@ class DatabaseAPI20Test(unittest.TestCase):
 
     def _connect(self):
         try:
-            return pymonetdb.connect(autocommit=False, **test_args)
+            return pymonetdb.connect(**test_args)
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
 
@@ -115,7 +82,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             # Must exist
             threadsafety = pymonetdb.threadsafety
             # Must be a valid value
-            self.assertTrue(threadsafety in (0, 1, 2, 3))
+            self.failUnless(threadsafety in (0, 1, 2, 3))
         except AttributeError:
             self.fail("Driver doesn't define threadsafety")
 
@@ -124,7 +91,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             # Must exist
             paramstyle = pymonetdb.paramstyle
             # Must be a valid value
-            self.assertTrue(paramstyle in (
+            self.failUnless(paramstyle in (
                 'qmark', 'numeric', 'named', 'format', 'pyformat'
             ))
         except AttributeError:
@@ -133,27 +100,32 @@ class DatabaseAPI20Test(unittest.TestCase):
     def test_Exceptions(self):
         # Make sure required exceptions exist, and are in the
         # defined hierarchy.
-        self.assertTrue(issubclass(pymonetdb.Warning, StandardError))
-        self.assertTrue(issubclass(pymonetdb.Error, StandardError))
-        self.assertTrue(
+        if sys.version[0] == '3':  # under Python 3 StardardError no longer exists
+            self.failUnless(issubclass(pymonetdb.Warning, Exception))
+            self.failUnless(issubclass(pymonetdb.Error, Exception))
+        else:
+            self.failUnless(issubclass(pymonetdb.Warning, StandardError))
+            self.failUnless(issubclass(pymonetdb.Error, StandardError))
+
+        self.failUnless(
             issubclass(pymonetdb.InterfaceError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.DatabaseError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.OperationalError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.IntegrityError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.InternalError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.ProgrammingError, pymonetdb.Error)
         )
-        self.assertTrue(
+        self.failUnless(
             issubclass(pymonetdb.NotSupportedError, pymonetdb.Error)
         )
 
@@ -166,15 +138,15 @@ class DatabaseAPI20Test(unittest.TestCase):
         # by default.
         con = self._connect()
         drv = pymonetdb
-        self.assertTrue(con.Warning is drv.Warning)
-        self.assertTrue(con.Error is drv.Error)
-        self.assertTrue(con.InterfaceError is drv.InterfaceError)
-        self.assertTrue(con.DatabaseError is drv.DatabaseError)
-        self.assertTrue(con.OperationalError is drv.OperationalError)
-        self.assertTrue(con.IntegrityError is drv.IntegrityError)
-        self.assertTrue(con.InternalError is drv.InternalError)
-        self.assertTrue(con.ProgrammingError is drv.ProgrammingError)
-        self.assertTrue(con.NotSupportedError is drv.NotSupportedError)
+        self.failUnless(con.Warning is drv.Warning)
+        self.failUnless(con.Error is drv.Error)
+        self.failUnless(con.InterfaceError is drv.InterfaceError)
+        self.failUnless(con.DatabaseError is drv.DatabaseError)
+        self.failUnless(con.OperationalError is drv.OperationalError)
+        self.failUnless(con.IntegrityError is drv.IntegrityError)
+        self.failUnless(con.InternalError is drv.InternalError)
+        self.failUnless(con.ProgrammingError is drv.ProgrammingError)
+        self.failUnless(con.NotSupportedError is drv.NotSupportedError)
 
     def test_commit(self):
         con = self._connect()
@@ -197,7 +169,7 @@ class DatabaseAPI20Test(unittest.TestCase):
     def test_cursor(self):
         con = self._connect()
         try:
-            con.cursor()
+            _ = con.cursor()
         finally:
             con.close()
 
@@ -265,12 +237,12 @@ class DatabaseAPI20Test(unittest.TestCase):
             cur.execute("insert into %sbooze values ('Victoria Bitter')" % (
                 self.table_prefix
             ))
-            self.assertTrue(cur.rowcount in (-1, 1),
+            self.failUnless(cur.rowcount in (-1, 1),
                             'cursor.rowcount should == number or rows inserted, or '
                             'set to -1 after executing an insert statement'
                             )
             cur.execute("select name from %sbooze" % self.table_prefix)
-            self.assertTrue(cur.rowcount in (-1, 1),
+            self.failUnless(cur.rowcount in (-1, 1),
                             'cursor.rowcount should == number of rows returned, or '
                             'set to -1 after executing a select statement'
                             )
@@ -294,8 +266,12 @@ class DatabaseAPI20Test(unittest.TestCase):
                 self.assertEqual(r[0], 'FOO')
                 r = cur.fetchall()
                 self.assertEqual(len(r), 1, 'callproc produced no result set')
-                self.assertEqual(len(r[0]), 1, 'callproc produced invalid result set')
-                self.assertEqual(r[0][0], 'foo', 'callproc produced invalid results')
+                self.assertEqual(len(r[0]), 1,
+                                 'callproc produced invalid result set'
+                                 )
+                self.assertEqual(r[0][0], 'foo',
+                                 'callproc produced invalid results'
+                                 )
         finally:
             con.close()
 
@@ -330,7 +306,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         cur.execute("insert into %sbooze values ('Victoria Bitter')" % (
             self.table_prefix
         ))
-        self.assertTrue(cur.rowcount in (-1, 1))
+        self.failUnless(cur.rowcount in (-1, 1))
 
         if pymonetdb.paramstyle == 'qmark':
             cur.execute(
@@ -359,7 +335,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             )
         else:
             self.fail('Invalid paramstyle')
-        self.assertTrue(cur.rowcount in (-1, 1))
+        self.failUnless(cur.rowcount in (-1, 1))
 
         cur.execute('select name from %sbooze' % self.table_prefix)
         res = cur.fetchall()
@@ -411,7 +387,7 @@ class DatabaseAPI20Test(unittest.TestCase):
                 )
             else:
                 self.fail('Unknown paramstyle')
-            self.assertTrue(cur.rowcount in (-1, 2),
+            self.failUnless(cur.rowcount in (-1, 2),
                             'insert using cursor.executemany set cursor.rowcount to '
                             'incorrect value %r' % cur.rowcount
                             )
@@ -437,7 +413,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertRaises(pymonetdb.Error, cur.fetchone)
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             self.executeDDL1(cur)
             self.assertRaises(pymonetdb.Error, cur.fetchone)
 
@@ -446,10 +422,10 @@ class DatabaseAPI20Test(unittest.TestCase):
                              'cursor.fetchone should return None if a query retrieves '
                              'no rows'
                              )
-            self.assertTrue(cur.rowcount in (-1, 0))
+            self.failUnless(cur.rowcount in (-1, 0))
 
             # cursor.fetchone should raise an Error if called after
-            # executing a query that cannnot return rows
+            # executing a query that cannot return rows
             cur.execute("insert into %sbooze values ('Victoria Bitter')" % (
                 self.table_prefix
             ))
@@ -466,7 +442,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertEqual(cur.fetchone(), None,
                              'cursor.fetchone should return None if no more rows available'
                              )
-            self.assertTrue(cur.rowcount in (-1, 1))
+            self.failUnless(cur.rowcount in (-1, 1))
         finally:
             con.close()
 
@@ -523,29 +499,28 @@ class DatabaseAPI20Test(unittest.TestCase):
                 cur.execute(sql)
 
             cur.execute('select name from %sbooze' % self.table_prefix)
+            # our default is not one since that is slow
             cur.arraysize = 1
             r = cur.fetchmany()
             self.assertEqual(len(r), 1,
                              'cursor.fetchmany retrieved incorrect number of rows, '
-                             'should get 1 rows, received %s' % len(r)
+                             'default of arraysize is one.'
                              )
             cur.arraysize = 10
             r = cur.fetchmany(3)  # Should get 3 rows
             self.assertEqual(len(r), 3,
-                             'cursor.fetchmany retrieved incorrect number of rows, '
-                             'should get 3 rows, received %s' % len(r)
+                             'cursor.fetchmany retrieved incorrect number of rows'
                              )
             r = cur.fetchmany(4)  # Should get 2 more
             self.assertEqual(len(r), 2,
-                             'cursor.fetchmany retrieved incorrect number of rows, '
-                             'should get 2 more.'
+                             'cursor.fetchmany retrieved incorrect number of rows'
                              )
             r = cur.fetchmany(4)  # Should be an empty sequence
             self.assertEqual(len(r), 0,
                              'cursor.fetchmany should return an empty sequence after '
                              'results are exhausted'
                              )
-            self.assertTrue(cur.rowcount in (-1, 6))
+            self.failUnless(cur.rowcount in (-1, 6))
 
             # Same as above, using cursor.arraysize
             cur.arraysize = 4
@@ -558,12 +533,12 @@ class DatabaseAPI20Test(unittest.TestCase):
             self.assertEqual(len(r), 2)
             r = cur.fetchmany()  # Should be an empty sequence
             self.assertEqual(len(r), 0)
-            self.assertTrue(cur.rowcount in (-1, 6))
+            self.failUnless(cur.rowcount in (-1, 6))
 
             cur.arraysize = 6
             cur.execute('select name from %sbooze' % self.table_prefix)
             rows = cur.fetchmany()  # Should get all rows
-            self.assertTrue(cur.rowcount in (-1, 6))
+            self.failUnless(cur.rowcount in (-1, 6))
             self.assertEqual(len(rows), 6)
             self.assertEqual(len(rows), 6)
             rows = [r[0] for r in rows]
@@ -580,7 +555,7 @@ class DatabaseAPI20Test(unittest.TestCase):
                              'cursor.fetchmany should return an empty sequence if '
                              'called after the whole result set has been fetched'
                              )
-            self.assertTrue(cur.rowcount in (-1, 6))
+            self.failUnless(cur.rowcount in (-1, 6))
 
             self.executeDDL2(cur)
             cur.execute('select name from %sbarflys' % self.table_prefix)
@@ -589,7 +564,7 @@ class DatabaseAPI20Test(unittest.TestCase):
                              'cursor.fetchmany should return an empty sequence if '
                              'query retrieved no rows'
                              )
-            self.assertTrue(cur.rowcount in (-1, 0))
+            self.failUnless(cur.rowcount in (-1, 0))
 
         finally:
             con.close()
@@ -613,7 +588,7 @@ class DatabaseAPI20Test(unittest.TestCase):
 
             cur.execute('select name from %sbooze' % self.table_prefix)
             rows = cur.fetchall()
-            self.assertTrue(cur.rowcount in (-1, len(self.samples)))
+            self.failUnless(cur.rowcount in (-1, len(self.samples)))
             self.assertEqual(len(rows), len(self.samples),
                              'cursor.fetchall did not retrieve all rows'
                              )
@@ -629,12 +604,12 @@ class DatabaseAPI20Test(unittest.TestCase):
                 'cursor.fetchall should return an empty list if called '
                 'after the whole result set has been fetched'
             )
-            self.assertTrue(cur.rowcount in (-1, len(self.samples)))
+            self.failUnless(cur.rowcount in (-1, len(self.samples)))
 
             self.executeDDL2(cur)
             cur.execute('select name from %sbarflys' % self.table_prefix)
             rows = cur.fetchall()
-            self.assertTrue(cur.rowcount in (-1, 0))
+            self.failUnless(cur.rowcount in (-1, 0))
             self.assertEqual(len(rows), 0,
                              'cursor.fetchall should return an empty list if '
                              'a select query returns no rows'
@@ -656,7 +631,7 @@ class DatabaseAPI20Test(unittest.TestCase):
             rows23 = cur.fetchmany(2)
             rows4 = cur.fetchone()
             rows56 = cur.fetchall()
-            self.assertTrue(cur.rowcount in (-1, 6))
+            self.failUnless(cur.rowcount in (-1, 6))
             self.assertEqual(len(rows23), 2,
                              'fetchmany returned incorrect number of rows'
                              )
@@ -680,7 +655,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         con = self._connect()
         try:
             cur = con.cursor()
-            self.assertTrue(hasattr(cur, 'arraysize'),
+            self.failUnless(hasattr(cur, 'arraysize'),
                             'cursor.arraysize must be defined'
                             )
         finally:
@@ -737,139 +712,31 @@ class DatabaseAPI20Test(unittest.TestCase):
         )
         self.assertEqual(str(t1), str(t2))
 
-    @staticmethod
-    def test_Binary():
-        pymonetdb.Binary('Something')
-        pymonetdb.Binary('')
+    def test_Binary(self):
+        b = pymonetdb.Binary(b'Something')
+        b = pymonetdb.Binary(b'')
 
     def test_STRING(self):
-        self.assertTrue(hasattr(pymonetdb, 'STRING'),
+        self.failUnless(hasattr(pymonetdb, 'STRING'),
                         'module.STRING must be defined'
                         )
 
     def test_BINARY(self):
-        self.assertTrue(hasattr(pymonetdb, 'BINARY'),
+        self.failUnless(hasattr(pymonetdb, 'BINARY'),
                         'module.BINARY must be defined.'
                         )
 
     def test_NUMBER(self):
-        self.assertTrue(hasattr(pymonetdb, 'NUMBER'),
+        self.failUnless(hasattr(pymonetdb, 'NUMBER'),
                         'module.NUMBER must be defined.'
                         )
 
     def test_DATETIME(self):
-        self.assertTrue(hasattr(pymonetdb, 'DATETIME'),
+        self.failUnless(hasattr(pymonetdb, 'DATETIME'),
                         'module.DATETIME must be defined.'
                         )
 
     def test_ROWID(self):
-        self.assertTrue(hasattr(pymonetdb, 'ROWID'),
+        self.failUnless(hasattr(pymonetdb, 'ROWID'),
                         'module.ROWID must be defined.'
                         )
-
-    def test_utf8(self):
-        con = self._connect()
-        try:
-            cur = con.cursor()
-            self.executeDDL1(cur)
-            args = {'beer': '\xc4\xa5'}
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
-            cur.execute('select name from %sbooze' % self.table_prefix)
-            res = cur.fetchall()
-            beer = res[0][0]
-            encoded = unicode_string(args['beer'])
-            self.assertEqual(beer, encoded, 'incorrect data retrieved')
-        finally:
-            con.close()
-
-    def test_unicode(self):
-        con = self._connect()
-        try:
-            cur = con.cursor()
-            self.executeDDL1(cur)
-            s = unicode_string('\N{latin small letter a with acute}', 'unicode-escape')
-            args = {'beer': s}
-            encoded = args['beer']
-
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
-            cur.execute('select name from %sbooze' % self.table_prefix)
-            res = cur.fetchall()
-            beer = res[0][0]
-            self.assertEqual(beer, encoded, 'incorrect data retrieved')
-        finally:
-            con.close()
-
-    def test_substring(self):
-        con = self._connect()
-        try:
-            cur = con.cursor()
-            self.executeDDL1(cur)
-            args = {'beer': '"" \"\'\",\\"\\"\"\'\"'}
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
-            cur.execute('select name from %sbooze' % self.table_prefix)
-            res = cur.fetchall()
-            beer = res[0][0]
-            self.assertEqual(beer, args['beer'],
-                             'incorrect data retrieved, got %s, should be %s' % (beer, args['beer']))
-        finally:
-            con.close()
-
-    def test_escape(self):
-        teststrings = [
-            'abc\ndef',
-            'abc\\ndef',
-            'abc\\\ndef',
-            'abc\\\\ndef',
-            'abc\\\\\ndef',
-            'abc"def',
-            'abc""def',
-            'abc\'def',
-            'abc\'\'def',
-            "abc\"def",
-            "abc\"\"def",
-            "abc'def",
-            "abc''def",
-            "abc\tdef",
-            "abc\\tdef",
-            "abc\\\tdef",
-            "\\x"
-        ]
-
-        con = self._connect()
-        try:
-            cur = con.cursor()
-            self.executeDDL1(cur)
-            for i in teststrings:
-                args = {'beer': i}
-                cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
-                cur.execute('select * from %sbooze' % self.table_prefix)
-                row = cur.fetchone()
-                cur.execute('delete from %sbooze where name=%%s' % self.table_prefix, i)
-                self.assertEqual(i, row[0], 'newline not properly converted, got %s, should be %s' % (row[0], i))
-        finally:
-            con.close()
-
-    def test_non_ascii_string(self):
-        con = self._connect()
-        cur = con.cursor()
-        self.executeDDL1(cur)
-        input_ = '中文 zhōngwén'
-        args = {'beer': input_}
-        cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix,
-                    args)
-        cur.execute('select name from %sbooze' % self.table_prefix)
-        res = cur.fetchall()
-        returned = res[0][0]
-        encoded = unicode_string(input_)
-        self.assertEqual(returned, encoded)
-        self.assertEqual(type(returned), text_type)
-
-    def test_query_ending_with_comment(self):
-        con = self._connect()
-        cur = con.cursor()
-        self.executeDDL1(cur)
-        cur.execute("insert into %sbooze values ('foo')" % self.table_prefix)
-        cur.execute('select * from %sbooze --This is a SQL comment' % self.table_prefix)
-        # the above line should execute without problems
-        self.assertEqual(1, cur.rowcount,
-                         'queries ending in comments should be executed correctly')
