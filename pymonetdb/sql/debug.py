@@ -100,7 +100,10 @@ def debug(cursor, query, fname, sample=-1):
         fcode = re.sub('^\n', '', fcode)
         function_definition = "def pyfun(%s):\n %s\n" % (
             arglist, fcode.replace("\n", "\n "))
-        f.write(function_definition)
+        if six.PY2:
+            f.write(function_definition)
+        else:
+            f.write(function_definition.encode('utf-8'))
         f.flush()
         execfile(f.name, globals(), locals())
 
