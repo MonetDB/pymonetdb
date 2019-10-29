@@ -465,6 +465,26 @@ class DatabaseAPI20Test(unittest.TestCase):
         ]
         return populate
 
+    def test_cursor_next(self):
+        con = self._connect()
+        try:
+            cur = con.cursor()
+
+            self.executeDDL1(cur)
+            for sql in self._populate():
+                cur.execute(sql)
+
+            cur.execute('select name from %sbooze' % self.table_prefix)
+
+            for _ in cur:
+                pass
+
+        except TypeError:
+            self.fail("Cursor iterator not implemented correctly")
+
+        finally:
+            con.close()
+
     def test_fetchmany(self):
         con = self._connect()
         try:
