@@ -6,6 +6,7 @@ python:
   - 3.5
   - 3.6
   - 3.7
+  - 3.8
   - pypy
 
 before_install:
@@ -26,5 +27,6 @@ deploy:
   password:
     secure: I4bmfyVLt/A5bvP6AmucK6YCWcaiMtfuF3HZL2snhddqJhnBRQkO7MhgZ5xk3Fdheq6/Rlwk8obsMdGsKKPzGx6bHvCE5RXTIRhZNCrotwpdU0FNg0fBUcmOS981YaHxpZEDmBD7KjaZdOo5SpTyAyLp7rUl4RVvDu9vqICLlGk=
   distributions: "sdist bdist_wheel"
+  skip_existing: true
   on:
     tags: true
