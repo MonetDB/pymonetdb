@@ -94,7 +94,9 @@ def py_timestamptz(data):
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
 def py_bytes(data):
-    return bytes.fromhex(data)
+    if PY3:
+        return bytes.fromhex(data)
+    return str(data)
 
 def oid(data):
     """represents an object identifier
