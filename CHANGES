@@ -1,3 +1,48 @@
+# 1.2.1
+
+changes since 1.2.0
+
+ - Get MonetDB profiler events (#35)
+ - low level MAPI interface: Increase the return array size? (#33)
+ - Complete cleanup (#46)
+ - Enable TCP_KEEPALIVE to keep consistent with stream.c (#34)
+
+
+# 1.2.0
+
+changes since 1.1.1
+
+- Correctly monetize python datetime, date, time and timedelta types (#31)
+
+# 1.1.1
+
+changes since 1.1.0
+
+- fix error made while making static code analysis happy (#30)
+
+
+# 1.1.0
+
+changes since 1.0.6
+
+- cleanup internal naming and logic
+- upcoming monetdb version will have more complicate error messages (#24)
+- drop Python 2.6 support (#27)
+- pymonetdb.control doesn't work over tcp (#28)
+- don't use nose anymore (#29)
+- license file (25)
+- Make description a named tuple (#3)
+- Exporting Python UDFs Using the Python Client (#26)
+
+# 1.0.6
+
+changes since 1.0.5:
+
+- add timeout for server connection (#22)
+- Queries ending with comments fail to execute (#20)
+- Compatibility with upcoming query id field in result sets and update responses (#19)
+
+
 # 1.0.5
 
 changes since 1.0.4:
@@ -5,9 +50,11 @@ changes since 1.0.4:
 - fix cutoff long packets with utf-8 characters (#16)
 - In python3 next has been renamed to __next__ (#17)
 
+
 # 1.0.4
 
 - Multiline response handling (issue #12)
+
 
 # 1.0.3
 

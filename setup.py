@@ -13,7 +13,8 @@ from setuptools import setup
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-__version__ = '1.0.6'
+
+__version__ = '1.2.1'
 
 setup(name='pymonetdb',
       version=__version__,
@@ -32,16 +33,16 @@ setup(name='pymonetdb',
           "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
           "Programming Language :: Python :: 2",
           "Programming Language :: Python :: 3",
-          "Programming Language :: Python :: 2.6",
           "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 3.4",
           "Programming Language :: Python :: 3.5",
           "Programming Language :: Python :: 3.6",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: Implementation :: PyPy",
       ],
-      install_requires=[
-          'six'
-      ]
-)
-
-
+      install_requires=['six>=1.12.0', 'typing', 'future'],
+      setup_requires=['pytest-runner'],
+      tests_require=['pytest', 'mock'],
+      test_suite="test",
+      )

@@ -94,6 +94,14 @@ def py_timestamptz(data):
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
 
+def oid(data):
+    """represents an object identifier
+
+    For now we will just return the string representation just like mclient does.
+    """
+    return oid
+
+
 mapping = {
     types.CHAR: strip,
     types.VARCHAR: strip,
@@ -108,7 +116,7 @@ mapping = {
     types.SHORTINT: int,
     types.MEDIUMINT: int,
     types.LONGINT: int,
-    types.OID: int,
+    types.OID: oid,
     types.WRD: int,
     types.REAL: float,
     types.FLOAT: float,
@@ -150,7 +158,7 @@ def convert(data, type_code):
 
 def Binary(data):
     """returns binary encoding of data"""
-    return ''.join(["%02X" % ord(i) for i in data])
+    return ''.join(["%02X" % ord(i) for i in str(data)])
 
 
 def DateFromTicks(ticks):
@@ -166,6 +174,7 @@ def TimeFromTicks(ticks):
 def TimestampFromTicks(ticks):
     """Convert ticks to python Timestamp"""
     return Timestamp(*time.localtime(ticks)[:6])
+
 
 Date = datetime.date
 Time = datetime.time

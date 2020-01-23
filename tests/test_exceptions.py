@@ -4,24 +4,14 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-import os
 import unittest
 import pymonetdb
-
-
-MAPIPORT = int(os.environ.get('MAPIPORT', 50000))
-TSTDB = os.environ.get('TSTDB', 'demo')
-TSTHOSTNAME = os.environ.get('TSTHOSTNAME', 'localhost')
-TSTUSERNAME = os.environ.get('TSTUSERNAME', 'monetdb')
-TSTPASSWORD = os.environ.get('TSTPASSWORD', 'monetdb')
+from tests.util import test_args
 
 
 class TestExceptions(unittest.TestCase):
     def setUp(self):
-        self.con = pymonetdb.connect(database=TSTDB, port=MAPIPORT,
-                                     hostname=TSTHOSTNAME,
-                                     username=TSTUSERNAME,
-                                     password=TSTPASSWORD)
+        self.con = pymonetdb.connect(**test_args)
         cursor = self.con.cursor()
         cursor.execute('create table exceptions (s VARCHAR(1000) UNIQUE)')
 
@@ -36,9 +26,9 @@ class TestExceptions(unittest.TestCase):
         x = u"something"
         cursor.execute(u'insert into exceptions VALUES (%s)', (x,))
         with self.assertRaises(pymonetdb.exceptions.IntegrityError):
-             cursor.execute(u'insert into exceptions VALUES (%s)', (x,))
+            cursor.execute(u'insert into exceptions VALUES (%s)', (x,))
 
-    def test_unique_contraint_violated(self):
+    def test_unique_contraint_violated2(self):
         """
         '42S02!' no such table
         """

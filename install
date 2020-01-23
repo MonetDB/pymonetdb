@@ -1,0 +1,6 @@
+#!/bin/bash
+export PYTHONPATH=$PYTHON2PATH
+python setup.py install --prefix=/home/niels/scratch/clients/ 
+export PYTHONPATH=$PYTHON3PATH
+python3 setup.py install --prefix=/home/niels/scratch/clients/ 
+unset PYTHONPATH

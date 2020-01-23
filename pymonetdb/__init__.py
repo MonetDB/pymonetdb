@@ -14,37 +14,38 @@ import pkg_resources
 from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
+from pymonetdb import profiler
 
+from pymonetdb.profiler import ProfilerConnection
 from pymonetdb.sql.connections import Connection
 from pymonetdb.sql.pythonize import *
 from pymonetdb.exceptions import *
-
 
 try:
     __version__ = pkg_resources.require("pymonetdb")[0].version
 except pkg_resources.DistributionNotFound:
     __version__ = "1.0rc"
 
-
-__all__ = ["sql", "mapi", "exceptions"]
 apilevel = "2.0"
-threadsafety = 0
+threadsafety = 1
 paramstyle = "pyformat"
 
-__all__ = ['BINARY', 'Binary', 'connect', 'Connection', 'DATE',
-           'Date', 'Time', 'Timestamp', 'DateFromTicks', 'TimeFromTicks',
-           'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
-           'FIELD_TYPE', 'IntegrityError', 'InterfaceError', 'InternalError',
-           'MySQLError', 'NULL', 'NUMBER', 'NotSupportedError', 'DBAPISet',
-           'OperationalError', 'ProgrammingError', 'ROWID', 'STRING', 'TIME',
-           'TIMESTAMP', 'Set', 'Warning', 'apilevel', 'connect',
-           'connections', 'constants', 'cursors', 'debug', 'escape',
-           'escape_dict', 'escape_sequence', 'escape_string',
-           'get_client_info', 'paramstyle', 'string_literal', 'threadsafety',
-           'version_info']
+__all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connection', 'DATE', 'Date', 'Time',
+           'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
+           'IntegrityError', 'InterfaceError', 'InternalError', 'NUMBER', 'NotSupportedError', 'OperationalError',
+           'ProgrammingError', 'ROWID', 'STRING', 'TIME', 'Warning', 'apilevel', 'connect', 'paramstyle',
+           'threadsafety']
 
 
 def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
 
+
+def profiler_connection(*args, **kwargs):
+    c = ProfilerConnection()
+    c.connect(*args, **kwargs)
+    return c
+
+
 connect.__doc__ = Connection.__init__.__doc__
+profiler_connection.__doc__ = ProfilerConnection.__init__.__doc__

@@ -1,22 +1,22 @@
+"""
+This is the python implementation of the mapi protocol.
+"""
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-"""
-This is the python implementation of the mapi protocol.
-"""
 
 import socket
 import logging
 import struct
 import hashlib
 import os
-import string
 from six import BytesIO, PY3
+from typing import Optional
 
-from pymonetdb.exceptions import OperationalError, DatabaseError,\
+from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
 
 logger = logging.getLogger(__name__)
@@ -43,13 +43,12 @@ MSG_OK = "=OK"
 STATE_INIT = 0
 STATE_READY = 1
 
-
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
-    'M0M29': IntegrityError,    # INSERT INTO: UNIQUE constraint violated
-    '2D000': IntegrityError,    # COMMIT: failed
-    '40000': IntegrityError,    # DROP TABLE: FOREIGN KEY constraint violated
+    'M0M29': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
+    '2D000': IntegrityError,  # COMMIT: failed
+    '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
 }
 
 
@@ -66,7 +65,7 @@ def handle_error(error):
     """
 
     if error[:13] == 'SQLException:':
-        idx = string.index(error, ':', 14)
+        idx = str.index(error, ':', 14)
         error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
         return errors[error[:5]], error[6:]
@@ -97,7 +96,8 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = ""
+        self.socket = None  # type: Optional[socket.socket]
+        self.unix_socket = None
         self.hostname = ""
         self.port = 0
         self.username = ""
@@ -118,7 +118,7 @@ class Connection(object):
             hostname = None
         if not unix_socket and os.path.exists("/tmp/.s.monetdb.%i" % port):
             unix_socket = "/tmp/.s.monetdb.%i" % port
-        elif not hostname:
+        elif not unix_socket and not hostname:
             hostname = 'localhost'
 
         # None and zero are allowed values
@@ -137,7 +137,7 @@ class Connection(object):
         if hostname:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # For performance, mirror MonetDB/src/common/stream.c socket settings.
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self.socket.settimeout(self.connect_timeout)
             self.socket.connect((hostname, port))
@@ -208,6 +208,7 @@ class Connection(object):
 
     def disconnect(self):
         """ disconnect from the monetdb server """
+        logger.info("disconnecting from database")
         self.state = STATE_INIT
         self.socket.close()
 
@@ -216,7 +217,7 @@ class Connection(object):
         logger.debug("executing command %s" % operation)
 
         if self.state != STATE_READY:
-            raise(ProgrammingError, "Not connected")
+            raise (ProgrammingError, "Not connected")
 
         self._putblock(operation)
         response = self._getblock()
@@ -238,14 +239,14 @@ class Connection(object):
             lines = response.split('\n')
             if any([l.startswith(MSG_ERROR) for l in lines]):
                 index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
-                exception, string = handle_error(lines[index][1:])
-                raise exception(string)
+                exception, msg = handle_error(lines[index][1:])
+                raise exception(msg)
 
         if response[0] in [MSG_Q, MSG_HEADER, MSG_TUPLE]:
             return response
         elif response[0] == MSG_ERROR:
-            exception, string = handle_error(response[1:])
-            raise exception(string)
+            exception, msg = handle_error(response[1:])
+            raise exception(msg)
         elif response[0] == MSG_INFO:
             logger.info("%s" % (response[1:]))
         elif self.language == 'control' and not self.hostname:
@@ -269,7 +270,7 @@ class Connection(object):
                 h.update(encode(password))
                 password = h.hexdigest()
             except ValueError as e:
-                raise NotSupportedError(e.message)
+                raise NotSupportedError(str(e))
         else:
             raise NotSupportedError("We only speak protocol v9")
 
@@ -293,7 +294,7 @@ class Connection(object):
 
     def _getblock(self):
         """ read one mapi encoded block """
-        if (self.language == 'control' and not self.hostname):
+        if self.language == 'control' and not self.hostname:
             return self._getblock_socket()  # control doesn't do block splitting when using a socket
         else:
             return self._getblock_inet()
@@ -317,7 +318,7 @@ class Connection(object):
                 buffer.write(x)
             else:
                 break
-        return buffer.getvalue().strip()
+        return decode(buffer.getvalue().strip())
 
     def _getbytes(self, bytes_):
         """Read an amount of bytes from the socket"""
@@ -333,7 +334,7 @@ class Connection(object):
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
-        if (self.language == 'control' and not self.hostname):
+        if self.language == 'control' and not self.hostname:
             return self.socket.send(encode(block))  # control doesn't do block splitting when using a socket
         else:
             self._putblock_inet(block)
@@ -355,3 +356,14 @@ class Connection(object):
     def __del__(self):
         if self.socket:
             self.socket.close()
+
+    def set_reply_size(self, size):
+        # type: (int) -> None
+        """
+        Set the amount of rows returned by the server.
+
+        args:
+            size: The number of rows
+        """
+
+        self.cmd("Xreply_size %s" % size)
