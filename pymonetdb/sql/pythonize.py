@@ -93,6 +93,8 @@ def py_timestamptz(data):
     else:
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
+def py_bytes(data):
+    return bytes.fromhex(data)
 
 def oid(data):
     """represents an object identifier
@@ -106,7 +108,7 @@ mapping = {
     types.CHAR: strip,
     types.VARCHAR: strip,
     types.CLOB: strip,
-    types.BLOB: str,
+    types.BLOB: py_bytes,
     types.TINYINT: int,
     types.SMALLINT: int,
     types.INT: int,
@@ -158,8 +160,9 @@ def convert(data, type_code):
 
 def Binary(data):
     """returns binary encoding of data"""
+    if PY3:
+        return data.hex()
     return ''.join(["%02X" % ord(i) for i in str(data)])
-
 
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""
