@@ -5,6 +5,16 @@ from tests.util import test_args
 
 
 class TestUdf(TestCase):
+    """
+    To be able to run these tests python embedding needs to be enabled:
+
+    monetdb create demo
+    monetdb set embedpy=yes demo
+    monetdb start demo
+
+    or use embedpy3 for python3 support
+    """
+
     @classmethod
     def setUpClass(cls):
         cls.conn = pymonetdb.connect(**test_args)
