@@ -95,11 +95,6 @@ def py_timestamptz(data):
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
 
-def py_bytes(data):
-    return data
-    #return codecs.decode(data, 'hex')
-
-
 def oid(data):
     """represents an object identifier
 
@@ -112,7 +107,7 @@ mapping = {
     types.CHAR: strip,
     types.VARCHAR: strip,
     types.CLOB: strip,
-    types.BLOB: py_bytes,
+    types.BLOB: str,
     types.TINYINT: int,
     types.SMALLINT: int,
     types.INT: int,
