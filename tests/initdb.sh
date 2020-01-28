@@ -15,3 +15,5 @@ monetdb create $DATABASE
 monetdb release $DATABASE
 monetdb start $DATABASE
 
+sudo -u monetdb monetdbd set control=yes /var/monetdb5/dbfarm
+sudo -u monetdb monetdbd set passphrase=testdb /var/monetdb5/dbfarm

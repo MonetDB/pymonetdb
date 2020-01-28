@@ -13,6 +13,7 @@ the mapping dict and the datatype as key.
 import datetime
 import decimal
 import six
+import codecs
 
 from pymonetdb.exceptions import ProgrammingError
 
@@ -44,7 +45,7 @@ def monet_bytes(data):
     """
     converts bytes to string
     """
-    return monet_escape(data)
+    return monet_escape(codecs.encode(data, 'hex').decode('ascii'))
 
 
 def monet_datetime(data):
@@ -82,7 +83,6 @@ def monet_unicode(data):
 mapping = [
 
     (str, monet_escape),
-    (bytes, monet_bytes),
     (int, str),
     (complex, str),
     (float, str),
@@ -97,13 +97,15 @@ mapping = [
 
 if six.PY2:
     mapping += ((unicode, monet_unicode),)
+else:
+    mapping += ((bytes, monet_bytes),)  # for py2 bytes is the same as str
 
 mapping_dict = dict(mapping)
 
 
 def convert(data):
     """
-    Return the appropriate convertion function based upon the python type.
+    Return the appropriate conversion function based on the python type.
     """
     if type(data) in mapping_dict:
         return mapping_dict[type(data)](data)

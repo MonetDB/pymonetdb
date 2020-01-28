@@ -14,6 +14,7 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
+import codecs
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
@@ -93,17 +94,18 @@ def py_timestamptz(data):
     else:
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
+
 def py_bytes(data):
-    if PY3:
-        return bytes.fromhex(data)
-    return str(data)
+    return data
+    #return codecs.decode(data, 'hex')
+
 
 def oid(data):
     """represents an object identifier
 
     For now we will just return the string representation just like mclient does.
     """
-    return oid
+    return data
 
 
 mapping = {
@@ -146,7 +148,7 @@ mapping = {
 
 def convert(data, type_code):
     """
-    Calls the appropriate convertion function based upon the python type
+    Calls the appropriate conversion function based on the python type
     """
 
     # null values should always be replaced by None type
@@ -161,10 +163,9 @@ def convert(data, type_code):
 # below stuff required by the DBAPI
 
 def Binary(data):
-    """returns binary encoding of data"""
-    if PY3:
-        return data.hex()
-    return ''.join(["%02X" % ord(i) for i in str(data)])
+    """returns hex encoding of binary data"""
+    return codecs.encode(data, 'hex').decode('ascii').upper()
+
 
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""
