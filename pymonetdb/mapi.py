@@ -135,12 +135,29 @@ class Connection(object):
         self.unix_socket = unix_socket
 
         if hostname:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # For performance, mirror MonetDB/src/common/stream.c socket settings.
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self.socket.settimeout(self.connect_timeout)
-            self.socket.connect((hostname, port))
+            self.socket = None
+            for af, socktype, proto, canonname, sa in socket.getaddrinfo(hostname, port,
+                                                                         socket.AF_UNSPEC, socket.SOCK_STREAM):
+                try:
+                    self.socket = socket.socket(af, socktype, proto)
+                    # For performance, mirror MonetDB/src/common/stream.c socket settings.
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    self.socket.settimeout(self.connect_timeout)
+                except socket.error as msg:
+                    logger.warn(msg)
+                    self.socket = None
+                    continue
+                try:
+                    self.socket.connect(sa)
+                except socket.error as msg:
+                    logger.warn(msg.strerror)
+                    self.socket.close()
+                    self.socket = None
+                    continue
+                break
+            if self.socket is None:
+                raise socket.error("Connection refused")
         else:
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.settimeout(self.connect_timeout)
