@@ -713,8 +713,8 @@ class DatabaseAPI20Test(unittest.TestCase):
         self.assertEqual(str(t1), str(t2))
 
     def test_Binary(self):
-        b = pymonetdb.Binary(b'Something')
-        b = pymonetdb.Binary(b'')
+        b = pymonetdb.Binary('1234567890ABCDEF')
+        b = pymonetdb.Binary('')
 
     def test_STRING(self):
         self.failUnless(hasattr(pymonetdb, 'STRING'),
