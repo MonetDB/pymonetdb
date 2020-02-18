@@ -145,13 +145,13 @@ class Connection(object):
                     self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     self.socket.settimeout(self.connect_timeout)
                 except socket.error as msg:
-                    logger.warn(msg)
+                    logger.info(msg)
                     self.socket = None
                     continue
                 try:
                     self.socket.connect(sa)
                 except socket.error as msg:
-                    logger.warn(msg.strerror)
+                    logger.info(msg.strerror)
                     self.socket.close()
                     self.socket = None
                     continue
