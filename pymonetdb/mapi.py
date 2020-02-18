@@ -73,11 +73,6 @@ def handle_error(error):
         return OperationalError, error
 
 
-def encode(s):
-    """only encode string for python3"""
-    return s.encode()
-
-
 # noinspection PyExceptionInherit
 class Connection(object):
     """
