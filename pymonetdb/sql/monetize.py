@@ -43,7 +43,7 @@ def monet_bytes(data):
     """
     converts bytes to string
     """
-    return monet_escape(data)
+    return "'%s'" % data.hex()
 
 
 def monet_datetime(data):

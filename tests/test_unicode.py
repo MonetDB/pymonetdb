@@ -58,7 +58,7 @@ class TestUnicode(unittest.TestCase):
         cursor = con.cursor()
         self.executeDDL1(cursor)
         x = u"ô  ’a élé.«S’ilît… de-mun»"
-        cursor.execute(u'insert into %sbooze VALUES (\'%s\')' % (self.table_prefix, x))
+        cursor.execute("insert into %sbooze VALUES ('%s')" % (self.table_prefix, x))
         cursor.execute('select name from %sbooze' % self.table_prefix)
         self.assertEqual(x, cursor.fetchone()[0])
 
