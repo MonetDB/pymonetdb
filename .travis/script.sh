@@ -3,7 +3,7 @@
 # run tests
 nosetests --with-coverage  --cover-package=pymonetdb
 
-CHECK_PYTHON_VERSION="3.7"
+CHECK_PYTHON_VERSION="3.8"
 
 # build doc, check code style and typing. But only once.
 if [[ "${TRAVIS_PYTHON_VERSION}" = ${CHECK_PYTHON_VERSION} ]]; then

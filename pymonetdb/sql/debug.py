@@ -4,7 +4,7 @@ import re
 import pdb
 from past.builtins import execfile  # type: ignore
 from typing import Any, TYPE_CHECKING
-import six
+
 
 if TYPE_CHECKING:
     from pymonetdb.sql.cursors import Cursor
@@ -100,10 +100,7 @@ def debug(cursor, query, fname, sample=-1):
         fcode = re.sub('^\n', '', fcode)
         function_definition = "def pyfun(%s):\n %s\n" % (
             arglist, fcode.replace("\n", "\n "))
-        if six.PY2:
-            f.write(function_definition)
-        else:
-            f.write(function_definition.encode('utf-8'))
+        f.write(function_definition.encode('utf-8'))
         f.flush()
         execfile(f.name, globals(), locals())
 
@@ -182,10 +179,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
     if len(input_data) <= 0:
         raise Exception("Could not load input data!")
 
-    if six.PY2:
-        arguments = pickle.loads(str(input_data[0][0]))
-    else:
-        arguments = pickle.loads(input_data[0][0])
+    arguments = pickle.loads(input_data[0][0])
 
     if len(arguments) != quantity_parameters + 2:
         raise Exception("Incorrect amount of input arguments found!")

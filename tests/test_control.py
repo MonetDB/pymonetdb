@@ -21,6 +21,15 @@ def do_without_fail(function):
 
 
 class TestControl(unittest.TestCase):
+    """
+    These tests require control access to monetdb. This is enabled with:
+
+    $ monetdbd set control=yes /var/lib/monetdb
+    $ monetdbd set passphrase=testdb /var/lib/monetdb
+
+    Where /var/lib/monetdb is the path to your dbfarm. Don't forget to restart the db after setting the credentials.
+    """
+
     def setUp(self):
         # use tcp
         self.control = Control(test_hostname, test_port, test_passphrase)

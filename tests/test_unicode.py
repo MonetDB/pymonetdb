@@ -8,9 +8,7 @@
 
 import unittest
 import pymonetdb
-from pymonetdb.compat import unicode_string
 from tests.util import test_args
-from six import text_type
 
 
 class TestUnicode(unittest.TestCase):
@@ -74,8 +72,7 @@ class TestUnicode(unittest.TestCase):
             cur.execute('select name from %sbooze' % self.table_prefix)
             res = cur.fetchall()
             beer = res[0][0]
-            encoded = unicode_string(args['beer'])
-            self.assertEqual(beer, encoded, 'incorrect data retrieved')
+            self.assertEqual(beer, args['beer'], 'incorrect data retrieved')
         finally:
             con.close()
 
@@ -84,8 +81,7 @@ class TestUnicode(unittest.TestCase):
         try:
             cur = con.cursor()
             self.executeDDL1(cur)
-            s = unicode_string('\N{latin small letter a with acute}', 'unicode-escape')
-            args = {'beer': s}
+            args = {'beer': '\N{latin small letter a with acute}'}
             encoded = args['beer']
 
             cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
@@ -157,9 +153,8 @@ class TestUnicode(unittest.TestCase):
         cur.execute('select name from %sbooze' % self.table_prefix)
         res = cur.fetchall()
         returned = res[0][0]
-        encoded = unicode_string(input_)
-        self.assertEqual(returned, encoded)
-        self.assertEqual(type(returned), text_type)
+        self.assertEqual(returned, input_)
+        self.assertEqual(type(returned), str)
 
     def test_query_ending_with_comment(self):
         con = self._connect()
