@@ -13,8 +13,8 @@ import logging
 import struct
 import hashlib
 import os
-from six import BytesIO, PY3
 from typing import Optional
+from io import BytesIO
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -71,20 +71,6 @@ def handle_error(error):
         return errors[error[:5]], error[6:]
     else:
         return OperationalError, error
-
-
-def encode(s):
-    """only encode string for python3"""
-    if PY3:
-        return s.encode()
-    return s
-
-
-def decode(b):
-    """only decode byte for python3"""
-    if PY3:
-        return b.decode()
-    return b
 
 
 # noinspection PyExceptionInherit
@@ -164,7 +150,7 @@ class Connection(object):
             self.socket.connect(unix_socket)
             if self.language != 'control':
                 # don't know why, but we need to do this
-                self.socket.send(encode('0'))
+                self.socket.send('0'.encode())
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
@@ -284,7 +270,7 @@ class Connection(object):
             algo = challenges[5]
             try:
                 h = hashlib.new(algo)
-                h.update(encode(password))
+                h.update(password.encode())
                 password = h.hexdigest()
             except ValueError as e:
                 raise NotSupportedError(str(e))
@@ -325,7 +311,7 @@ class Connection(object):
             length = unpacked >> 1
             last = unpacked & 1
             result.write(self._getbytes(length))
-        return decode(result.getvalue())
+        return result.getvalue().decode()
 
     def _getblock_socket(self):
         buffer = BytesIO()
@@ -335,7 +321,7 @@ class Connection(object):
                 buffer.write(x)
             else:
                 break
-        return decode(buffer.getvalue().strip())
+        return buffer.getvalue().strip().decode()
 
     def _getbytes(self, bytes_):
         """Read an amount of bytes from the socket"""
@@ -352,14 +338,14 @@ class Connection(object):
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
         if self.language == 'control' and not self.hostname:
-            return self.socket.send(encode(block))  # control doesn't do block splitting when using a socket
+            return self.socket.send(block.encode())  # control doesn't do block splitting when using a socket
         else:
             self._putblock_inet(block)
 
     def _putblock_inet(self, block):
         pos = 0
         last = 0
-        block = encode(block)
+        block = block.encode()
         while not last:
             data = block[pos:pos + MAX_PACKAGE_LENGTH]
             length = len(data)

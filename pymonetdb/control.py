@@ -8,7 +8,6 @@ import platform
 import logging
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
-from six import next
 
 
 logger = logging.getLogger(__name__)

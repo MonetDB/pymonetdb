@@ -17,7 +17,6 @@ from decimal import Decimal
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
-from six import PY3
 
 
 def _extract_timezone(data):
@@ -37,12 +36,9 @@ def _extract_timezone(data):
 def strip(data):
     """ returns a python string, with chopped off quotes,
     and replaced escape characters"""
-    if PY3:
-        return ''.join([w.encode('utf-8').decode('unicode_escape')
-                        if '\\' in w else w
-                        for w in re.split('([\000-\200]+)', data[1:-1])])
-    else:
-        return data[1:-1].decode('string_escape').decode('utf-8')
+    return ''.join([w.encode('utf-8').decode('unicode_escape')
+                    if '\\' in w else w
+                    for w in re.split('([\000-\200]+)', data[1:-1])])
 
 
 def py_bool(data):

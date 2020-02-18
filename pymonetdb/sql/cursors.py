@@ -11,7 +11,6 @@ from pymonetdb.sql.debug import debug, export
 from pymonetdb.sql import monetize, pythonize
 from pymonetdb.exceptions import ProgrammingError, InterfaceError
 from pymonetdb import mapi
-from six import PY2, ensure_binary
 
 logger = logging.getLogger("pymonetdb")
 
@@ -132,9 +131,6 @@ class Cursor(object):
 
         # clear message history
         self.messages = []
-
-        if PY2:
-            operation = ensure_binary(operation)
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
