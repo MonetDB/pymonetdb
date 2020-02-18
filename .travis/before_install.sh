@@ -14,8 +14,9 @@ sudo -u monetdb monetdbd start ${DBFARM}
 sudo -u monetdb monetdb create demo
 sudo -u monetdb monetdb set embedpy3=true demo
 sudo -u monetdb monetdb release demo
-sudo -u monetdb monetdb start demo | true
+sudo -u monetdb monetdb start demo || true
 sudo cat /var/lib/monetdb/merovingian.log
+sudo -u monetdb monetdb status
 
 # install python test requirements
 pip install -r tests/requirements.txt
