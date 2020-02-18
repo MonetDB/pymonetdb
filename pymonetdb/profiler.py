@@ -25,7 +25,12 @@ class ProfilerConnection(object):
         self._heartbeat = heartbeat
         self._mapi.connect(database, username, password, "mal", hostname, port)
         self._mapi.cmd("profiler.setheartbeat(%d);\n" % heartbeat)
-        self._mapi.cmd("profiler.openstream(3);\n")
+        try:
+            self._mapi.cmd("profiler.openstream();\n")
+        except:
+            # We might be talking to an older version of MonetDB. Try connecting
+            # the old way.
+            self._mapi.cmd("profiler.openstream(3);\n")
 
     def read_object(self):
         self._buffer = self._mapi._getblock()
