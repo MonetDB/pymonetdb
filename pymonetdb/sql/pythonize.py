@@ -161,6 +161,7 @@ def Binary(data):
     """returns binary encoding of data"""
     return bytes.fromhex(data)
 
+
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""
     return Date(*time.localtime(ticks)[:3])
