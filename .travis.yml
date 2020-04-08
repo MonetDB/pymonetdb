@@ -17,6 +17,7 @@ addons:
     - monetdb5-sql
     - monetdb-client
     - monetdb-python3
+    - python3-numpy
 
 before_install:
   - ./.travis/before_install.sh
