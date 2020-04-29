@@ -8,6 +8,7 @@ This implements a connection to the profiler.
 """
 
 from pymonetdb import mapi
+from pymonetdb.exceptions import OperationalError
 
 
 class ProfilerConnection(object):
@@ -27,7 +28,7 @@ class ProfilerConnection(object):
         self._mapi.cmd("profiler.setheartbeat(%d);\n" % heartbeat)
         try:
             self._mapi.cmd("profiler.openstream();\n")
-        except Exception as e:
+        except OperationalError as e:
             # We might be talking to an older version of MonetDB. Try connecting
             # the old way.
             self._mapi.cmd("profiler.openstream(3);\n")
