@@ -14,7 +14,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 setup(name='pymonetdb',
       version=__version__,

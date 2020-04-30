@@ -1,3 +1,10 @@
+# 1.3.1
+
+changes since 1.3.0
+
+ - Profiler changes (#68)
+
+
 # 1.3.0
 
 This is the last release to officially support Python < 3.5.
@@ -8,7 +15,7 @@ changes since 1.2.1
  - Add IPv6 support enhancement (#58)
  - Type analysis for OIDs (#44)
  - Fix mypy errors (#48)
- - Check PEP-249 compatibility #38)
+ - Check PEP-249 compatibility (#38)
 
 
 # 1.2.1
