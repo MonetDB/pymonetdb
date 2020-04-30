@@ -18,7 +18,6 @@ import unittest
 from pymonetdb.exceptions import ProgrammingError
 import pymonetdb
 from pymonetdb.sql import monetize
-
 from tests.util import test_args
 
 
@@ -33,7 +32,7 @@ class DatabaseTest(unittest.TestCase):
         self.connection = db
         self.cursor = db.cursor()
         self.BLOBText = ''.join([chr(i) for i in range(33, 127)] * 100)
-        self.BLOBBinary = pymonetdb.Binary(''.join([chr(i) for i in range(256)] * 16))
+        self.BLOBBinary = bytes(range(256))*16
         self.BLOBUText = ''.join([chr(i) for i in range(1, 16384)])
 
     def tearDown(self):
