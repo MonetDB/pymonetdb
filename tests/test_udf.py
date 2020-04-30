@@ -1,4 +1,4 @@
-from unittest import TestCase, SkipTest
+from unittest import TestCase, SkipTest, skip
 import tempfile
 import pymonetdb
 from tests.util import test_args
@@ -20,6 +20,7 @@ class TestUdf(TestCase):
         cls.conn = pymonetdb.connect(**test_args)
         cls.cursor = cls.conn.cursor()
 
+    @skip("Disabled, see issue #49")
     def test_debug_udf(self):
         self.cursor.execute("""
             CREATE FUNCTION test_python_udf(i INTEGER)
