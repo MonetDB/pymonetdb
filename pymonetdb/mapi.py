@@ -46,9 +46,10 @@ STATE_READY = 1
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
-    'M0M29': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
+    '40002': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
     '2D000': IntegrityError,  # COMMIT: failed
     '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
+    'M0M29': IntegrityError,  # The code monetdb emmitted before Jun2020
 }
 
 
