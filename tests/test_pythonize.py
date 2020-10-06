@@ -6,9 +6,19 @@
 
 import unittest
 import pymonetdb.sql.pythonize
+from tests.util import test_args
 
 
 class TestPythonize(unittest.TestCase):
+
+    def setUp(self):
+        db = pymonetdb.connect(autocommit=False, **test_args)
+        self.connection = db
+        self.cursor = db.cursor()
+
+    def tearDown(self):
+        self.connection.close()
+
     def test_Binary(self):
         input1 = bytes(range(256)).hex()
         output1 = bytes(range(256))
@@ -20,3 +30,10 @@ class TestPythonize(unittest.TestCase):
 
         result2 = pymonetdb.sql.pythonize.Binary(input2)
         self.assertEqual(output2, result2)
+
+    def test_month_interval(self):
+        self.cursor.execute('CREATE TEMPORARY TABLE foo (i INTERVAL MONTH)')
+        self.cursor.execute('INSERT INTO foo VALUES (INTERVAL \'2\' YEAR)')
+        self.cursor.execute('SELECT * from FOO')
+        row = self.cursor.fetchone()
+        self.assertEqual(row[0], 24)
