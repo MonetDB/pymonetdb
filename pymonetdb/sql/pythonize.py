@@ -14,6 +14,7 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
+from datetime import timedelta
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
@@ -89,6 +90,9 @@ def py_timestamptz(data):
     else:
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
+def py_sec_interval(data):
+    return timedelta(seconds=int(Decimal(data)))
+
 
 def py_bytes(data):
     """Returns a bytes (py3) or string (py2) object representing the input blob."""
@@ -130,8 +134,7 @@ mapping = {
     types.TIMETZ: py_timetz,
     types.TIMESTAMPTZ: py_timestamptz,
     types.MONTH_INTERVAL: int,
-    types.SEC_INTERVAL: float,
-    types.INTERVAL: float,
+    types.SEC_INTERVAL: py_sec_interval,
     types.URL: strip,
     types.INET: str,
     types.UUID: uuid.UUID,
