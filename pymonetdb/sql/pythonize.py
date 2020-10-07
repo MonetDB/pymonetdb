@@ -90,6 +90,7 @@ def py_timestamptz(data):
     else:
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
+
 def py_sec_interval(data):
     return timedelta(seconds=int(Decimal(data)))
 
