@@ -91,7 +91,7 @@ def py_timestamptz(data):
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
 
-def py_sec_interval(data):
+def py_sec_interval(data: str) -> timedelta:
     """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
     which resembles a stringified decimal.
     """
