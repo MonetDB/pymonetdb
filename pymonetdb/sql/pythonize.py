@@ -92,6 +92,9 @@ def py_timestamptz(data):
 
 
 def py_sec_interval(data):
+    """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
+    which resembles a stringified decimal.
+    """
     return timedelta(seconds=int(Decimal(data)))
 
 
