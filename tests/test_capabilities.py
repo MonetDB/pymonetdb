@@ -282,6 +282,15 @@ class DatabaseTest(unittest.TestCase):
             ('col1 TIMESTAMP',),
             generator)
 
+    def test_SEC_INTERVAL(self):
+
+        def generator(row, col):
+            return datetime.timedelta(seconds=row * 86400 - col * 1313)
+
+        self.check_data_integrity(
+            ('col1 INTERVAL SECOND',),
+            generator)
+
     def test_TEXT(self):
         def generator(_, __):
             return self.BLOBText  # 'BLOB Text ' * 1024

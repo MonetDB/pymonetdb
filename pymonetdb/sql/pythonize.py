@@ -14,6 +14,7 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
+from datetime import timedelta
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
@@ -90,6 +91,13 @@ def py_timestamptz(data):
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
 
+def py_sec_interval(data: str) -> timedelta:
+    """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
+    which resembles a stringified decimal.
+    """
+    return timedelta(seconds=int(Decimal(data)))
+
+
 def py_bytes(data):
     """Returns a bytes (py3) or string (py2) object representing the input blob."""
     return Binary(data)
@@ -129,9 +137,8 @@ mapping = {
     types.TIMESTAMP: py_timestamp,
     types.TIMETZ: py_timetz,
     types.TIMESTAMPTZ: py_timestamptz,
-    types.MONTH_INTERVAL: strip,
-    types.SEC_INTERVAL: strip,
-    types.INTERVAL: strip,
+    types.MONTH_INTERVAL: int,
+    types.SEC_INTERVAL: py_sec_interval,
     types.URL: strip,
     types.INET: str,
     types.UUID: uuid.UUID,
