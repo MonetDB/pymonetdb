@@ -16,8 +16,6 @@ pymonetdb is a native python client API for monetDB. This API is cross-platform,
 and doesn't depend on any monetdb libraries. It has support for Python 3.6+
 and PyPy. The driver is Python DBAPI 2.0 compatible.
 
-  :target: https://coveralls.io/github/gijzelaerr/pymonetdb?branch=master
-
 .. image:: https://img.shields.io/pypi/v/pymonetdb.svg
   :target: https://pypi.python.org/pypi/pymonetdb
 
