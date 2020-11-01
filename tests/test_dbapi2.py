@@ -714,7 +714,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         b = pymonetdb.Binary('')
 
     def test_STRING(self):
-        self.assertTrue(hasattr(pymonetdb, 'STRING'), 'module.STRING must be defined' )
+        self.assertTrue(hasattr(pymonetdb, 'STRING'), 'module.STRING must be defined')
 
     def test_BINARY(self):
         self.assertTrue(hasattr(pymonetdb, 'BINARY'), 'module.BINARY must be defined.')

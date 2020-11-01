@@ -50,6 +50,9 @@ venv/bin/twine: setup
 sdist: setup
 	venv/bin/python setup.py build sdist
 
+wheel: setup
+	venv/bin/python setup.py build bdist_wheel
+
 twine: venv/bin/twine
 	venv/bin/twine upload dist/*.whl dist/*.tar.gz
 
