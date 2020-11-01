@@ -49,7 +49,7 @@ errors = {
     '40002': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
     '2D000': IntegrityError,  # COMMIT: failed
     '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
-    'M0M29': IntegrityError,  # The code monetdb emmitted before Jun2020
+    'M0M29': IntegrityError,  # The code monetdb emitted before Jun2020
 }
 
 
@@ -69,7 +69,7 @@ def handle_error(error):
         idx = str.index(error, ':', 14)
         error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
-        return errors[error[:5]], error[6:]
+        return errors[error[:5]], error
     else:
         return OperationalError, error
 

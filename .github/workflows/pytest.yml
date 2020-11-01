@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    env:
+      DBFARM: /var/lib/monetdb
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9, pypy3]
@@ -23,12 +25,12 @@ jobs:
           sudo apt-get install -y monetdb5-server
       - name: Start MonetDB
         run: |
-          sudo mkdir -p -m 770 ${DBFARM}
-          sudo chown -R monetdb.monetdb ${DBFARM}
-          sudo -u monetdb monetdbd create ${DBFARM}
-          sudo -u monetdb monetdbd set control=yes ${DBFARM}
-          sudo -u monetdb monetdbd set passphrase=testdb ${DBFARM}
-          sudo -u monetdb monetdbd start ${DBFARM}
+          sudo mkdir -p -m 770 ${{ env.DBFARM }}
+          sudo chown -R monetdb.monetdb ${{ env.DBFARM }}
+          sudo -u monetdb monetdbd create ${{ env.DBFARM }}
+          sudo -u monetdb monetdbd set control=yes ${{ env.DBFARM }}
+          sudo -u monetdb monetdbd set passphrase=testdb ${{ env.DBFARM }}
+          sudo -u monetdb monetdbd start ${{ env.DBFARM }}
       - name: Create MonetDB test database
         run: |
           sudo -u monetdb monetdb create demo
