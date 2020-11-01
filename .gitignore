@@ -12,3 +12,4 @@ doc/_build/
 venv/
 .mypy_cache/
 manylinux2010/*.whl
+.idea/
