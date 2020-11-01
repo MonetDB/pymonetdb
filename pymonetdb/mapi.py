@@ -83,7 +83,7 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = None  # type: Optional[socket.socket]
+        self.socket: Optional[socket.socket] = None
         self.unix_socket = None
         self.hostname = ""
         self.port = 0
@@ -122,7 +122,9 @@ class Connection(object):
         self.unix_socket = unix_socket
 
         if hostname:
-            self.socket = None
+            if self.socket:
+                self.socket.close()
+                self.socket = None
             for af, socktype, proto, canonname, sa in socket.getaddrinfo(hostname, port,
                                                                          socket.AF_UNSPEC, socket.SOCK_STREAM):
                 try:
@@ -132,7 +134,7 @@ class Connection(object):
                     self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     self.socket.settimeout(self.connect_timeout)
                 except socket.error as msg:
-                    logger.info(msg)
+                    logger.debug(f"'{msg}' for af {af} with socktype {socktype}")
                     self.socket = None
                     continue
                 try:
