@@ -1,5 +1,7 @@
 # This file is intended for development purposes and should not be used to install pymonetdb
 
+.PHONY: doc clean test
+
 all: test
 
 venv/:
@@ -7,7 +9,7 @@ venv/:
 	venv/bin/pip install --upgrade pip wheel
 
 venv/installed: venv/
-	venv/bin/pip install -e ".[test]"
+	venv/bin/pip install -e ".[test,doc]"
 	touch venv/installed
 
 setup: venv/installed
@@ -20,28 +22,38 @@ docker-wheels:
 
 clean: venv/
 	venv/bin/python3 setup.py clean
-	rm -rf build dist *.egg-info .eggs  .*_cache venv/
+	rm -rf build dist *.egg-info .eggs  .*_cache venv/ doc/_build
 
-venv/bin/mypy: venv/
+venv/bin/mypy: setup
 	venv/bin/pip install mypy
 
-venv/bin/pycodestyle: venv/
+venv/bin/pycodestyle: setup
 	venv/bin/pip install pycodestyle
 
 mypy: venv/bin/mypy
 	venv/bin/mypy pymonetdb tests
 
-venv/bin/delocate-wheel: venv/
+venv/bin/delocate-wheel: setup
 	venv/bin/pip install delocate
 
 delocate: venv/bin/delocate-wheel
 	venv/bin/delocate-wheel -v dist/*.whl
 
-venv/bin/twine: venv/
+venv/bin/twine: setup
 	venv/bin/pip install twine
 
-sdist: venv/
+sdist: setup
 	venv/bin/python setup.py build sdist
 
 twine: venv/bin/twine
 	venv/bin/twine upload dist/*.whl dist/*.tar.gz
+
+doc: setup
+	PATH=$${PATH}:${CURDIR}/venv/bin $(MAKE) -C doc html
+
+venv/bin/flake8: setup
+	venv/bin/pip install flake8
+
+flake8: venv/bin/flake8
+	venv/bin/flake8 --count --select=E9,F63,F7,F82 --show-source --statistics monetdb tests
+	venv/bin/flake8 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics monetdb tests
