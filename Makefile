@@ -30,6 +30,9 @@ venv/bin/mypy: setup
 venv/bin/pycodestyle: setup
 	venv/bin/pip install pycodestyle
 
+pycodestyle: venv/bin/pycodestyle
+	venv/bin/pycodestyle monetdb tests
+
 mypy: venv/bin/mypy
 	venv/bin/mypy pymonetdb tests
 
@@ -55,5 +58,5 @@ venv/bin/flake8: setup
 	venv/bin/pip install flake8
 
 flake8: venv/bin/flake8
-	venv/bin/flake8 --count --select=E9,F63,F7,F82 --show-source --statistics monetdb tests
-	venv/bin/flake8 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics monetdb tests
+	venv/bin/flake8 --count --select=E9,F63,F7,F82 --show-source --statistics pymonetdb tests
+	venv/bin/flake8 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics pymonetdb tests

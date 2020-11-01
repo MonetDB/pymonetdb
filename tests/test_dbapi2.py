@@ -100,12 +100,10 @@ class DatabaseAPI20Test(unittest.TestCase):
     def test_Exceptions(self):
         # Make sure required exceptions exist, and are in the
         # defined hierarchy.
-        if sys.version[0] == '3':  # under Python 3 StardardError no longer exists
-            self.failUnless(issubclass(pymonetdb.Warning, Exception))
-            self.failUnless(issubclass(pymonetdb.Error, Exception))
-        else:
-            self.failUnless(issubclass(pymonetdb.Warning, StandardError))
-            self.failUnless(issubclass(pymonetdb.Error, StandardError))
+        # under Python 3 StardardError no longer exist, replaced with Exception
+        self.failUnless(issubclass(pymonetdb.Warning, Exception))
+        self.failUnless(issubclass(pymonetdb.Error, Exception))
+
 
         self.failUnless(
             issubclass(pymonetdb.InterfaceError, pymonetdb.Error)

@@ -14,13 +14,13 @@ jobs:
         run: brew install monetdb
       - name: Start MonetDB
         run: |
-          - monetdbd create /usr/local/var/lib/monetdb
-          - monetdbd set control=yes /usr/local/var/lib/monetdb/
-          - monetdbd set passphrase=testdb /usr/local/var/lib/monetdb
-          - monetdbd start /usr/local/var/lib/monetdb
-          - monetdb create demo
-          - monetdb release demo
-          - monetdb start demo
+          monetdbd create /usr/local/var/lib/monetdb
+          monetdbd set control=yes /usr/local/var/lib/monetdb/
+          monetdbd set passphrase=testdb /usr/local/var/lib/monetdb
+          monetdbd start /usr/local/var/lib/monetdb
+          monetdb create demo
+          monetdb release demo
+          monetdb start demo
       - name: Upgrade pip
         run: make test
 
