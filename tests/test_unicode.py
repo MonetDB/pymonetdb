@@ -129,18 +129,16 @@ class TestUnicode(unittest.TestCase):
         ]
 
         con = self._connect()
-        try:
-            cur = con.cursor()
-            self.executeDDL1(cur)
-            for i in teststrings:
-                args = {'beer': i}
-                cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
-                cur.execute('select * from %sbooze' % self.table_prefix)
-                row = cur.fetchone()
-                cur.execute('delete from %sbooze where name=%%s' % self.table_prefix, i)
-                self.assertEqual(i, row[0], 'newline not properly converted, got %s, should be %s' % (row[0], i))
-        finally:
-            con.close()
+        cur = con.cursor()
+        self.executeDDL1(cur)
+        for i in teststrings:
+            args = {'beer': i}
+            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
+            cur.execute('select * from %sbooze' % self.table_prefix)
+            row = cur.fetchone()
+            cur.execute('delete from %sbooze where name=%%s' % self.table_prefix, i)
+            self.assertEqual(i, row[0], 'newline not properly converted, got %s, should be %s' % (row[0], i))
+        con.close()
 
     def test_non_ascii_string(self):
         con = self._connect()

@@ -49,7 +49,7 @@ errors = {
     '40002': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
     '2D000': IntegrityError,  # COMMIT: failed
     '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
-    'M0M29': IntegrityError,  # The code monetdb emmitted before Jun2020
+    'M0M29': IntegrityError,  # The code monetdb emitted before Jun2020
 }
 
 
@@ -69,7 +69,7 @@ def handle_error(error):
         idx = str.index(error, ':', 14)
         error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
-        return errors[error[:5]], error[6:]
+        return errors[error[:5]], error
     else:
         return OperationalError, error
 
@@ -83,7 +83,7 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = None  # type: Optional[socket.socket]
+        self.socket: Optional[socket.socket] = None
         self.unix_socket = None
         self.hostname = ""
         self.port = 0
@@ -122,7 +122,9 @@ class Connection(object):
         self.unix_socket = unix_socket
 
         if hostname:
-            self.socket = None
+            if self.socket:
+                self.socket.close()
+                self.socket = None
             for af, socktype, proto, canonname, sa in socket.getaddrinfo(hostname, port,
                                                                          socket.AF_UNSPEC, socket.SOCK_STREAM):
                 try:
@@ -132,7 +134,7 @@ class Connection(object):
                     self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     self.socket.settimeout(self.connect_timeout)
                 except socket.error as msg:
-                    logger.info(msg)
+                    logger.debug(f"'{msg}' for af {af} with socktype {socktype}")
                     self.socket = None
                     continue
                 try:
@@ -241,7 +243,7 @@ class Connection(object):
         # the error and use it to call handle_error.
         if response[:2] == MSG_QUPDATE:
             lines = response.split('\n')
-            if any([l.startswith(MSG_ERROR) for l in lines]):
+            if any([line.startswith(MSG_ERROR) for line in lines]):
                 index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
                 exception, msg = handle_error(lines[index][1:])
                 raise exception(msg)
@@ -331,7 +333,7 @@ class Connection(object):
         while count > 0:
             recv = self.socket.recv(count)
             if len(recv) == 0:
-                raise OperationalError("Server closed connection")
+                raise BrokenPipeError("Server closed connection")
             count -= len(recv)
             result.write(recv)
         return result.getvalue()
