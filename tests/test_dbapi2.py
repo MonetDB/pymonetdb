@@ -104,7 +104,6 @@ class DatabaseAPI20Test(unittest.TestCase):
         self.failUnless(issubclass(pymonetdb.Warning, Exception))
         self.failUnless(issubclass(pymonetdb.Error, Exception))
 
-
         self.failUnless(
             issubclass(pymonetdb.InterfaceError, pymonetdb.Error)
         )
