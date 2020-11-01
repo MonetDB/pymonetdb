@@ -241,7 +241,7 @@ class Connection(object):
         # the error and use it to call handle_error.
         if response[:2] == MSG_QUPDATE:
             lines = response.split('\n')
-            if any([l.startswith(MSG_ERROR) for l in lines]):
+            if any([line.startswith(MSG_ERROR) for line in lines]):
                 index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
                 exception, msg = handle_error(lines[index][1:])
                 raise exception(msg)
@@ -331,7 +331,7 @@ class Connection(object):
         while count > 0:
             recv = self.socket.recv(count)
             if len(recv) == 0:
-                raise OperationalError("Server closed connection")
+                raise BrokenPipeError("Server closed connection")
             count -= len(recv)
             result.write(recv)
         return result.getvalue()
