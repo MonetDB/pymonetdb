@@ -4,7 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 import unittest
-from mock import patch
+from unittest.mock import patch
 import pymonetdb
 from tests import util
 

@@ -13,8 +13,8 @@ import logging
 import struct
 import hashlib
 import os
-from six import BytesIO, PY3
 from typing import Optional
+from io import BytesIO
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -46,9 +46,10 @@ STATE_READY = 1
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
-    'M0M29': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
+    '40002': IntegrityError,  # INSERT INTO: UNIQUE constraint violated
     '2D000': IntegrityError,  # COMMIT: failed
     '40000': IntegrityError,  # DROP TABLE: FOREIGN KEY constraint violated
+    'M0M29': IntegrityError,  # The code monetdb emitted before Jun2020
 }
 
 
@@ -68,23 +69,9 @@ def handle_error(error):
         idx = str.index(error, ':', 14)
         error = error[idx + 10:]
     if len(error) > 5 and error[:5] in errors:
-        return errors[error[:5]], error[6:]
+        return errors[error[:5]], error
     else:
         return OperationalError, error
-
-
-def encode(s):
-    """only encode string for python3"""
-    if PY3:
-        return s.encode()
-    return s
-
-
-def decode(b):
-    """only decode byte for python3"""
-    if PY3:
-        return b.decode()
-    return b
 
 
 # noinspection PyExceptionInherit
@@ -96,7 +83,7 @@ class Connection(object):
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket = None  # type: Optional[socket.socket]
+        self.socket: Optional[socket.socket] = None
         self.unix_socket = None
         self.hostname = ""
         self.port = 0
@@ -135,19 +122,38 @@ class Connection(object):
         self.unix_socket = unix_socket
 
         if hostname:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # For performance, mirror MonetDB/src/common/stream.c socket settings.
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self.socket.settimeout(self.connect_timeout)
-            self.socket.connect((hostname, port))
+            if self.socket:
+                self.socket.close()
+                self.socket = None
+            for af, socktype, proto, canonname, sa in socket.getaddrinfo(hostname, port,
+                                                                         socket.AF_UNSPEC, socket.SOCK_STREAM):
+                try:
+                    self.socket = socket.socket(af, socktype, proto)
+                    # For performance, mirror MonetDB/src/common/stream.c socket settings.
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    self.socket.settimeout(self.connect_timeout)
+                except socket.error as msg:
+                    logger.debug(f"'{msg}' for af {af} with socktype {socktype}")
+                    self.socket = None
+                    continue
+                try:
+                    self.socket.connect(sa)
+                except socket.error as msg:
+                    logger.info(msg.strerror)
+                    self.socket.close()
+                    self.socket = None
+                    continue
+                break
+            if self.socket is None:
+                raise socket.error("Connection refused")
         else:
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.settimeout(self.connect_timeout)
             self.socket.connect(unix_socket)
             if self.language != 'control':
                 # don't know why, but we need to do this
-                self.socket.send(encode('0'))
+                self.socket.send('0'.encode())
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
@@ -237,7 +243,7 @@ class Connection(object):
         # the error and use it to call handle_error.
         if response[:2] == MSG_QUPDATE:
             lines = response.split('\n')
-            if any([l.startswith(MSG_ERROR) for l in lines]):
+            if any([line.startswith(MSG_ERROR) for line in lines]):
                 index = next(i for i, v in enumerate(lines) if v.startswith(MSG_ERROR))
                 exception, msg = handle_error(lines[index][1:])
                 raise exception(msg)
@@ -267,7 +273,7 @@ class Connection(object):
             algo = challenges[5]
             try:
                 h = hashlib.new(algo)
-                h.update(encode(password))
+                h.update(password.encode())
                 password = h.hexdigest()
             except ValueError as e:
                 raise NotSupportedError(str(e))
@@ -308,7 +314,7 @@ class Connection(object):
             length = unpacked >> 1
             last = unpacked & 1
             result.write(self._getbytes(length))
-        return decode(result.getvalue())
+        return result.getvalue().decode()
 
     def _getblock_socket(self):
         buffer = BytesIO()
@@ -318,7 +324,7 @@ class Connection(object):
                 buffer.write(x)
             else:
                 break
-        return decode(buffer.getvalue().strip())
+        return buffer.getvalue().strip().decode()
 
     def _getbytes(self, bytes_):
         """Read an amount of bytes from the socket"""
@@ -327,7 +333,7 @@ class Connection(object):
         while count > 0:
             recv = self.socket.recv(count)
             if len(recv) == 0:
-                raise OperationalError("Server closed connection")
+                raise BrokenPipeError("Server closed connection")
             count -= len(recv)
             result.write(recv)
         return result.getvalue()
@@ -335,14 +341,14 @@ class Connection(object):
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
         if self.language == 'control' and not self.hostname:
-            return self.socket.send(encode(block))  # control doesn't do block splitting when using a socket
+            return self.socket.send(block.encode())  # control doesn't do block splitting when using a socket
         else:
             self._putblock_inet(block)
 
     def _putblock_inet(self, block):
         pos = 0
         last = 0
-        block = encode(block)
+        block = block.encode()
         while not last:
             data = block[pos:pos + MAX_PACKAGE_LENGTH]
             length = len(data)

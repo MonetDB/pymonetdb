@@ -14,10 +14,10 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
+from datetime import timedelta
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
-from six import PY3
 
 
 def _extract_timezone(data):
@@ -37,12 +37,9 @@ def _extract_timezone(data):
 def strip(data):
     """ returns a python string, with chopped off quotes,
     and replaced escape characters"""
-    if PY3:
-        return ''.join([w.encode('utf-8').decode('unicode_escape')
-                        if '\\' in w else w
-                        for w in re.split('([\000-\200]+)', data[1:-1])])
-    else:
-        return data[1:-1].decode('string_escape').decode('utf-8')
+    return ''.join([w.encode('utf-8').decode('unicode_escape')
+                    if '\\' in w else w
+                    for w in re.split('([\000-\200]+)', data[1:-1])])
 
 
 def py_bool(data):
@@ -93,10 +90,18 @@ def py_timestamptz(data):
     else:
         return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
 
+
+def py_sec_interval(data: str) -> timedelta:
+    """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
+    which resembles a stringified decimal.
+    """
+    return timedelta(seconds=int(Decimal(data)))
+
+
 def py_bytes(data):
-    if PY3:
-        return bytes.fromhex(data)
-    return str(data)
+    """Returns a bytes (py3) or string (py2) object representing the input blob."""
+    return Binary(data)
+
 
 def oid(data):
     """represents an object identifier
@@ -132,9 +137,8 @@ mapping = {
     types.TIMESTAMP: py_timestamp,
     types.TIMETZ: py_timetz,
     types.TIMESTAMPTZ: py_timestamptz,
-    types.MONTH_INTERVAL: strip,
-    types.SEC_INTERVAL: strip,
-    types.INTERVAL: strip,
+    types.MONTH_INTERVAL: int,
+    types.SEC_INTERVAL: py_sec_interval,
     types.URL: strip,
     types.INET: str,
     types.UUID: uuid.UUID,
@@ -162,9 +166,8 @@ def convert(data, type_code):
 
 def Binary(data):
     """returns binary encoding of data"""
-    if PY3:
-        return data.hex()
-    return ''.join(["%02X" % ord(i) for i in str(data)])
+    return bytes.fromhex(data)
+
 
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""

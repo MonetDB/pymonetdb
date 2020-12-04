@@ -15,3 +15,6 @@ monetdb create $DATABASE
 monetdb release $DATABASE
 monetdb start $DATABASE
 
+
+# monetdbd set control=yes /var/lib/monetdb/
+# monetdbd set passphrase=testdb /var/lib/monetdb

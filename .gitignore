@@ -9,5 +9,7 @@ doc/_build/
 .virtualenv*/
 .eggs/
 .venv*/
+venv/
 .mypy_cache/
 manylinux2010/*.whl
+.idea/

@@ -18,8 +18,6 @@ import unittest
 from pymonetdb.exceptions import ProgrammingError
 import pymonetdb
 from pymonetdb.sql import monetize
-from six import unichr
-
 from tests.util import test_args
 
 
@@ -34,8 +32,8 @@ class DatabaseTest(unittest.TestCase):
         self.connection = db
         self.cursor = db.cursor()
         self.BLOBText = ''.join([chr(i) for i in range(33, 127)] * 100)
-        self.BLOBBinary = pymonetdb.Binary(''.join([chr(i) for i in range(256)] * 16))
-        self.BLOBUText = ''.join([unichr(i) for i in range(1, 16384)])
+        self.BLOBBinary = bytes(range(256)) * 16
+        self.BLOBUText = ''.join([chr(i) for i in range(1, 16384)])
 
     def tearDown(self):
         self.connection.close()
@@ -284,6 +282,15 @@ class DatabaseTest(unittest.TestCase):
             ('col1 TIMESTAMP',),
             generator)
 
+    def test_SEC_INTERVAL(self):
+
+        def generator(row, col):
+            return datetime.timedelta(seconds=row * 86400 - col * 1313)
+
+        self.check_data_integrity(
+            ('col1 INTERVAL SECOND',),
+            generator)
+
     def test_TEXT(self):
         def generator(_, __):
             return self.BLOBText  # 'BLOB Text ' * 1024
@@ -374,7 +381,7 @@ class DatabaseTest(unittest.TestCase):
         r = self.cursor.fetchone()
         n = r[0]
         self.cursor.arraysize = 100000
-        self.cursor.execute('select * from types, types')
+        self.cursor.execute('select * from types t1, types t2')
         r = self.cursor.fetchall()
         self.assertEqual(len(r), n ** 2)
 

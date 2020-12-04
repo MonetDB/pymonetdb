@@ -8,10 +8,7 @@
 MonetDB Python API specific exceptions
 """
 
-import six
-
-if six.PY3:
-    StandardError = Exception
+StandardError = Exception
 
 
 class Warning(StandardError):

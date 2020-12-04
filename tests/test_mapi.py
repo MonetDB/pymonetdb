@@ -10,7 +10,7 @@ class TestMapi(TestCase):
         cls.conn.connect(language='sql', **test_args)
 
     def test_set_size(self):
-        query = 'sselect * from tables, tables;'
+        query = 'sselect * from tables t1, tables t2;'
         for size in (2, 10):
             self.conn.set_reply_size(size)
             data = self.conn.cmd(query)
