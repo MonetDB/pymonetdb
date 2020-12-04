@@ -144,7 +144,8 @@ mapping = {
     types.UUID: uuid.UUID,
     types.JSON: json.loads,
     types.GEOMETRY: strip,
-    types.GEOMETRYA: strip
+    types.GEOMETRYA: strip,
+    types.MBR: strip,
 }
 
 
