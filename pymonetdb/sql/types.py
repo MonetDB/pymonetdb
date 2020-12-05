@@ -37,6 +37,7 @@ UUID = 'uuid'                      # uuid
 JSON = 'json'                      # JSON string
 GEOMETRY = 'geometry'              # geometry string
 GEOMETRYA = 'geometrya'            # geometry string
+MBR = 'mbr'                        # mbr string
 
 # Not on the website:
 SHORTINT = 'shortint'
