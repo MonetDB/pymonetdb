@@ -97,11 +97,13 @@ def py_sec_interval(data: str) -> timedelta:
     """
     return timedelta(seconds=int(Decimal(data)))
 
+
 def py_day_interval(data: str) -> int:
     """ Returns a python number of days where data represents a value of MonetDB's INTERVAL DAY type
     which resembles a stringified decimal.
     """
     return timedelta(seconds=int(Decimal(data))).days
+
 
 def py_bytes(data):
     """Returns a bytes (py3) or string (py2) object representing the input blob."""
