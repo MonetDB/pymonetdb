@@ -154,6 +154,7 @@ mapping = {
     types.GEOMETRY: strip,
     types.GEOMETRYA: strip,
     types.MBR: strip,
+    types.XML: str,
 }
 
 

@@ -39,6 +39,7 @@ JSON = 'json'                      # JSON string
 GEOMETRY = 'geometry'              # geometry string
 GEOMETRYA = 'geometrya'            # geometry string
 MBR = 'mbr'                        # mbr string
+XML = 'xml'                        # xml
 
 # Not on the website:
 SHORTINT = 'shortint'
