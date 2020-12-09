@@ -30,6 +30,7 @@ TIME = 'time'                      # (T) time of day
 TIMESTAMP = 'timestamp'            # (T) date concatenated with unique time
 MONTH_INTERVAL = 'month_interval'  # number of months
 SEC_INTERVAL = 'sec_interval'      # number of seconds
+DAY_INTERVAL = 'day_interval'      # number of seconds
 
 URL = 'url'                        # url
 INET = 'inet'                      # ipv4 address
@@ -38,6 +39,7 @@ JSON = 'json'                      # JSON string
 GEOMETRY = 'geometry'              # geometry string
 GEOMETRYA = 'geometrya'            # geometry string
 MBR = 'mbr'                        # mbr string
+XML = 'xml'                        # xml
 
 # Not on the website:
 SHORTINT = 'shortint'

@@ -98,6 +98,13 @@ def py_sec_interval(data: str) -> timedelta:
     return timedelta(seconds=int(Decimal(data)))
 
 
+def py_day_interval(data: str) -> int:
+    """ Returns a python number of days where data represents a value of MonetDB's INTERVAL DAY type
+    which resembles a stringified decimal.
+    """
+    return timedelta(seconds=int(Decimal(data))).days
+
+
 def py_bytes(data):
     """Returns a bytes (py3) or string (py2) object representing the input blob."""
     return Binary(data)
@@ -139,6 +146,7 @@ mapping = {
     types.TIMESTAMPTZ: py_timestamptz,
     types.MONTH_INTERVAL: int,
     types.SEC_INTERVAL: py_sec_interval,
+    types.DAY_INTERVAL: py_day_interval,
     types.URL: strip,
     types.INET: str,
     types.UUID: uuid.UUID,
@@ -146,6 +154,7 @@ mapping = {
     types.GEOMETRY: strip,
     types.GEOMETRYA: strip,
     types.MBR: strip,
+    types.XML: str,
 }
 
 
