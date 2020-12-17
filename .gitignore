@@ -13,3 +13,4 @@ venv/
 .mypy_cache/
 manylinux2010/*.whl
 .idea/
+__pycache__/
