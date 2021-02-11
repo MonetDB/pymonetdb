@@ -304,8 +304,7 @@ class Connection(object):
             raise NotSupportedError("Unsupported hash algorithms required"
                                     " for login: %s" % hashes)
 
-        response = ":".join(["BIG", self.username, pwhash, self.language,
-                         self.database]) + ":"
+        response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
 
         if len(challenges) >= 7:
             options_level = 0
@@ -399,6 +398,7 @@ class Connection(object):
         """
 
         self.cmd("Xreply_size %s" % size)
+
 
 class HandshakeOption:
     """
