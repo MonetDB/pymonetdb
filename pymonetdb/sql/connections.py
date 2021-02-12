@@ -53,7 +53,8 @@ class Connection(object):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
-        # level numbers taken from mapi.h
+        # Level numbers taken from mapi.h.
+        # The options start out with member .sent set to False.
         handshake_options = [
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
             mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
@@ -66,6 +67,9 @@ class Connection(object):
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
                           handshake_options=handshake_options)
 
+        # self.mapi.connect() has set .sent to True for all items that
+        # have already been arranged during the initial challenge/response.
+        # Now take care of the rest.
         for option in handshake_options:
             if not option.sent:
                 option.fallback(option.value)

@@ -121,10 +121,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-        if handshake_options:
-            self.handshake_options = [opt for opt in handshake_options]
-        else:
-            self.handshake_options = []
+        self.handshake_options = handshake_options or []
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -400,6 +397,7 @@ class Connection(object):
         self.cmd("Xreply_size %s" % size)
 
 
+# When all supported Python versions support it we can enable @dataclass here.
 class HandshakeOption:
     """
     Option that can be set during the MAPI handshake
