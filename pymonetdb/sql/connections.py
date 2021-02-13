@@ -53,14 +53,26 @@ class Connection(object):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
+        # Level numbers taken from mapi.h.
+        # The options start out with member .sent set to False.
+        handshake_options = [
+            mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
+            mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
+            mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
+        ]
+
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
-                          unix_socket=unix_socket, connect_timeout=connect_timeout)
+                          unix_socket=unix_socket, connect_timeout=connect_timeout,
+                          handshake_options=handshake_options)
 
-        self.set_autocommit(autocommit)
-        self.set_sizeheader(True)
-        self.set_replysize(100)
+        # self.mapi.connect() has set .sent to True for all items that
+        # have already been arranged during the initial challenge/response.
+        # Now take care of the rest.
+        for option in handshake_options:
+            if not option.sent:
+                option.fallback(option.value)
 
     def close(self):
         """ Close the connection.
