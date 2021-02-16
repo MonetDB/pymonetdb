@@ -5,6 +5,7 @@ from unittest import TestCase
 from pymonetdb import connect
 from tests.util import test_args
 
+
 class TestMapiUri(TestCase):
 
     def setUp(self):

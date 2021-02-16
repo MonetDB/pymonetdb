@@ -123,7 +123,7 @@ class Connection(object):
                 unix_socket = parsed.path or unix_socket
                 username = parsed.username or username
                 password = parsed.password or password
-                database='' # must be set in uri parameter
+                database = ''  # must be set in uri parameter
             # parse uri parameters
             if parsed.query:
                 parms = parse_qs(parsed.query)
