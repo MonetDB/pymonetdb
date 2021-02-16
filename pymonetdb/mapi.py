@@ -15,6 +15,7 @@ import hashlib
 import os
 from typing import Optional
 from io import BytesIO
+from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -100,6 +101,38 @@ class Connection(object):
 
         unix_socket is used if hostname is not defined.
         """
+
+        if ':' in database:
+            if not database.startswith('mapi:monetdb:'):
+                raise DatabaseError("colon not allowed in database name, except as part of mapi:monetdb://<hostname>[:<port>]/<database> URI")
+            parsed = urlparse(database[5:])
+            # parse basic settings
+            if parsed.hostname or parsed.port:
+                # connect over tcp
+                if not parsed.path.startswith('/'):
+                    raise DatabaseError('invalid mapi url')
+                database = parsed.path[1:]
+                if '/' in database:
+                    raise DatabaseError('invalid mapi url')
+                username = parsed.username or username
+                password = parsed.password or password
+                hostname = parsed.hostname or hostname
+                port = parsed.port or port
+            else:
+                # connect over unix domain socket
+                unix_socket = parsed.path or unix_socket
+                username = parsed.username or username
+                password = parsed.password or password
+                database = ''  # must be set in uri parameter
+            # parse uri parameters
+            if parsed.query:
+                parms = parse_qs(parsed.query)
+                if 'database' in parms:
+                    if database == '':
+                        database = parms['database'][-1]
+                    else:
+                        raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
+                # Future work: parse other parameters such as reply_size.
 
         if hostname and hostname[:1] == '/' and not unix_socket:
             unix_socket = '%s/.s.monetdb.%d' % (hostname, port)

@@ -24,7 +24,7 @@ class Connection(object):
         """ Set up a connection to a MonetDB SQL database.
 
         args:
-            database (str): name of the database
+            database (str): name of the database, or MAPI URI
             hostname (str): Hostname where monetDB is running
             port (int): port to connect to (default: 50000)
             username (str): username for connection (default: "monetdb")
@@ -34,6 +34,10 @@ class Connection(object):
             autocommit (bool):  enable/disable auto commit (default: False)
             connect_timeout -- the socket timeout while connecting
                                (default: see python socket module)
+
+        MAPI URI:
+            tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
+            unix domain socket: mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
 
         returns:
             Connection object
