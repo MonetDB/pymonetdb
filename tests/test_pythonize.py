@@ -4,6 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+from datetime import datetime, timedelta, timezone
 import unittest
 import pymonetdb.sql.pythonize
 from tests.util import test_args
@@ -37,3 +38,27 @@ class TestPythonize(unittest.TestCase):
         self.cursor.execute('SELECT * from FOO')
         row = self.cursor.fetchone()
         self.assertEqual(row[0], 24)
+
+    def test_timestamptz(self):
+        now = datetime.now()
+        self.cursor.execute('SELECT now()')
+        row = self.cursor.fetchone()
+        ts = row[0]
+
+        # ts is timezone-aware, see the datetime docs
+        self.assertIsNotNone(ts.tzinfo)
+        self.assertIsNotNone(ts.tzinfo.utcoffset(ts))
+
+        # ts is correct, allowing for reasonable clock skew between client and server
+        self.assertAlmostEqual(60 * ts.hour + ts.minute, 60 * now.hour + now.minute, delta=12)
+
+    def test_roundtrip(self):
+        dt = datetime(2020, 2, 14, 20, 50)
+        tz = timezone(timedelta(hours=1))
+        dtz = dt.replace(tzinfo=tz)
+
+        self.cursor.execute('SELECT %s, %s', [dt, dtz])
+        row = self.cursor.fetchone()
+
+        self.assertEqual(row[0].isoformat(), dt.isoformat())
+        self.assertEqual(row[1].isoformat(), dtz.isoformat())
