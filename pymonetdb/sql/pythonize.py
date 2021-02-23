@@ -65,9 +65,9 @@ def py_timetz(data):
     """
     t, timezone_delta = _extract_timezone(data)
     if '.' in t:
-        return (datetime.datetime.strptime(t, '%H:%M:%S.%f').replace(tzinfo=timezone_delta)).time()
+        return datetime.datetime.strptime(t, '%H:%M:%S.%f').time().replace(tzinfo=timezone_delta)
     else:
-        return (datetime.datetime.strptime(t, '%H:%M:%S').replace(tzinfo=timezone_delta)).time()
+        return datetime.datetime.strptime(t, '%H:%M:%S').time().replace(tzinfo=timezone_delta)
 
 
 def py_date(data):
