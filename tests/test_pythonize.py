@@ -11,9 +11,11 @@ from tests.util import test_args
 
 
 class TestPythonize(unittest.TestCase):
+    TEST_TIMEZONE = -4
 
     def setUp(self):
         db = pymonetdb.connect(autocommit=False, **test_args)
+        db.set_timezone(self.TEST_TIMEZONE * 3600)
         self.connection = db
         self.cursor = db.cursor()
 
@@ -40,7 +42,8 @@ class TestPythonize(unittest.TestCase):
         self.assertEqual(row[0], 24)
 
     def test_timestamptz(self):
-        now = datetime.now()
+        tz = timezone(timedelta(hours=self.TEST_TIMEZONE))
+        now = datetime.now(tz)
         self.cursor.execute('SELECT now()')
         row = self.cursor.fetchone()
         ts = row[0]
@@ -49,12 +52,12 @@ class TestPythonize(unittest.TestCase):
         self.assertIsNotNone(ts.tzinfo)
         self.assertIsNotNone(ts.tzinfo.utcoffset(ts))
 
-        # ts is correct, allowing for reasonable clock skew between client and server
+        # ts is correct, allowing for fairly large clock skew between client and server
         self.assertAlmostEqual(60 * ts.hour + ts.minute, 60 * now.hour + now.minute, delta=12)
 
     def test_roundtrip(self):
         dt = datetime(2020, 2, 14, 20, 50)
-        tz = timezone(timedelta(hours=1))
+        tz = timezone(timedelta(hours=self.TEST_TIMEZONE))
         dtz = dt.replace(tzinfo=tz)
 
         self.cursor.execute('SELECT %s, %s', [dt, dtz])
