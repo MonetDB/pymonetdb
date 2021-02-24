@@ -14,7 +14,7 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
@@ -30,8 +30,12 @@ def _extract_timezone(data):
     else:
         raise ProgrammingError("no + or - in %s" % data)
 
-    return data[:-6], datetime.timedelta(hours=sign * int(data[-5:-3]),
-                                         minutes=sign * int(data[-2:]))
+    hours = sign * int(data[-5:-3])
+    minutes = sign * int(data[-2:])
+    delta = timedelta(hours=hours, minutes=minutes)
+    timezone = datetime.timezone(delta)
+
+    return data[:-6], timezone
 
 
 def strip(data):
@@ -61,9 +65,9 @@ def py_timetz(data):
     """
     t, timezone_delta = _extract_timezone(data)
     if '.' in t:
-        return (datetime.datetime.strptime(t, '%H:%M:%S.%f') + timezone_delta).time()
+        return datetime.datetime.strptime(t, '%H:%M:%S.%f').time().replace(tzinfo=timezone_delta)
     else:
-        return (datetime.datetime.strptime(t, '%H:%M:%S') + timezone_delta).time()
+        return datetime.datetime.strptime(t, '%H:%M:%S').time().replace(tzinfo=timezone_delta)
 
 
 def py_date(data):
@@ -86,9 +90,9 @@ def py_timestamptz(data):
     """
     dt, timezone_delta = _extract_timezone(data)
     if '.' in dt:
-        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S.%f') + timezone_delta
+        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=timezone_delta)
     else:
-        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S') + timezone_delta
+        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone_delta)
 
 
 def py_sec_interval(data: str) -> timedelta:
@@ -189,9 +193,23 @@ def TimeFromTicks(ticks):
     return Time(*time.localtime(ticks)[3:6])
 
 
+def TimeTzFromTicks(ticks):
+    """Convert ticks to python Time"""
+    return _make_localtime(Time(*time.localtime(ticks)[3:6]))
+
+
 def TimestampFromTicks(ticks):
     """Convert ticks to python Timestamp"""
     return Timestamp(*time.localtime(ticks)[:6])
+
+
+def TimestampTzFromTicks(ticks):
+    """Convert ticks to python Timestamp"""
+    return _make_localtime(Timestamp(*time.localtime(ticks)[:6]))
+
+
+def _make_localtime(t):
+    return t.replace(tzinfo=timezone(timedelta(hours=1)))
 
 
 Date = datetime.date

@@ -4,6 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+from datetime import datetime, timedelta, timezone
 import logging
 import platform
 
@@ -63,6 +64,7 @@ class Connection(object):
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
             mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
             mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
+            mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
         ]
 
         self.mapi = mapi.Connection()
@@ -114,6 +116,15 @@ class Connection(object):
     def set_replysize(self, replysize):
         self.command("Xreply_size %s" % int(replysize))
         self.replysize = replysize
+
+    def set_timezone(self, seconds_east_of_utc):
+        hours = int(seconds_east_of_utc / 3600)
+        remaining = seconds_east_of_utc - 3600 * hours
+        minutes = int(remaining / 60)
+        cmd = f"SET TIME ZONE INTERVAL '{hours:+03}:{abs(minutes):02}' HOUR TO MINUTE;"
+        c = self.cursor()
+        c.execute(cmd)
+        c.close()
 
     def commit(self):
         """
@@ -185,3 +196,14 @@ class Connection(object):
     InternalError = exceptions.InternalError
     ProgrammingError = exceptions.ProgrammingError
     NotSupportedError = exceptions.NotSupportedError
+
+
+def _local_timezone_offset_seconds():
+    # local time
+    our_now = datetime.now().replace(microsecond=0).astimezone()
+    # same year/month/day/hour/min/etc, but marked as UTC
+    utc_now = our_now.replace(tzinfo=timezone(timedelta(0)))
+    # UTC reaches a given hour/min/seconds combination later than
+    # the time zones east of UTC do. This means the offset is
+    # positive if we are east.
+    return round(utc_now.timestamp() - our_now.timestamp())

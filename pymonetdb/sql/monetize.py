@@ -46,11 +46,21 @@ def monet_bytes(data):
     return "'%s'" % data.hex()
 
 
+def _tzaware(time_or_datetime):
+    """
+    returns True if the time or datetime is timezone aware, False otherwise.
+    """
+    return time_or_datetime.utcoffset() is not None
+
+
 def monet_datetime(data):
     """
     returns a casted timestamp
     """
-    return "TIMESTAMP %s" % monet_escape(data)
+    if _tzaware(data):
+        return "TIMESTAMPTZ %s" % monet_escape(data)
+    else:
+        return "TIMESTAMP %s" % monet_escape(data)
 
 
 def monet_date(data):
@@ -64,7 +74,10 @@ def monet_time(data):
     """
     returns a casted time
     """
-    return "TIME %s" % monet_escape(data)
+    if _tzaware(data):
+        return "TIMETZ %s" % monet_escape(data)
+    else:
+        return "TIME %s" % monet_escape(data)
 
 
 def monet_timedelta(data):

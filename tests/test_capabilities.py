@@ -236,7 +236,7 @@ class DatabaseTest(unittest.TestCase):
         ticks = time()
 
         def generator(row, col):
-            return pymonetdb.TimeFromTicks(ticks + row * 86400 - col * 1313)
+            return pymonetdb.TimeTzFromTicks(ticks + row * 86400 - col * 1313)
 
         self.check_data_integrity(
             ('col1 TIMETZ',),
@@ -266,7 +266,7 @@ class DatabaseTest(unittest.TestCase):
         ticks = time()
 
         def generator(row, col):
-            return pymonetdb.TimestampFromTicks(ticks + row * 86400 - col * 1313)
+            return pymonetdb.TimestampTzFromTicks(ticks + row * 86400 - col * 1313)
 
         self.check_data_integrity(
             ('col1 TIMESTAMPTZ',),
