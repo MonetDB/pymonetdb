@@ -58,19 +58,13 @@ class Connection(object):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
-        our_now = datetime.now().replace(microsecond=0).astimezone()
-        utc_now = our_now.replace(tzinfo=timezone(timedelta(0)))  # same hour/min/seconds fields
-        # Calculate seconds EAST of UTC. UTC reaches certain hour/min/seconds value later
-        # than time zones east of UTC, so this is positive if we are east.
-        timezone_offset = round(utc_now.timestamp() - our_now.timestamp())
-
         # Level numbers taken from mapi.h.
         # The options start out with member .sent set to False.
         handshake_options = [
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
             mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
             mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
-            mapi.HandshakeOption(5, "time_zone", self.set_timezone, timezone_offset),
+            mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
         ]
 
         self.mapi = mapi.Connection()
@@ -202,3 +196,14 @@ class Connection(object):
     InternalError = exceptions.InternalError
     ProgrammingError = exceptions.ProgrammingError
     NotSupportedError = exceptions.NotSupportedError
+
+
+def _local_timezone_offset_seconds():
+    # local time
+    our_now = datetime.now().replace(microsecond=0).astimezone()
+    # same year/month/day/hour/min/etc, but marked as UTC
+    utc_now = our_now.replace(tzinfo=timezone(timedelta(0)))
+    # UTC reaches a given hour/min/seconds combination later than
+    # the time zones east of UTC do. This means the offset is
+    # positive if we are east.
+    return round(utc_now.timestamp() - our_now.timestamp())
