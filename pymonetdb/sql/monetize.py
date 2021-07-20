@@ -12,6 +12,7 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
+import uuid
 
 from pymonetdb.exceptions import ProgrammingError
 
@@ -98,6 +99,7 @@ mapping = [
     (int, str),
     (complex, str),
     (float, str),
+    (uuid.UUID, monet_escape),
     (decimal.Decimal, str),
     (datetime.datetime, monet_datetime),
     (datetime.time, monet_time),
