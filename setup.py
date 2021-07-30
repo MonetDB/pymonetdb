@@ -9,7 +9,7 @@
 import os
 from setuptools import setup
 
-tests_require = ['pytest', 'mypy', 'pycodestyle']
+tests_require = ['pytest', 'mypy', 'pycodestyle', 'types-setuptools']
 
 extras_require = {
     'test': tests_require,
