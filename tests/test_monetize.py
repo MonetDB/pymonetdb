@@ -6,6 +6,7 @@
 
 import datetime
 import unittest
+import uuid
 from pymonetdb.sql.monetize import convert
 from pymonetdb.exceptions import ProgrammingError
 
@@ -48,3 +49,7 @@ class TestMonetize(unittest.TestCase):
     def test_timedelta(self):
         x = datetime.timedelta(days=5, hours=2, minutes=10)
         self.assertEqual(convert(x), "INTERVAL '439800' SECOND")
+
+    def test_uuids(self):
+        x = uuid.UUID('334e6185-dd64-33d8-a052-d93371d3d20d')
+        self.assertEqual(convert(x), "'334e6185-dd64-33d8-a052-d93371d3d20d'")
