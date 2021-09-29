@@ -319,17 +319,16 @@ class Connection(object):
         else:
             raise NotSupportedError("We only speak protocol v9")
 
-        h = hashes.split(",")
-        if "SHA1" in h:
-            s = hashlib.sha1()
-            s.update(password.encode())
-            s.update(salt.encode())
-            pwhash = "{SHA1}" + s.hexdigest()
-        elif "MD5" in h:
-            m = hashlib.md5()
-            m.update(password.encode())
-            m.update(salt.encode())
-            pwhash = "{MD5}" + m.hexdigest()
+        for h in hashes.split(","):
+            try:
+                s = hashlib.new(h)
+            except ValueError:
+                pass
+            else:
+                s.update(password.encode())
+                s.update(salt.encode())
+                pwhash = "{" + h + "}" + s.hexdigest()
+                break
         else:
             raise NotSupportedError("Unsupported hash algorithms required"
                                     " for login: %s" % hashes)
