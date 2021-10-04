@@ -4,6 +4,7 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+from datetime import datetime, timedelta, timezone
 import logging
 import platform
 
@@ -24,7 +25,7 @@ class Connection(object):
         """ Set up a connection to a MonetDB SQL database.
 
         args:
-            database (str): name of the database
+            database (str): name of the database, or MAPI URI
             hostname (str): Hostname where monetDB is running
             port (int): port to connect to (default: 50000)
             username (str): username for connection (default: "monetdb")
@@ -34,6 +35,10 @@ class Connection(object):
             autocommit (bool):  enable/disable auto commit (default: False)
             connect_timeout -- the socket timeout while connecting
                                (default: see python socket module)
+
+        MAPI URI:
+            tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
+            unix domain socket: mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
 
         returns:
             Connection object
@@ -53,14 +58,27 @@ class Connection(object):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
+        # Level numbers taken from mapi.h.
+        # The options start out with member .sent set to False.
+        handshake_options = [
+            mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
+            mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
+            mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
+            mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
+        ]
+
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
-                          unix_socket=unix_socket, connect_timeout=connect_timeout)
+                          unix_socket=unix_socket, connect_timeout=connect_timeout,
+                          handshake_options=handshake_options)
 
-        self.set_autocommit(autocommit)
-        self.set_sizeheader(True)
-        self.set_replysize(100)
+        # self.mapi.connect() has set .sent to True for all items that
+        # have already been arranged during the initial challenge/response.
+        # Now take care of the rest.
+        for option in handshake_options:
+            if not option.sent:
+                option.fallback(option.value)
 
     def close(self):
         """ Close the connection.
@@ -98,6 +116,15 @@ class Connection(object):
     def set_replysize(self, replysize):
         self.command("Xreply_size %s" % int(replysize))
         self.replysize = replysize
+
+    def set_timezone(self, seconds_east_of_utc):
+        hours = int(seconds_east_of_utc / 3600)
+        remaining = seconds_east_of_utc - 3600 * hours
+        minutes = int(remaining / 60)
+        cmd = f"SET TIME ZONE INTERVAL '{hours:+03}:{abs(minutes):02}' HOUR TO MINUTE;"
+        c = self.cursor()
+        c.execute(cmd)
+        c.close()
 
     def commit(self):
         """
@@ -169,3 +196,14 @@ class Connection(object):
     InternalError = exceptions.InternalError
     ProgrammingError = exceptions.ProgrammingError
     NotSupportedError = exceptions.NotSupportedError
+
+
+def _local_timezone_offset_seconds():
+    # local time
+    our_now = datetime.now().replace(microsecond=0).astimezone()
+    # same year/month/day/hour/min/etc, but marked as UTC
+    utc_now = our_now.replace(tzinfo=timezone(timedelta(0)))
+    # UTC reaches a given hour/min/seconds combination later than
+    # the time zones east of UTC do. This means the offset is
+    # positive if we are east.
+    return round(utc_now.timestamp() - our_now.timestamp())

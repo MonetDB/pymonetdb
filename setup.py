@@ -9,7 +9,7 @@
 import os
 from setuptools import setup
 
-tests_require = ['pytest', 'mypy', 'pycodestyle']
+tests_require = ['pytest', 'mypy', 'pycodestyle', 'types-setuptools']
 
 extras_require = {
     'test': tests_require,
@@ -22,7 +22,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-__version__ = '1.4.0'
+__version__ = '1.4.1'
 
 setup(
     name='pymonetdb',

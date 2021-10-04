@@ -1,5 +1,22 @@
-# 2.0.0 (unreleased)
 
+# 1.4.1
+
+changes since 1.4.0
+
+  - Support day interval type enhancement (#81)
+  - Add MBR type (#82)
+
+
+# 1.4.0
+
+changes since 1.3.0
+
+ - SQLSTATE error code removed from error messages (#75)
+ - Separate SQL errors from connection errors during query execution (#74)
+ - Connection refused log message when everything is fine (#71)
+ - Fix blob handling  (#67)
+ - Properly hex and de-hex binary data for both py2 and py3 (#62)
+ - Drop python 2 support (#55)
  - Drop python < 3.5 support (#65)
 
 
@@ -32,6 +49,7 @@ changes since 1.1.1
 
 - Correctly monetize python datetime, date, time and timedelta types (#31)
 
+
 # 1.1.1
 
 changes since 1.1.0
@@ -51,6 +69,7 @@ changes since 1.0.6
 - license file (25)
 - Make description a named tuple (#3)
 - Exporting Python UDFs Using the Python Client (#26)
+
 
 # 1.0.6
 

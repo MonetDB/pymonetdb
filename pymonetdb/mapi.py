@@ -15,6 +15,7 @@ import hashlib
 import os
 from typing import Optional
 from io import BytesIO
+from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -91,14 +92,47 @@ class Connection(object):
         self.password = ""
         self.database = ""
         self.language = ""
+        self.handshake_options = None
         self.connect_timeout = socket.getdefaulttimeout()
 
     def connect(self, database, username, password, language, hostname=None,
-                port=None, unix_socket=None, connect_timeout=-1):
+                port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
         """
+
+        if ':' in database:
+            if not database.startswith('mapi:monetdb:'):
+                raise DatabaseError("colon not allowed in database name, except as part of mapi:monetdb://<hostname>[:<port>]/<database> URI")
+            parsed = urlparse(database[5:])
+            # parse basic settings
+            if parsed.hostname or parsed.port:
+                # connect over tcp
+                if not parsed.path.startswith('/'):
+                    raise DatabaseError('invalid mapi url')
+                database = parsed.path[1:]
+                if '/' in database:
+                    raise DatabaseError('invalid mapi url')
+                username = parsed.username or username
+                password = parsed.password or password
+                hostname = parsed.hostname or hostname
+                port = parsed.port or port
+            else:
+                # connect over unix domain socket
+                unix_socket = parsed.path or unix_socket
+                username = parsed.username or username
+                password = parsed.password or password
+                database = ''  # must be set in uri parameter
+            # parse uri parameters
+            if parsed.query:
+                parms = parse_qs(parsed.query)
+                if 'database' in parms:
+                    if database == '':
+                        database = parms['database'][-1]
+                    else:
+                        raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
+                # Future work: parse other parameters such as reply_size.
 
         if hostname and hostname[:1] == '/' and not unix_socket:
             unix_socket = '%s/.s.monetdb.%d' % (hostname, port)
@@ -120,7 +154,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-
+        self.handshake_options = handshake_options or []
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -265,7 +299,12 @@ class Connection(object):
 
     def _challenge_response(self, challenge):
         """ generate a response to a mapi login challenge """
+
         challenges = challenge.split(':')
+        if challenges[-1] != '' or len(challenges) < 7:
+            raise OperationalError("Server sent invalid challenge")
+        challenges.pop()
+
         salt, identity, protocol, hashes, endian = challenges[:5]
         password = self.password
 
@@ -280,23 +319,38 @@ class Connection(object):
         else:
             raise NotSupportedError("We only speak protocol v9")
 
-        h = hashes.split(",")
-        if "SHA1" in h:
-            s = hashlib.sha1()
-            s.update(password.encode())
-            s.update(salt.encode())
-            pwhash = "{SHA1}" + s.hexdigest()
-        elif "MD5" in h:
-            m = hashlib.md5()
-            m.update(password.encode())
-            m.update(salt.encode())
-            pwhash = "{MD5}" + m.hexdigest()
+        for h in hashes.split(","):
+            try:
+                s = hashlib.new(h)
+            except ValueError:
+                pass
+            else:
+                s.update(password.encode())
+                s.update(salt.encode())
+                pwhash = "{" + h + "}" + s.hexdigest()
+                break
         else:
             raise NotSupportedError("Unsupported hash algorithms required"
                                     " for login: %s" % hashes)
 
-        return ":".join(["BIG", self.username, pwhash, self.language,
-                         self.database]) + ":"
+        response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
+
+        if len(challenges) >= 7:
+            options_level = 0
+            for part in challenges[6].split(","):
+                if part.startswith("sql="):
+                    try:
+                        options_level = int(part[4:])
+                    except ValueError:
+                        raise OperationalError("invalid sql options level in server challenge: " + part)
+            options = []
+            for opt in self.handshake_options:
+                if opt.level < options_level:
+                    options.append(opt.name + "=" + str(int(opt.value)))
+                    opt.sent = True
+            response += ",".join(options) + ":"
+
+        return response
 
     def _getblock(self):
         """ read one mapi encoded block """
@@ -373,3 +427,22 @@ class Connection(object):
         """
 
         self.cmd("Xreply_size %s" % size)
+
+
+# When all supported Python versions support it we can enable @dataclass here.
+class HandshakeOption:
+    """
+    Option that can be set during the MAPI handshake
+
+    Should be sent as <name>=<val>, where <val> is `value` converted to int.
+    The `level` is used to determine if the server supports this option.
+    The `fallback` is a function-like object that can be called with the
+    value (not converted to an integer) as a parameter.
+    Field `sent` can be used to keep track of whether the option has been sent.
+    """
+    def __init__(self, level, name, fallback, value):
+        self.level = level
+        self.name = name
+        self.value = value
+        self.fallback = fallback
+        self.sent = False
