@@ -9,7 +9,7 @@ from collections import namedtuple
 from typing import Optional, Dict
 from pymonetdb.sql.debug import debug, export
 from pymonetdb.sql import monetize, pythonize
-from pymonetdb.exceptions import ProgrammingError, InterfaceError
+from pymonetdb.exceptions import Error, ProgrammingError, InterfaceError
 from pymonetdb import mapi
 
 logger = logging.getLogger("pymonetdb")
@@ -78,6 +78,9 @@ class Cursor(object):
         # the resultset
         self._rows = []
 
+        # whether the current result set must be closed explicitly
+        self._must_close_resultset = False
+
         # used to identify a query during server contact.
         # Only select queries have query ID
         self._query_id = -1
@@ -112,11 +115,22 @@ class Cursor(object):
         if not self._executed:
             self._exception_handler(ProgrammingError, "do a execute() first")
 
+    def _close_earlier_resultset(self):
+        if self._must_close_resultset:
+            self._must_close_resultset = False
+            command = 'Xclose %s' % self._query_id
+            self.connection.command(command)
+
     def close(self):
         """ Close the cursor now (rather than whenever __del__ is
         called).  The cursor will be unusable from this point
         forward; an Error (or subclass) exception will be raised
         if any operation is attempted with the cursor."""
+
+        try:
+            self._close_earlier_resultset()
+        except Error:
+            pass
         self.connection = None
 
     def execute(self, operation, parameters=None):
@@ -131,6 +145,8 @@ class Cursor(object):
 
         # clear message history
         self.messages = []
+
+        self._close_earlier_resultset()
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
@@ -162,6 +178,7 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
+        self._must_close_resultset = self.rowcount > len(self._rows)
         return self.rowcount
 
     def executemany(self, operation, seq_of_parameters):
