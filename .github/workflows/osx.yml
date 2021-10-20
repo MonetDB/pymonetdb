@@ -21,7 +21,7 @@ jobs:
           monetdb create demo
           monetdb release demo
           monetdb start demo
-      - name: Upgrade pip
+      - name: Run tests
         run: make test
 
 
