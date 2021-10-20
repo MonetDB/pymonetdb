@@ -17,9 +17,6 @@ setup: venv/installed
 test: setup
 	venv/bin/pytest
 
-docker-wheels:
-	manylinux2010/outside.sh
-
 clean: venv/
 	venv/bin/python3 setup.py clean
 	rm -rf build dist *.egg-info .eggs  .*_cache venv/ doc/_build
@@ -38,12 +35,6 @@ pycodestyle: venv/bin/pycodestyle
 mypy: venv/bin/mypy
 	venv/bin/mypy pymonetdb tests
 
-venv/bin/delocate-wheel: setup
-	venv/bin/pip install delocate
-
-delocate: venv/bin/delocate-wheel
-	venv/bin/delocate-wheel -v dist/*.whl
-
 venv/bin/twine: setup
 	venv/bin/pip install twine
 
@@ -53,7 +44,7 @@ sdist: setup
 wheel: setup
 	venv/bin/python setup.py build bdist_wheel
 
-twine: venv/bin/twine
+upload: venv/bin/twine wheel sdist
 	venv/bin/twine upload dist/*.whl dist/*.tar.gz
 
 doc: setup
