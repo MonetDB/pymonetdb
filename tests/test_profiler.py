@@ -17,6 +17,10 @@ class ProfilerTest(unittest.TestCase):
         cls.conn = pymonetdb.profiler.ProfilerConnection()
         cls.conn.connect(**util.test_args)
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.conn.close()
+
     @patch('pymonetdb.mapi.Connection._getblock')
     def test_profiler_connection(self, mock_getblock):
         response = '{"key":"value"}\n'  # A random JSON object

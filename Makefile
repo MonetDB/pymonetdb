@@ -1,6 +1,9 @@
 # This file is intended for development purposes and should not be used to install pymonetdb
 
-.PHONY: doc clean test
+DBFARM=dbfarm
+DATABASE=demo
+
+.PHONY: doc clean test wheel sdist dbfarm-start database-init
 
 all: test
 
@@ -59,3 +62,21 @@ flake8: venv/bin/flake8
 	venv/bin/flake8 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics pymonetdb tests
 
 checks: mypy pycodestyle flake8
+
+$(DBFARM):
+	monetdbd create $(DBFARM)
+	monetdbd start $(DBFARM)
+	monetdbd set control=yes $(DBFARM)
+	monetdbd set passphrase=testdb $(DBFARM)
+	monetdbd stop $(DBFARM)
+	monetdbd start $(DBFARM)
+
+dbfarm-start:
+	monetdbd start $(DBFARM)
+
+database-init:
+	monetdb stop $(DATABASE) || true
+	monetdb destroy -f $(DATABASE) || true
+	monetdb create $(DATABASE)
+	monetdb release $(DATABASE)
+	monetdb start $(DATABASE)

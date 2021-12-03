@@ -20,6 +20,10 @@ class TestUdf(TestCase):
         cls.conn = pymonetdb.connect(**test_args)
         cls.cursor = cls.conn.cursor()
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.conn.close()
+
     @skip("Disabled, see issue #49")
     def test_debug_udf(self):
         self.cursor.execute("""
