@@ -5,17 +5,25 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 import unittest
 from unittest.mock import patch
-import pymonetdb
+from typing import Optional
+from pymonetdb.profiler import ProfilerConnection
 from tests import util
 
 
 class ProfilerTest(unittest.TestCase):
     """Test the profiler connection."""
 
+    conn: Optional[ProfilerConnection] = None
+
     @classmethod
     def setUpClass(cls):
-        cls.conn = pymonetdb.profiler.ProfilerConnection()
+        cls.conn = ProfilerConnection()
         cls.conn.connect(**util.test_args)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls.conn:
+            cls.conn.close()
 
     @patch('pymonetdb.mapi.Connection._getblock')
     def test_profiler_connection(self, mock_getblock):

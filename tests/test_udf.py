@@ -1,7 +1,9 @@
 from unittest import TestCase, SkipTest, skip
 import tempfile
-import pymonetdb
+from typing import Optional
 from tests.util import test_args
+import pymonetdb
+from pymonetdb.sql.connections import Connection
 
 
 class TestUdf(TestCase):
@@ -14,11 +16,17 @@ class TestUdf(TestCase):
 
     or use embedpy3 for python3 support
     """
+    conn: Optional[Connection] = None
 
     @classmethod
     def setUpClass(cls):
         cls.conn = pymonetdb.connect(**test_args)
         cls.cursor = cls.conn.cursor()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls.conn:
+            cls.conn.close()
 
     @skip("Disabled, see issue #49")
     def test_debug_udf(self):

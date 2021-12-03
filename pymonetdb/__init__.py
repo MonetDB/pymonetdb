@@ -37,7 +37,7 @@ __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connecti
            'threadsafety']
 
 
-def connect(*args, **kwargs):
+def connect(*args, **kwargs) -> Connection:
     return Connection(*args, **kwargs)
 
 

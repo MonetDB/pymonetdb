@@ -15,7 +15,7 @@ from pymonetdb import mapi
 logger = logging.getLogger("pymonetdb")
 
 
-class Connection(object):
+class Connection:
     """A MonetDB SQL database connection"""
     default_cursor = cursors.Cursor
 
