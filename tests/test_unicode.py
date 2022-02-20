@@ -53,6 +53,7 @@ class TestUnicode(unittest.TestCase):
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
 
+    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_unicode_string(self):
         con = self._connect()
         cursor = con.cursor()
@@ -61,7 +62,9 @@ class TestUnicode(unittest.TestCase):
         cursor.execute("insert into %sbooze VALUES ('%s')" % (self.table_prefix, x))
         cursor.execute('select name from %sbooze' % self.table_prefix)
         self.assertEqual(x, cursor.fetchone()[0])
+        con.close()
 
+    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_utf8(self):
         con = self._connect()
         try:
@@ -76,6 +79,7 @@ class TestUnicode(unittest.TestCase):
         finally:
             con.close()
 
+    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_unicode(self):
         con = self._connect()
         try:
@@ -92,6 +96,7 @@ class TestUnicode(unittest.TestCase):
         finally:
             con.close()
 
+    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_substring(self):
         con = self._connect()
         try:
@@ -153,7 +158,9 @@ class TestUnicode(unittest.TestCase):
         returned = res[0][0]
         self.assertEqual(returned, input_)
         self.assertEqual(type(returned), str)
+        con.close()
 
+    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_query_ending_with_comment(self):
         con = self._connect()
         cur = con.cursor()
@@ -163,6 +170,7 @@ class TestUnicode(unittest.TestCase):
         # the above line should execute without problems
         self.assertEqual(1, cur.rowcount,
                          'queries ending in comments should be executed correctly')
+        con.close()
 
 
 if __name__ == '__main__':

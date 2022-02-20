@@ -59,3 +59,4 @@ you can use the MAPI library::
                   password="monetdb", database="demo", language="sql")
  > server.cmd("sSELECT * FROM tables;")
  ...
+

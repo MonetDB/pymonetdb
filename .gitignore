@@ -14,3 +14,4 @@ venv/
 manylinux2010/*.whl
 .idea/
 __pycache__/
+dbfarm/

@@ -11,7 +11,7 @@ from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError
 
 
-class ProfilerConnection(object):
+class ProfilerConnection:
     """
     A connection to the MonetDB profiler.
     """
@@ -39,3 +39,8 @@ class ProfilerConnection(object):
             self._buffer += self._mapi._getblock()
 
         return self._buffer[:-1]
+
+    def close(self):
+        if self._mapi:
+            self._mapi.disconnect()
+            self._mapi = None
