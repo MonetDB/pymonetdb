@@ -65,3 +65,10 @@ class TestPythonize(unittest.TestCase):
 
         self.assertEqual(row[0].isoformat(), dt.isoformat())
         self.assertEqual(row[1].isoformat(), dtz.isoformat())
+
+    def test_insert_binary_data(self):
+        self.cursor.execute('CREATE TEMPORARY TABLE binary_foo (i BLOB)')
+        self.cursor.execute('INSERT INTO binary_foo VALUES ' + b"i_am_binary_data")
+
+        row = self.cursor.fetchone()
+        self.assertTrue(row[0] is not None)
