@@ -26,13 +26,13 @@ class TestPythonize(unittest.TestCase):
     def test_Binary(self):
         input1 = bytes(range(256)).hex()
         output1 = bytes(range(256))
-        result1 = pymonetdb.sql.pythonize.Binary(input1)
+        result1 = pymonetdb.sql.pythonize.convert(input1, pymonetdb.types.BLOB)
         self.assertEqual(output1, result1)
 
         input2 = b'\tdharma'.hex()
         output2 = b'\tdharma'
 
-        result2 = pymonetdb.sql.pythonize.Binary(input2)
+        result2 = pymonetdb.sql.pythonize.convert(input2, pymonetdb.types.BLOB)
         self.assertEqual(output2, result2)
 
     def test_month_interval(self):
