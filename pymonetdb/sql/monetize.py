@@ -44,7 +44,7 @@ def monet_bytes(data):
     """
     converts bytes to string
     """
-    return "'%s'" % data.hex()
+    return "BLOB '%s'" % data.hex()
 
 
 def _tzaware(time_or_datetime):

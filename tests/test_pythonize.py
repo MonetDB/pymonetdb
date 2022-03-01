@@ -7,6 +7,7 @@
 from datetime import datetime, timedelta, timezone
 import unittest
 import pymonetdb.sql.pythonize
+import pymonetdb
 from tests.util import test_args
 
 
@@ -55,7 +56,7 @@ class TestPythonize(unittest.TestCase):
         # ts is correct, allowing for fairly large clock skew between client and server
         self.assertAlmostEqual(60 * ts.hour + ts.minute, 60 * now.hour + now.minute, delta=12)
 
-    def test_roundtrip(self):
+    def test_roundtrip_datetime(self):
         dt = datetime(2020, 2, 14, 20, 50)
         tz = timezone(timedelta(hours=self.TEST_TIMEZONE))
         dtz = dt.replace(tzinfo=tz)
@@ -65,3 +66,12 @@ class TestPythonize(unittest.TestCase):
 
         self.assertEqual(row[0].isoformat(), dt.isoformat())
         self.assertEqual(row[1].isoformat(), dtz.isoformat())
+
+    def test_roundtrip_binary(self):
+        raw = b'BLUB\x00BLOB'
+        wrapped = pymonetdb.Binary(raw)
+        self.cursor.execute('SELECT %s, %s', [raw, wrapped])
+        row = self.cursor.fetchone()
+
+        self.assertEqual(row[0], raw)
+        self.assertEqual(row[1], raw)

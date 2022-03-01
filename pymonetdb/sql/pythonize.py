@@ -109,9 +109,9 @@ def py_day_interval(data: str) -> int:
     return timedelta(seconds=int(Decimal(data))).days
 
 
-def py_bytes(data):
+def py_bytes(data: str):
     """Returns a bytes (py3) or string (py2) object representing the input blob."""
-    return Binary(data)
+    return bytes.fromhex(data)
 
 
 def oid(data):
@@ -179,9 +179,9 @@ def convert(data, type_code):
 # below stuff required by the DBAPI
 
 def Binary(data):
-    """returns binary encoding of data"""
-    return bytes.fromhex(data)
-
+    """Convert to wraps binary data"""
+    assert isinstance(data, bytes) or isinstance(data, bytearray)
+    return data
 
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""
