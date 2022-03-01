@@ -183,6 +183,7 @@ def Binary(data):
     assert isinstance(data, bytes) or isinstance(data, bytearray)
     return data
 
+
 def DateFromTicks(ticks):
     """Convert ticks to python Date"""
     return Date(*time.localtime(ticks)[:3])
