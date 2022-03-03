@@ -156,7 +156,6 @@ class TestUnicode(unittest.TestCase):
         self.assertEqual(type(returned), str)
         con.close()
 
-
     def test_query_ending_with_comment(self):
         con = self._connect()
         cur = con.cursor()
