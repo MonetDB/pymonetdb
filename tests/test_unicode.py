@@ -53,7 +53,6 @@ class TestUnicode(unittest.TestCase):
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
 
-    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_unicode_string(self):
         con = self._connect()
         cursor = con.cursor()
@@ -64,7 +63,6 @@ class TestUnicode(unittest.TestCase):
         self.assertEqual(x, cursor.fetchone()[0])
         con.close()
 
-    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_utf8(self):
         con = self._connect()
         try:
@@ -79,7 +77,6 @@ class TestUnicode(unittest.TestCase):
         finally:
             con.close()
 
-    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_unicode(self):
         con = self._connect()
         try:
@@ -96,7 +93,6 @@ class TestUnicode(unittest.TestCase):
         finally:
             con.close()
 
-    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_substring(self):
         con = self._connect()
         try:
@@ -160,7 +156,6 @@ class TestUnicode(unittest.TestCase):
         self.assertEqual(type(returned), str)
         con.close()
 
-    @unittest.skip("broken, Expected to be fixed in Jul2021-SP2 (#96")
     def test_query_ending_with_comment(self):
         con = self._connect()
         cur = con.cursor()
