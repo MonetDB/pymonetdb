@@ -14,7 +14,7 @@ import struct
 import hashlib
 import os
 from typing import Optional
-from io import BytesIO
+from io import SEEK_SET, BytesIO
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
@@ -26,6 +26,7 @@ MAX_PACKAGE_LENGTH = (1024 * 8) - 2
 
 MSG_PROMPT = ""
 MSG_MORE = "\1\2\n"
+MSG_FILETRANS = b"\1\3\n"  # ugly to have this one as the only binary one
 MSG_INFO = "#"
 MSG_ERROR = "!"
 MSG_Q = "&"
@@ -260,7 +261,7 @@ class Connection(object):
             raise (ProgrammingError, "Not connected")
 
         self._putblock(operation)
-        response = self._getblock()
+        response = self._getblock_and_transfer_files()
         if not len(response):
             return ""
         elif response.startswith(MSG_OK):
@@ -352,6 +353,41 @@ class Connection(object):
             response += ",".join(options) + ":"
 
         return response
+
+    def _getblock_and_transfer_files(self):
+        prev = b''
+        prev_end = 0
+        # This loop only iterates more than once if
+        # file transfers occur.
+        while True:
+            # preserve results from the previous iteration
+            writer = BytesIO(memoryview(prev)[:prev_end])
+            writer.seek(prev_end, SEEK_SET)
+            self._getblock_raw(writer)
+            buf = writer.getvalue() # unavoidable, we cannot scan the buffer efficiently
+            if not buf:
+                break
+            # a FILETRANSFER request looks like this:
+            #     ... optional other contents (usually none) \n
+            #     \1\3\n
+            #     file transfer command\n
+            # the i below is the position of the second-last \n,
+            # separating the prompt from the file transfer command
+            i = buf.rfind(b'\n', 0, len(buf) - 1)
+            if i < 2:
+                break
+            if buf[i - 2 : i + 1] != MSG_FILETRANS:
+                break
+            cmd = buf[i + 1 :].decode()
+            prev = buf
+            prev_end = i - 2 # discard the file transfer prompt and command
+
+            self._handle_transfer(cmd)
+
+        return buf.decode()
+
+    def _handle_transfer(self, cmd):
+        self._putblock("No file transfer handler has been registered with pymonetdb\n")
 
     def _getblock(self):
         """ read one mapi encoded block """
@@ -448,3 +484,4 @@ class HandshakeOption:
         self.value = value
         self.fallback = fallback
         self.sent = False
+
