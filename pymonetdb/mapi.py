@@ -355,43 +355,44 @@ class Connection(object):
 
     def _getblock(self):
         """ read one mapi encoded block """
-        if self.language == 'control' and not self.hostname:
-            return self._getblock_socket()  # control doesn't do block splitting when using a socket
-        else:
-            return self._getblock_inet()
+        buf = BytesIO()
+        self._getblock_raw(buf)
+        return buf.getvalue().decode()
 
-    def _getblock_inet(self):
-        result = BytesIO()
+    def _getblock_raw(self, buffer: BytesIO):
+        """ read one mapi encoded block and append it to the buf"""
+        if self.language == 'control' and not self.hostname:
+            self._getblock_socket(buffer)  # control doesn't do block splitting when using a socket
+        else:
+            self._getblock_inet(buffer)
+
+    def _getblock_inet(self, buffer):
         last = 0
         while not last:
-            flag = self._getbytes(2)
+            flag_buf = BytesIO()
+            self._getbytes(flag_buf, 2)
+            flag = flag_buf.getvalue()
             unpacked = struct.unpack('<H', flag)[0]  # little endian short
             length = unpacked >> 1
             last = unpacked & 1
-            result.write(self._getbytes(length))
-        return result.getvalue().decode()
+            self._getbytes(buffer, length)
 
-    def _getblock_socket(self):
-        buffer = BytesIO()
+    def _getblock_socket(self, buffer):
         while True:
             x = self.socket.recv(1)
             if len(x):
                 buffer.write(x)
             else:
                 break
-        return buffer.getvalue().strip().decode()
 
-    def _getbytes(self, bytes_):
-        """Read an amount of bytes from the socket"""
-        result = BytesIO()
-        count = bytes_
+    def _getbytes(self, buffer, count):
+        """Read 'count'' of bytes from the socket into 'buffer'"""
         while count > 0:
             recv = self.socket.recv(count)
             if len(recv) == 0:
                 raise BrokenPipeError("Server closed connection")
             count -= len(recv)
-            result.write(recv)
-        return result.getvalue()
+            buffer.write(recv)
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
