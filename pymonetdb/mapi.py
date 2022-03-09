@@ -336,6 +336,7 @@ class Connection(object):
         response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
 
         if len(challenges) >= 7:
+            response += "FILETRANS:"
             options_level = 0
             for part in challenges[6].split(","):
                 if part.startswith("sql="):
