@@ -390,7 +390,7 @@ class Connection(object):
 
     def _handle_transfer(self, cmd: str):
         if cmd.startswith("r "):
-            parts = cmd[2:].split(' ', 2)
+            parts = cmd[2:-1].split(' ', 2)
             if len(parts) == 2:
                 try:
                     n = int(parts[0])
