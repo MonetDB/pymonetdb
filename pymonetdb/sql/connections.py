@@ -126,6 +126,9 @@ class Connection:
         c.execute(cmd)
         c.close()
 
+    def set_uploader(self, uploader):
+        self.mapi.set_uploader(uploader)
+
     def commit(self):
         """
         Commit any pending transaction to the database. Note that

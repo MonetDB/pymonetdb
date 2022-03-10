@@ -13,7 +13,7 @@ import logging
 import struct
 import hashlib
 import os
-from typing import Optional
+from typing import Optional, Union
 from io import SEEK_SET, BytesIO
 from urllib.parse import urlparse, parse_qs
 
@@ -26,7 +26,8 @@ MAX_PACKAGE_LENGTH = (1024 * 8) - 2
 
 MSG_PROMPT = ""
 MSG_MORE = "\1\2\n"
-MSG_FILETRANS = b"\1\3\n"  # ugly to have this one as the only binary one
+MSG_FILETRANS = "\1\3\n"
+MSG_FILETRANS_B = b"\1\3\n"
 MSG_INFO = "#"
 MSG_ERROR = "!"
 MSG_Q = "&"
@@ -95,6 +96,7 @@ class Connection(object):
         self.language = ""
         self.handshake_options = None
         self.connect_timeout = socket.getdefaulttimeout()
+        self.uploader = None
 
     def connect(self, database, username, password, language, hostname=None,
                 port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
@@ -376,7 +378,7 @@ class Connection(object):
             i = buf.rfind(b'\n', 0, len(buf) - 1)
             if i < 2:
                 break
-            if buf[i - 2 : i + 1] != MSG_FILETRANS:
+            if buf[i - 2 : i + 1] != MSG_FILETRANS_B:
                 break
             cmd = buf[i + 1 :].decode()
             prev = buf
@@ -386,8 +388,32 @@ class Connection(object):
 
         return buf.decode()
 
-    def _handle_transfer(self, cmd):
-        self._putblock("No file transfer handler has been registered with pymonetdb\n")
+    def _handle_transfer(self, cmd: str):
+        if cmd.startswith("r "):
+            parts = cmd[2:].split(' ', 2)
+            if len(parts) == 2:
+                try:
+                    n = int(parts[0])
+                except ValueError:
+                    pass
+                return self._handle_upload(parts[1], True, n)
+        elif cmd.startswith("rb "):
+            return self._handle_upload(parts[1], False, 0)
+        else:
+            pass
+        # we only reach this if decoding the cmd went wrong:
+        self._putblock(f"Invalid file transfer command: {cmd!r}")
+
+    def _handle_upload(self, filename, text_mode, offset):
+        if not self.uploader:
+            self._putblock("No upload handler has been registered with pymonetdb\n")
+            return
+        skip_amount = offset - 1 if offset > 0 else 0
+        upload = Upload(self)
+        try:
+            self.uploader.handle(upload, filename, text_mode, skip_amount)
+        finally:
+            upload.close()
 
     def _getblock(self):
         """ read one mapi encoded block """
@@ -435,18 +461,22 @@ class Connection(object):
         if self.language == 'control' and not self.hostname:
             return self.socket.send(block.encode())  # control doesn't do block splitting when using a socket
         else:
-            self._putblock_inet(block)
+            self._putblock_inet_raw(block.encode(), True)
 
-    def _putblock_inet(self, block):
+    def _putblock_raw(self, block, finish: bool):
+        """ put the data into the socket """
+        assert self.language != 'control' or self.hostname
+        self._putblock_inet_raw(block, finish)
+
+    def _putblock_inet_raw(self, block, finish):
         pos = 0
         last = 0
-        block = block.encode()
         while not last:
-            data = block[pos:pos + MAX_PACKAGE_LENGTH]
+            data = memoryview(block)[pos:pos + MAX_PACKAGE_LENGTH]
             length = len(data)
             if length < MAX_PACKAGE_LENGTH:
                 last = 1
-            flag = struct.pack('<H', (length << 1) + last)
+            flag = struct.pack('<H', (length << 1) + (last if finish else 0))
             self.socket.send(flag)
             self.socket.send(data)
             pos += length
@@ -466,6 +496,9 @@ class Connection(object):
 
         self.cmd("Xreply_size %s" % size)
 
+    def set_uploader(self, uploader):
+        self.uploader = uploader
+
 
 # When all supported Python versions support it we can enable @dataclass here.
 class HandshakeOption:
@@ -484,4 +517,93 @@ class HandshakeOption:
         self.value = value
         self.fallback = fallback
         self.sent = False
+
+class Upload:
+    mapi: Connection
+    error: bool
+    discard: bool
+    bytes_sent: int
+    chunk_left: int
+    chunk_size: int
+
+    def __init__(self, mapi):
+        self.mapi = mapi
+        self.error = False
+        self.discard = False
+        self.bytes_sent = 0
+        self.chunk_size = 1024 * 1024
+        self.chunk_left = self.chunk_size
+
+    def _check_usable(self):
+        if self.error:
+            raise ProgrammingError("Upload handle has had an error, cannot be used anymore")
+        if not self.mapi:
+            raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
+
+    def send_error(self, message: str):
+        if self.discard:
+            return
+        self._check_usable()
+        if self.bytes_sent:
+            raise ProgrammingError("Cannot send error after data has been sent")
+        if not message.endswith("\n"):
+            message += "\n"
+        self.error = True
+        self.mapi._putblock(message)
+        self.mapi = None
+
+    def _send_data(self, data: Union[bytes, memoryview]):
+        if self.cancelled:
+            return
+        self._check_usable()
+        if self.bytes_sent == 0:
+            # send the magic newline indicating we're ok with the upload
+            self._send(b'\n', False)
+        pos = 0
+        end = len(data)
+        while pos < end:
+            n = min(end - pos, self.chunk_left)
+            chunk = memoryview(data)[pos : pos + n]
+            if n == self.chunk_left:
+                server_wants_more = self._send_and_get_prompt(chunk)
+                if not server_wants_more:
+                    self.discard = True
+                    self.mapi = False
+                    break
+            else:
+                self._send(chunk, False)
+            pos += n
+
+    def _send(self, data: Union[bytes, memoryview], finish: bool):
+        self.mapi._putblock_raw(data, finish)
+        self.bytes_sent += len(data)
+        self.chunk_left -= len(data)
+
+    def _send_and_get_prompt(self, data: Union[bytes, memoryview]) -> bool:
+        self._send(data, True)
+        prompt = self.mapi._getblock()
+        if prompt == MSG_MORE:
+            self.chunk_left = self.chunk_size
+            return True
+        elif prompt == MSG_FILETRANS:
+            # server says stop
+            return False
+        else:
+            raise ProgrammingError(f"Unexpected server response: {prompt[:50]!r}")
+
+    def close(self):
+        if self.error:
+            return
+        if self.mapi:
+            if self.chunk_left != self.chunk_size:
+                # finish the current block
+                self._send_and_get_prompt(b'')
+            # send empty block to indicate end of upload
+            self.mapi._putblock('')
+            # receive acknowledgement
+            resp = self.mapi._getblock()
+            if resp != MSG_FILETRANS:
+                raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
+            self.mapi = None
+
 
