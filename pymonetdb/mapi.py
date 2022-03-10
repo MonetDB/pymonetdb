@@ -595,15 +595,17 @@ class Upload:
         if self.error:
             return
         if self.mapi:
+            server_wants_more = False
             if self.chunk_left != self.chunk_size:
                 # finish the current block
-                self._send_and_get_prompt(b'')
-            # send empty block to indicate end of upload
-            self.mapi._putblock('')
-            # receive acknowledgement
-            resp = self.mapi._getblock()
-            if resp != MSG_FILETRANS:
-                raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
+                server_wants_more = self._send_and_get_prompt(b'')
+            if server_wants_more:
+                # send empty block to indicate end of upload
+                self.mapi._putblock('')
+                # receive acknowledgement
+                resp = self.mapi._getblock()
+                if resp != MSG_FILETRANS:
+                    raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
             self.mapi = None
 
 
