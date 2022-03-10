@@ -8,13 +8,14 @@ This is the python implementation of the mapi protocol.
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+import codecs
 import socket
 import logging
 import struct
 import hashlib
 import os
 from typing import Optional, Union
-from io import SEEK_SET, BytesIO
+from io import SEEK_SET, BufferedIOBase, BufferedWriter, BytesIO, TextIOBase
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
@@ -525,6 +526,8 @@ class Upload:
     bytes_sent: int
     chunk_left: int
     chunk_size: int
+    writer: BufferedIOBase
+    twriter: TextIOBase
 
     def __init__(self, mapi):
         self.mapi = mapi
@@ -533,6 +536,8 @@ class Upload:
         self.bytes_sent = 0
         self.chunk_size = 1024 * 1024
         self.chunk_left = self.chunk_size
+        self.writer = None
+        self.twriter = None
 
     def _check_usable(self):
         if self.error:
@@ -554,6 +559,16 @@ class Upload:
         self.error = True
         self.mapi._putblock(message)
         self.mapi = None
+
+    def binary_writer(self):
+        if not self.writer:
+            self.writer = BufferedWriter(UploadIO(self))
+        return self.writer
+
+    def text_writer(self):
+        if not self.twriter:
+            self.twriter = codecs.getwriter('utf-8')(self.binary_writer())
+        return self.twriter
 
     def _send_data(self, data: Union[bytes, memoryview]):
         if self.cancelled:
@@ -597,6 +612,8 @@ class Upload:
     def close(self):
         if self.error:
             return
+        if self.writer:
+            self.writer.close()
         if self.mapi:
             server_wants_more = False
             if self.chunk_left != self.chunk_size:
@@ -612,3 +629,16 @@ class Upload:
             self.mapi = None
 
 
+class UploadIO(BufferedIOBase):
+    upload: Upload
+
+    def __init__(self, upload):
+        self.upload = upload
+
+    def writable(self):
+        return True
+
+    def write(self, b):
+        n = len(b)
+        self.upload._send_data(b)
+        return n
