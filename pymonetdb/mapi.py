@@ -521,7 +521,7 @@ class HandshakeOption:
 class Upload:
     mapi: Connection
     error: bool
-    discard: bool
+    cancelled: bool
     bytes_sent: int
     chunk_left: int
     chunk_size: int
@@ -529,7 +529,7 @@ class Upload:
     def __init__(self, mapi):
         self.mapi = mapi
         self.error = False
-        self.discard = False
+        self.cancelled = False
         self.bytes_sent = 0
         self.chunk_size = 1024 * 1024
         self.chunk_left = self.chunk_size
@@ -540,8 +540,11 @@ class Upload:
         if not self.mapi:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
+    def is_cancelled(self):
+        self.cancelled
+
     def send_error(self, message: str):
-        if self.discard:
+        if self.cancelled:
             return
         self._check_usable()
         if self.bytes_sent:
@@ -567,7 +570,7 @@ class Upload:
             if n == self.chunk_left:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
-                    self.discard = True
+                    self.cancelled = True
                     self.mapi = False
                     break
             else:
