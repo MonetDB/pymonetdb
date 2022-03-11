@@ -520,14 +520,14 @@ class HandshakeOption:
         self.sent = False
 
 class Upload:
-    mapi: Connection
+    mapi: Optional[Connection]
     error: bool
     cancelled: bool
     bytes_sent: int
     chunk_left: int
     chunk_size: int
-    writer: BufferedIOBase
-    twriter: TextIOBase
+    writer: Optional[BufferedIOBase]
+    twriter: Optional[TextIOBase]
 
     def __init__(self, mapi):
         self.mapi = mapi
@@ -586,7 +586,7 @@ class Upload:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
                     self.cancelled = True
-                    self.mapi = False
+                    self.mapi = None
                     break
             else:
                 self._send(chunk, False)
