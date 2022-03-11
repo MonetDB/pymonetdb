@@ -534,7 +534,7 @@ class Upload:
         self.error = False
         self.cancelled = False
         self.bytes_sent = 0
-        self.chunk_size = 1024 * 1024
+        self.chunk_size = 100 # 1024 * 1024
         self.chunk_left = self.chunk_size
         self.writer = None
         self.twriter = None
@@ -639,6 +639,8 @@ class UploadIO(BufferedIOBase):
         return True
 
     def write(self, b):
+        if self.upload.is_cancelled():
+            return 0
         n = len(b)
         self.upload._send_data(b)
         return n
