@@ -367,7 +367,7 @@ class Connection(object):
             writer = BytesIO(memoryview(prev)[:prev_end])
             writer.seek(prev_end, SEEK_SET)
             self._getblock_raw(writer)
-            buf = writer.getvalue() # unavoidable, we cannot scan the buffer efficiently
+            buf = writer.getvalue()    # unavoidable, we cannot scan the buffer efficiently
             if not buf:
                 break
             # a FILETRANSFER request looks like this:
@@ -379,11 +379,11 @@ class Connection(object):
             i = buf.rfind(b'\n', 0, len(buf) - 1)
             if i < 2:
                 break
-            if buf[i - 2 : i + 1] != MSG_FILETRANS_B:
+            if buf[i - 2:i + 1] != MSG_FILETRANS_B:
                 break
-            cmd = buf[i + 1 :].decode()
+            cmd = buf[i + 1:].decode()
             prev = buf
-            prev_end = i - 2 # discard the file transfer prompt and command
+            prev_end = i - 2    # discard the file transfer prompt and command
 
             self._handle_transfer(cmd)
 
@@ -519,6 +519,7 @@ class HandshakeOption:
         self.fallback = fallback
         self.sent = False
 
+
 class Upload:
     mapi: Optional[Connection]
     error: bool
@@ -534,7 +535,7 @@ class Upload:
         self.error = False
         self.cancelled = False
         self.bytes_sent = 0
-        self.chunk_size = 100 # 1024 * 1024
+        self.chunk_size = 100    # TODO set this for example to 1024 * 1024
         self.chunk_left = self.chunk_size
         self.writer = None
         self.twriter = None
@@ -582,7 +583,7 @@ class Upload:
         end = len(data)
         while pos < end:
             n = min(end - pos, self.chunk_left)
-            chunk = memoryview(data)[pos : pos + n]
+            chunk = memoryview(data)[pos:pos + n]
             if n == self.chunk_left:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
