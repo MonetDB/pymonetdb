@@ -557,6 +557,7 @@ class Upload:
         if not message.endswith("\n"):
             message += "\n"
         self.error = True
+        assert self.mapi
         self.mapi._putblock(message)
         self.mapi = None
 
@@ -593,11 +594,13 @@ class Upload:
             pos += n
 
     def _send(self, data: Union[bytes, memoryview], finish: bool):
+        assert self.mapi
         self.mapi._putblock_raw(data, finish)
         self.bytes_sent += len(data)
         self.chunk_left -= len(data)
 
     def _send_and_get_prompt(self, data: Union[bytes, memoryview]) -> bool:
+        assert self.mapi
         self._send(data, True)
         prompt = self.mapi._getblock()
         if prompt == MSG_MORE:
