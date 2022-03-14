@@ -129,6 +129,9 @@ class Connection:
     def set_uploader(self, uploader):
         self.mapi.set_uploader(uploader)
 
+    def set_downloader(self, downloader):
+        self.mapi.set_downloader(downloader)
+
     def commit(self):
         """
         Commit any pending transaction to the database. Note that

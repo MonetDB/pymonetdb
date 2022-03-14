@@ -99,6 +99,7 @@ class Connection(object):
         self.handshake_options = None
         self.connect_timeout = socket.getdefaulttimeout()
         self.uploader = None
+        self.downloader = None
 
     def connect(self, database, username, password, language, hostname=None,
                 port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
@@ -400,7 +401,11 @@ class Connection(object):
                     pass
                 return self._handle_upload(parts[1], True, n)
         elif cmd.startswith("rb "):
-            return self._handle_upload(parts[1], False, 0)
+            return self._handle_upload(cmd[2:-1], False, 0)
+        elif cmd.startswith("w "):
+            return self._handle_download(cmd[2:-1], True)
+        elif cmd.startswith("wb "):
+            return self._handle_download(cmd[3:-1], False)
         else:
             pass
         # we only reach this if decoding the cmd went wrong:
@@ -416,6 +421,16 @@ class Connection(object):
             self.uploader.handle(upload, filename, text_mode, skip_amount)
         finally:
             upload.close()
+
+    def _handle_download(self, filename, text_mode):
+        if not self.downloader:
+            self._putblock("No download handler has been registered with pymonetdb\n")
+            return
+        download = Download(self)
+        try:
+            self.downloader.handle(download, filename, text_mode)
+        finally:
+            download.close()
 
     def _getblock(self):
         """ read one mapi encoded block """
@@ -499,7 +514,12 @@ class Connection(object):
         self.cmd("Xreply_size %s" % size)
 
     def set_uploader(self, uploader):
+        assert isinstance(uploader, Uploader)
         self.uploader = uploader
+
+    def set_downloader(self, downloader):
+        assert isinstance(downloader, Downloader)
+        self.downloader = downloader
 
 
 # When all supported Python versions support it we can enable @dataclass here.
@@ -574,6 +594,7 @@ class Upload:
         return self.twriter
 
     def _send_data(self, data: Union[bytes, memoryview]):
+        assert self.mapi is not None
         if self.cancelled:
             return
         self._check_usable()
@@ -659,4 +680,130 @@ class Uploader(ABC):
         pass
 
     def cancel(self):
+        pass
+
+
+class Download:
+    mapi: Connection
+    started: bool
+    buffer: memoryview
+    len: int
+    pos: int
+    reader: Optional[BufferedIOBase]
+    treader: Optional[TextIOBase]
+
+    def __init__(self, mapi):
+        self.mapi = mapi
+        self.started = False
+        buffer = bytearray(8190)
+        self.buffer = memoryview(buffer)
+        self.pos = 0
+        self.len = 0
+        self.reader = None
+        self.treader = None
+
+    def send_error(self, message: str):
+        if self.started:
+            raise ProgrammingError("Cannot send error anymore")
+        if not self.mapi:
+            return
+        self.started = True
+        if not message.endswith("\n"):
+            message += "\n"
+        self.mapi._putblock(message)
+        self._shutdown()
+
+    def binary_reader(self):
+        if not self.reader:
+            if not self.mapi:
+                raise ProgrammingError("download has already been closed")
+            self.started = True
+            self.mapi._putblock("\n")
+            self.reader = DownloadIO(self)
+        return self.reader
+
+    def text_reader(self):
+        if not self.treader:
+            self.treader = codecs.getreader('utf-8')(self.binary_reader())
+        return self.treader
+
+    def close(self):
+        while self.mapi:
+            self._fetch()
+
+    def _available(self):
+        return self.len - self.pos
+
+    def _consume(self, n: int) -> memoryview:
+        end = min(self.pos + n, self.len)
+        ret = self.buffer[self.pos:end]
+        self.pos = end
+        return ret
+
+    def _fetch(self) -> memoryview:
+        self.pos = 0
+        self.len = self._fetch_into(self.buffer)
+        return self.buffer[0:self.len]
+
+    def _fetch_into(self, buf: memoryview) -> int:
+        assert len(buf) >= 8190
+        # loop because the server *might* send empty blocks
+        while True:
+            if not self.mapi:
+                return 0
+            if not self._read_bytes(buf[:2]):
+                # clean EOF
+                return 0
+            unpacked = buf[0] + 256 * buf[1]
+            length = unpacked // 2
+            if length == 0:
+                # valid but unlikely
+                continue
+            if not self._read_bytes(buf[:length]):
+                self._shutdown()
+                raise OperationalError("incomplete packet")
+            if unpacked & 1:
+                self._shutdown()
+            return length
+
+    def _read_bytes(self, buf: memoryview) -> bool:
+        assert self.mapi.socket
+        pos = 0
+        end = len(buf)
+        while pos < end:
+            n = self.mapi.socket.recv_into(buf[pos:end])
+            if n == 0:
+                self._shutdown()
+                break
+            pos += n
+        if pos == end:
+            return True
+        elif pos == 0:
+            return False
+        else:
+            raise OperationalError("incomplete packet")
+
+    def _shutdown(self):
+        self.started = True
+        self.mapi = None
+
+
+class DownloadIO(BufferedIOBase):
+    download: Download
+
+    def __init__(self, download):
+        self.download = download
+
+    def readable(self):
+        return True
+
+    def read(self, n=0):
+        if self.download._available() == 0:
+            self.download._fetch()
+        return bytes(self.download._consume(n))
+
+
+class Downloader(ABC):
+    @abstractmethod
+    def handle(self, upload: Download, filename: str, text_mode: bool):
         pass
