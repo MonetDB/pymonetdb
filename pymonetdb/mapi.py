@@ -589,6 +589,7 @@ class Upload:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
                     self.cancelled = True
+                    self.mapi.uploader.cancel()
                     self.mapi = None
                     break
             else:
@@ -655,4 +656,7 @@ class Uploader(ABC):
 
     @abstractmethod
     def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+        pass
+
+    def cancel(self):
         pass
