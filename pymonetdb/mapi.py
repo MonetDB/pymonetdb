@@ -8,6 +8,7 @@ This is the python implementation of the mapi protocol.
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+from abc import ABC, abstractmethod
 import codecs
 import socket
 import logging
@@ -648,3 +649,10 @@ class UploadIO(BufferedIOBase):
         n = len(b)
         self.upload._send_data(b)
         return n
+
+
+class Uploader(ABC):
+
+    @abstractmethod
+    def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+        pass
