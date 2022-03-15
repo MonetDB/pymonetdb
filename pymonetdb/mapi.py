@@ -419,6 +419,8 @@ class Connection(object):
         upload = Upload(self)
         try:
             self.uploader.handle(upload, filename, text_mode, skip_amount)
+            if not upload.has_been_used():
+                raise ProgrammingError("Upload handler didn't do anything")
         finally:
             upload.close()
 
@@ -568,7 +570,9 @@ class Upload:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
     def is_cancelled(self):
-        self.cancelled
+
+    def has_been_used(self) -> bool:
+        return self.error or (self.writer is not None)
 
     def set_chunk_size(self, size: int):
         self.chunk_size = size
