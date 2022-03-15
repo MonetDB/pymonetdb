@@ -570,6 +570,7 @@ class Upload:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
     def is_cancelled(self):
+        return self.cancelled
 
     def has_been_used(self) -> bool:
         return self.error or (self.writer is not None)
