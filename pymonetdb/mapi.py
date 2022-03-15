@@ -570,6 +570,9 @@ class Upload:
     def is_cancelled(self):
         self.cancelled
 
+    def set_chunk_size(self, size: int):
+        self.chunk_size = size
+
     def send_error(self, message: str):
         if self.cancelled:
             return
