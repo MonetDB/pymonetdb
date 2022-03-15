@@ -1,6 +1,3 @@
-
-
-
 from typing import Optional
 from unittest import TestCase
 
@@ -10,6 +7,7 @@ from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb.mapi import Upload, Uploader
 from tests.util import test_args
+
 
 class TestUploader(Uploader):
     rows: int = 5_000
@@ -118,7 +116,7 @@ class TestUpload(TestCase):
         self.conn.set_uploader(CustomUploader())
         self.execute("COPY INTO foo2 FROM 'foo2' ON CLIENT")
         self.execute("SELECT i, LENGTH(t) as len FROM foo2")
-        self.expect([(1,1), (2,2), (3,3)])
+        self.expect([(1, 1), (2, 2), (3, 3)])
 
     def test_client_refuses_upload(self):
         # our Uploader refuses filename that start with 'x'
