@@ -674,9 +674,9 @@ class UploadIO(BufferedIOBase):
         return True
 
     def write(self, b):
-        if self.upload.is_cancelled():
-            return 0
         n = len(b)
+        if self.upload.is_cancelled():
+            return n
         self.upload._send_data(b)
         return n
 
