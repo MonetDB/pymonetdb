@@ -546,8 +546,8 @@ class Upload:
     error: bool
     cancelled: bool
     bytes_sent: int
-    chunk_left: int
     chunk_size: int
+    chunk_used: int
     writer: Optional[BufferedIOBase]
     twriter: Optional[TextIOBase]
 
@@ -557,7 +557,7 @@ class Upload:
         self.cancelled = False
         self.bytes_sent = 0
         self.chunk_size = 100    # TODO set this for example to 1024 * 1024
-        self.chunk_left = self.chunk_size
+        self.chunk_used = 0
         self.writer = None
         self.twriter = None
 
@@ -604,9 +604,9 @@ class Upload:
         pos = 0
         end = len(data)
         while pos < end:
-            n = min(end - pos, self.chunk_left)
+            n = min(end - pos, self.chunk_size - self.chunk_used)
             chunk = memoryview(data)[pos:pos + n]
-            if n == self.chunk_left:
+            if self.chunk_used >= self.chunk_size and self.chunk_size > 0:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
                     self.cancelled = True
@@ -621,14 +621,14 @@ class Upload:
         assert self.mapi
         self.mapi._putblock_raw(data, finish)
         self.bytes_sent += len(data)
-        self.chunk_left -= len(data)
+        self.chunk_used += len(data)
 
     def _send_and_get_prompt(self, data: Union[bytes, memoryview]) -> bool:
         assert self.mapi
         self._send(data, True)
         prompt = self.mapi._getblock()
         if prompt == MSG_MORE:
-            self.chunk_left = self.chunk_size
+            self.chunk_used = 0
             return True
         elif prompt == MSG_FILETRANS:
             # server says stop
@@ -643,7 +643,7 @@ class Upload:
             self.writer.close()
         if self.mapi:
             server_wants_more = False
-            if self.chunk_left != self.chunk_size:
+            if self.chunk_used != 0:
                 # finish the current block
                 server_wants_more = self._send_and_get_prompt(b'')
             if server_wants_more:
