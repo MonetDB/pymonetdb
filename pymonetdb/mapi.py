@@ -614,7 +614,7 @@ class Upload:
         while pos < end:
             n = min(end - pos, self.chunk_size - self.chunk_used)
             chunk = memoryview(data)[pos:pos + n]
-            if self.chunk_used >= self.chunk_size and self.chunk_size > 0:
+            if n == self.chunk_size - self.chunk_used and self.chunk_size > 0:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
                     self.cancelled = True
