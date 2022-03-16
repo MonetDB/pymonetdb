@@ -813,5 +813,5 @@ class DownloadIO(BufferedIOBase):
 
 class Downloader(ABC):
     @abstractmethod
-    def handle(self, upload: Download, filename: str, text_mode: bool):
+    def handle(self, download: Download, filename: str, text_mode: bool):
         pass
