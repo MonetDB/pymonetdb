@@ -454,6 +454,26 @@ class Connection(object):
         download = Download(self)
         try:
             self.downloader.handle_download(download, filename, text_mode)
+        except Exception as e:
+            # For consistency we also drop the connection on these exceptions.
+            #
+            # # Alternatively we might just discard the incoming data and allow
+            # work to continue, but in 99% of the cases the application is about
+            # to crash and it makes no sense to delay that by first reading all
+            # the data.
+            #
+            # Also, if the download has not really started yet we might send
+            # an error message to the server but then you get inconsistent
+            # behaviour: if the download hadn't started yet, the transaction ends
+            # up in an aborted state and must be ROLLed BACK, but if the download
+            # has started we discard all data and allow it to continue without
+            # error.
+            #
+            # Bottom line is that it's easier to understand if we just always
+            # crash the connection.
+            download._shutdown()
+            self._sabotage()
+            raise e
         finally:
             download.close()
 

@@ -298,13 +298,26 @@ class TestFileTransfer(TestCase):
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
 
-    @skip("post-exception connection handling needs to be fixed")
+    def test_download_immediate_exception(self):
+        self.fill_foo(5000)
+        class CustomDownloader(Downloader):
+            def handle_download(self, download: Download, filename: str, text_mode: bool):
+                raise MyException("fail early")
+        self.conn.set_downloader(CustomDownloader())
+        # If the handler raises an exception, ..
+        with self.assertRaises(MyException):
+            self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
+        # .. the connection is dropped
+        with self.assertRaisesRegex(ProgrammingError, "ot connected"):
+            self.execute("SELECT COUNT(*) FROM foo")
+
     def test_fail_download_late(self):
         self.fill_foo(5000)
         self.downloader.lines = 6000
         self.downloader.error_at_line = 4000
+        # If the handler raises an exception, ..
         with self.assertRaises(MyException):
             self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
-        self.conn.rollback()
-        self.execute("SELECT 42")
-        self.expect1(42)
+        # .. the connection is dropped
+        with self.assertRaisesRegex(ProgrammingError, "ot connected"):
+            self.execute("SELECT COUNT(*) FROM foo")
