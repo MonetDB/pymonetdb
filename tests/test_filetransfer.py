@@ -27,7 +27,7 @@ class TestUploader(Uploader):
     #
     cancelled_at: Optional[int] = None
 
-    def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
         if self.do_nothing_at_all:
             return
         if filename.startswith("_"):
@@ -72,7 +72,7 @@ class TestDownloader(Downloader):
     def __init__(self):
         self.buffer = StringIO()
 
-    def handle(self, download: Download, filename: str, text_mode: bool):
+    def handle_download(self, download: Download, filename: str, text_mode: bool):
         if self.refuse:
             download.send_error(self.refuse)
             if not self.forget_to_return_after_refusal:
@@ -161,7 +161,7 @@ class TestFileTransfer(TestCase):
     # Also see test_NormalizeCrLf from the Java tests
     def test_upload_crlf(self):
         class CustomUploader(Uploader):
-            def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+            def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
                 content = "1|A\r\n2|BB\r\n3|CCC\r\n"
                 upload.text_writer().write(content)
 
@@ -274,7 +274,7 @@ class TestFileTransfer(TestCase):
         testcase = self
 
         class CustomUploader(Uploader):
-            def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+            def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
                 if read_text:
                     f = testcase.open(filename, 'r')
                     w = upload.text_writer()

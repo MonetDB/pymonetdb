@@ -418,7 +418,7 @@ class Connection(object):
         skip_amount = offset - 1 if offset > 0 else 0
         upload = Upload(self)
         try:
-            self.uploader.handle(upload, filename, text_mode, skip_amount)
+            self.uploader.handle_upload(upload, filename, text_mode, skip_amount)
             if not upload.has_been_used():
                 raise ProgrammingError("Upload handler didn't do anything")
         finally:
@@ -430,7 +430,7 @@ class Connection(object):
             return
         download = Download(self)
         try:
-            self.downloader.handle(download, filename, text_mode)
+            self.downloader.handle_download(download, filename, text_mode)
         finally:
             download.close()
 
@@ -684,7 +684,7 @@ class UploadIO(BufferedIOBase):
 class Uploader(ABC):
 
     @abstractmethod
-    def handle(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
         pass
 
     def cancel(self):
@@ -816,5 +816,5 @@ class DownloadIO(BufferedIOBase):
 
 class Downloader(ABC):
     @abstractmethod
-    def handle(self, download: Download, filename: str, text_mode: bool):
+    def handle_download(self, download: Download, filename: str, text_mode: bool):
         pass
