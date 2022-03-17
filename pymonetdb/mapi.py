@@ -258,12 +258,27 @@ class Connection(object):
         self.state = STATE_INIT
         self.socket.close()
 
+    def _sabotage(self):
+        """ Kill the connection in a way that the server is sure to recognize as an error"""
+        self.state = STATE_INIT
+        if not self.socket:
+            return
+        bad_header = struct.pack('<H', 2 * 8193 + 0)  # too large, and not the final message
+        bad_body = b"ERROR\x80ERROR" # invalid utf-8
+        try:
+            self.socket.send(bad_header + bad_body)
+            self.socket.close()
+        except:
+            # whatever
+            pass
+        self.socket = None
+
     def cmd(self, operation):
         """ put a mapi command on the line"""
         logger.debug("executing command %s" % operation)
 
         if self.state != STATE_READY:
-            raise (ProgrammingError, "Not connected")
+            raise ProgrammingError("Not connected")
 
         self._putblock(operation)
         response = self._getblock_and_transfer_files()
@@ -418,7 +433,15 @@ class Connection(object):
         skip_amount = offset - 1 if offset > 0 else 0
         upload = Upload(self)
         try:
-            self.uploader.handle_upload(upload, filename, text_mode, skip_amount)
+            try:
+                self.uploader.handle_upload(upload, filename, text_mode, skip_amount)
+            except Exception as e:
+                # We must make sure the server doesn't think this is a succesful upload.
+                # The protocol does not allow us to flag an error after the upload has started,
+                # so the only thing we can do is kill the connection
+                upload.error = True
+                self._sabotage()
+                raise e
             if not upload.has_been_used():
                 raise ProgrammingError("Upload handler didn't do anything")
         finally:

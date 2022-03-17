@@ -289,14 +289,14 @@ class TestFileTransfer(TestCase):
         self.execute("SELECT t FROM foo2 where i = 999")
         self.expect1("Únïçøðε999")
 
-    @skip("post-exception connection handling needs to be fixed")
-    # see also java test test_FailUploadLate2 which I don't understand at all
     def test_fail_upload_late(self):
         self.uploader.error_at = 99
+        # If the handler raises an exception, ..
         with self.assertRaises(MyException):
             self.execute("COPY INTO foo FROM 'foo' ON CLIENT")
-        self.execute("SELECT COUNT(*) FROM foo")
-        self.expect1(self.uploader.rows)
+        # .. the connection is dropped
+        with self.assertRaisesRegex(ProgrammingError, "ot connected"):
+            self.execute("SELECT COUNT(*) FROM foo")
 
     @skip("post-exception connection handling needs to be fixed")
     def test_fail_download_late(self):
