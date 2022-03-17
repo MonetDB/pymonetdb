@@ -375,6 +375,7 @@ class Connection(object):
         return response
 
     def _getblock_and_transfer_files(self):
+        """ read one mapi encoded block and take care of any file transfers the server requests"""
         prev = b''
         prev_end = 0
         # This loop only iterates more than once if
@@ -510,7 +511,7 @@ class Connection(object):
                 break
 
     def _getbytes(self, buffer, count):
-        """Read 'count'' of bytes from the socket into 'buffer'"""
+        """Read 'count' bytes from the socket into 'buffer'"""
         while count > 0:
             recv = self.socket.recv(count)
             if len(recv) == 0:
@@ -559,10 +560,12 @@ class Connection(object):
         self.cmd("Xreply_size %s" % size)
 
     def set_uploader(self, uploader):
+        """Register the given Uploader, or None to deregister"""
         assert isinstance(uploader, Uploader)
         self.uploader = uploader
 
     def set_downloader(self, downloader):
+        """Register the given Downloader, or None to deregister"""
         assert isinstance(downloader, Downloader)
         self.downloader = downloader
 
@@ -587,6 +590,19 @@ class HandshakeOption:
 
 
 class Upload:
+    """
+    Represents a request from the server to upload data to the server. It is
+    passed to the Uploader registered by the application, which for example
+    might retrieve the data from a file on the client system. See
+    pymonetdb.Connection.set_uploader().
+
+    Use the method send_error() to refuse the upload, binary_writer() to get a
+    binary file object to write to, or text_writer() to get a text-mode file
+    object to write to.
+
+    Implementations should be VERY CAREFUL to validate the file name before
+    opening any files on the client system!
+    """
     mapi: Optional[Connection]
     error: bool
     cancelled: bool
@@ -614,15 +630,24 @@ class Upload:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
     def is_cancelled(self):
+        """Returns true if the server has cancelled the upload."""
         return self.cancelled
 
     def has_been_used(self) -> bool:
+        """Returns true if .send_error(), .text_writer() or .binary_writer() have been called."""
         return self.error or (self.rawio is not None)
 
     def set_chunk_size(self, size: int):
+        """
+        After every CHUNK_SIZE bytes, the server gets the opportunity to cancel
+        the rest of the update. Defaults to 1 MiB.
+        """
         self.chunk_size = size
 
     def send_error(self, message: str):
+        """
+        Tell the server the requested upload is refused
+        """
         if self.cancelled:
             return
         self._check_usable()
@@ -641,11 +666,20 @@ class Upload:
         return self.rawio
 
     def binary_writer(self):
+        """
+        Returns a binary file-like object. All data written to it is uploaded
+        to the server.
+        """
         if not self.writer:
             self.writer = BufferedWriter(self._raw())
         return self.writer
 
     def text_writer(self):
+        """
+        Returns a text-mode file-like object. All text written to it is uploaded
+        to the server. DOS/Windows style line endings (CR LF, \r \n) are
+        automatically rewritten to single \n's.
+        """
         if not self.twriter:
             w = self._raw()
             w = NormalizeCrLf(w)
@@ -696,6 +730,9 @@ class Upload:
             raise ProgrammingError(f"Unexpected server response: {prompt[:50]!r}")
 
     def close(self):
+        """
+        End the upload succesfully
+        """
         if self.error:
             return
         if self.twriter:
@@ -735,16 +772,57 @@ class UploadIO(BufferedIOBase):
 
 
 class Uploader(ABC):
+    """
+    Base class for upload hooks. Instances of subclasses of this class can be
+    registered using pymonetdb.Connection.set_uploader(). Every time an upload
+    request is received, an Upload object is created and passed to this objects
+    .handle_upload() method.
+
+    If the server cancels the upload halfway, the .cancel() methods is called
+    and all further data is ignored.
+    """
 
     @abstractmethod
     def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+        """
+        Called when an upload request is received. Implementations should either
+        send an error using upload.send_error(), or request a writer using
+        upload.text_writer() or upload.binary_writer(). All data written to the
+        writer will be sent to the server.
+
+        Parameter 'filename' is the file name used in the COPY INTO statement.
+        Parameter 'text_mode' indicates whether the server requested a text file
+        or a binary file. In case of a text file, 'skip_amount' indicates the
+        number of lines to skip. In binary mode, 'skip_amount' is always 0.
+
+        SECURITY NOTE! Make sure to carefully validate the file name before
+        opening files on the file system. Otherwise, if an adversary has taken
+        control of the network connection or of the server, they can use file
+        upload requests to read arbitrary files from your computer
+        (../../)
+
+        """
         pass
 
     def cancel(self):
+        """Optional method called when the server cancels the upload."""
         pass
 
 
 class Download:
+    """
+    Represents a request from the server to download daa from the server. It is
+    passed to the Downloader registered by the application, which for example
+    might write the data to a file on the client system. See
+    pymonetdb.Connection.set_downloader().
+
+    Use the method send_error() to refuse the download, binary_reader() to get a
+    binary file object to read bytes from, or text_reader() to get a text-mode
+    file object to read text from.
+
+    Implementations should be EXTREMELY CAREFUL to validate the file name before
+    opening any files on the client system!
+    """
     mapi: Connection
     started: bool
     buffer: memoryview
@@ -764,6 +842,9 @@ class Download:
         self.treader = None
 
     def send_error(self, message: str):
+        """
+        Tell the server the requested download is refused
+        """
         if self.started:
             raise ProgrammingError("Cannot send error anymore")
         if not self.mapi:
@@ -775,6 +856,7 @@ class Download:
         self._shutdown()
 
     def binary_reader(self):
+        """Returns a binary file-like object to read the downloaded data from."""
         if not self.reader:
             if not self.mapi:
                 raise ProgrammingError("download has already been closed")
@@ -784,11 +866,13 @@ class Download:
         return self.reader
 
     def text_reader(self):
+        """Returns a text mode file-like object to read the downloaded data from."""
         if not self.treader:
             self.treader = TextIOWrapper(self.binary_reader(), encoding='utf-8', newline='\n')
         return self.treader
 
     def close(self):
+        """End the download succesfully. Any unconsumed data will be discarded."""
         while self.mapi:
             self._fetch()
 
@@ -868,12 +952,25 @@ class DownloadIO(BufferedIOBase):
 
 
 class Downloader(ABC):
+    """
+    Base class for download hooks. Instances of subclasses of this class can be
+    registered using pymonetdb.Connection.set_downloader(). Every time a
+    download request arrives, a Download object is created and passed to this
+    objects .handle_download() method.
+
+    SECURITY NOTE! Make sure to carefully validate the file name before opening
+    files on the file system. Otherwise, if an adversary has taken control of
+    the network connection or of the server, they can use download requests to
+    OVERWRITE ARBITRARY FILES on your computer
+    """
+
     @abstractmethod
     def handle_download(self, download: Download, filename: str, text_mode: bool):
         pass
 
 
 class NormalizeCrLf(BufferedIOBase):
+    """Helper class used to normalize line ending before sending text to MonetDB."""
     inner: BufferedIOBase
     pending: bool = False
 
