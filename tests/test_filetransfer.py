@@ -16,7 +16,7 @@ class MyException(Exception):
     pass
 
 
-class TestUploader(Uploader):
+class MyUploader(Uploader):
     rows: int = 5_000
     error_at: Optional[int] = None
     chunkSize: int = 10_000
@@ -41,7 +41,7 @@ class TestUploader(Uploader):
         iter = range(skip_amount + 1, self.rows + 1)
         upload.set_chunk_size(self.chunkSize)
         if text_mode and not self.force_binary:
-            w = upload.text_writer()
+            tw = upload.text_writer()
             for i in iter:
                 if i == self.error_at:
                     raise MyException(f"Oops {i}")
@@ -49,9 +49,9 @@ class TestUploader(Uploader):
                     self.cancelled_at = i
                     break
                 s = f"{i}\n"
-                w.write(s)
+                tw.write(s)
         else:
-            w = upload.binary_writer()
+            bw = upload.binary_writer()
             for i in iter:
                 if i == self.error_at:
                     raise MyException(f"Oops {i}")
@@ -59,10 +59,10 @@ class TestUploader(Uploader):
                     self.cancelled_at = i
                     break
                 s = f"{i}\n"
-                w.write(bytes(s, 'ascii'))
+                bw.write(bytes(s, 'ascii'))
 
 
-class TestDownloader(Downloader):
+class MyDownloader(Downloader):
     lines: Optional[int] = None
     error_at_line: Optional[int] = None
     refuse: Optional[str] = None
@@ -109,9 +109,9 @@ class TestFileTransfer(TestCase):
     def setUp(self):
         super().setUp()
         self.conn = conn = connect(**test_args)
-        self.uploader = TestUploader()
+        self.uploader = MyUploader()
         conn.set_uploader(self.uploader)
-        self.downloader = TestDownloader()
+        self.downloader = MyDownloader()
         conn.set_downloader(self.downloader)
 
         self.cursor = c = self.conn.cursor()
@@ -278,11 +278,12 @@ class TestFileTransfer(TestCase):
             def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
                 if read_text:
                     f = testcase.open(filename, 'r')
-                    w = upload.text_writer()
+                    tw = upload.text_writer()
+                    copyfileobj(f, tw)
                 else:
                     f = testcase.open(filename, 'rb')
-                    w = upload.binary_writer()
-                copyfileobj(f, w)
+                    bw = upload.binary_writer()
+                    copyfileobj(f, bw)
                 f.close()
 
         self.conn.set_uploader(CustomUploader())
@@ -300,10 +301,12 @@ class TestFileTransfer(TestCase):
             self.execute("SELECT COUNT(*) FROM foo")
 
     def test_download_immediate_exception(self):
-        self.fill_foo(5000)
+
         class CustomDownloader(Downloader):
             def handle_download(self, download: Download, filename: str, text_mode: bool):
                 raise MyException("fail early")
+
+        self.fill_foo(5000)
         self.conn.set_downloader(CustomDownloader())
         # If the handler raises an exception, ..
         with self.assertRaises(MyException):

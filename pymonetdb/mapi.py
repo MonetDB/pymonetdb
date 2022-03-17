@@ -263,11 +263,11 @@ class Connection(object):
         if not self.socket:
             return
         bad_header = struct.pack('<H', 2 * 8193 + 0)  # too large, and not the final message
-        bad_body = b"ERROR\x80ERROR" # invalid utf-8
+        bad_body = b"ERROR\x80ERROR"  # invalid utf-8
         try:
             self.socket.send(bad_header + bad_body)
             self.socket.close()
-        except:
+        except Exception:
             # whatever
             pass
         self.socket = None
@@ -602,14 +602,6 @@ class Upload:
     Implementations should be VERY CAREFUL to validate the file name before
     opening any files on the client system!
     """
-    mapi: Optional[Connection]
-    error: bool
-    cancelled: bool
-    bytes_sent: int
-    chunk_size: int
-    chunk_used: int
-    writer: Optional[BufferedIOBase]
-    twriter: Optional[TextIOBase]
 
     def __init__(self, mapi):
         self.mapi = mapi
@@ -674,10 +666,10 @@ class Upload:
         return self.writer
 
     def text_writer(self) -> TextIOBase:
-        """
+        r"""
         Returns a text-mode file-like object. All text written to it is uploaded
-        to the server. DOS/Windows style line endings (CR LF, \r \n) are
-        automatically rewritten to single \n's.
+        to the server. DOS/Windows style line endings (CR LF, \\r \\n) are
+        automatically rewritten to single \\n's.
         """
         if not self.twriter:
             w = self._raw()
@@ -754,7 +746,6 @@ class Upload:
 
 
 class UploadIO(BufferedIOBase):
-    upload: Upload
 
     def __init__(self, upload):
         self.upload = upload
@@ -822,13 +813,6 @@ class Download:
     Implementations should be EXTREMELY CAREFUL to validate the file name before
     opening any files on the client system!
     """
-    mapi: Connection
-    started: bool
-    buffer: memoryview
-    len: int
-    pos: int
-    reader: Optional[BufferedIOBase]
-    treader: Optional[TextIOBase]
 
     def __init__(self, mapi):
         self.mapi = mapi
@@ -933,7 +917,6 @@ class Download:
 
 
 class DownloadIO(BufferedIOBase):
-    download: Download
 
     def __init__(self, download):
         self.download = download
@@ -970,11 +953,10 @@ class Downloader(ABC):
 
 class NormalizeCrLf(BufferedIOBase):
     """Helper class used to normalize line ending before sending text to MonetDB."""
-    inner: BufferedIOBase
-    pending: bool = False
 
     def __init__(self, inner):
         self.inner = inner
+        self.pending = False
 
     def writable(self):
         return True
