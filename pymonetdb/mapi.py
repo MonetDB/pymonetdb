@@ -16,7 +16,7 @@ import struct
 import hashlib
 import os
 from typing import Optional, Union
-from io import SEEK_SET, BufferedIOBase, BufferedWriter, BytesIO, TextIOBase
+from io import SEEK_SET, BufferedIOBase, BufferedWriter, BytesIO, TextIOBase, TextIOWrapper
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
@@ -598,7 +598,7 @@ class Upload:
 
     def text_writer(self):
         if not self.twriter:
-            self.twriter = codecs.getwriter('utf-8')(self.binary_writer())
+            self.twriter = TextIOWrapper(self.binary_writer(), encoding='utf-8', newline='\n', write_through=True)
         return self.twriter
 
     def _send_data(self, data: Union[bytes, memoryview]):
@@ -732,7 +732,7 @@ class Download:
 
     def text_reader(self):
         if not self.treader:
-            self.treader = codecs.getreader('utf-8')(self.binary_reader())
+            self.treader = TextIOWrapper(self.binary_reader(), encoding='utf-8', newline='\n')
         return self.treader
 
     def close(self):
@@ -809,6 +809,9 @@ class DownloadIO(BufferedIOBase):
         if self.download._available() == 0:
             self.download._fetch()
         return bytes(self.download._consume(n))
+
+    def read1(self, n=0):
+        return self.read(n)
 
 
 class Downloader(ABC):
