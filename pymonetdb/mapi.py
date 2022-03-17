@@ -617,7 +617,7 @@ class Upload:
         self.error = False
         self.cancelled = False
         self.bytes_sent = 0
-        self.chunk_size = 100    # TODO set this for example to 1024 * 1024
+        self.chunk_size = 1024 * 1024
         self.chunk_used = 0
         self.rawio = None
         self.writer = None
