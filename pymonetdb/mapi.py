@@ -9,7 +9,6 @@ This is the python implementation of the mapi protocol.
 
 
 from abc import ABC, abstractmethod
-import codecs
 import socket
 import logging
 import struct
@@ -665,7 +664,7 @@ class Upload:
             self.rawio = UploadIO(self)
         return self.rawio
 
-    def binary_writer(self):
+    def binary_writer(self) -> BufferedIOBase:
         """
         Returns a binary file-like object. All data written to it is uploaded
         to the server.
@@ -674,7 +673,7 @@ class Upload:
             self.writer = BufferedWriter(self._raw())
         return self.writer
 
-    def text_writer(self):
+    def text_writer(self) -> TextIOBase:
         """
         Returns a text-mode file-like object. All text written to it is uploaded
         to the server. DOS/Windows style line endings (CR LF, \r \n) are
