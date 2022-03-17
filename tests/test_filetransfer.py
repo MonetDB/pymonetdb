@@ -157,18 +157,19 @@ class TestFileTransfer(TestCase):
         self.execute("SELECT COUNT(*) FROM foo")
         self.expect1(self.uploader.rows)
 
-    @skip("forced CRLF -> LF conversion hasn't been implemented yet")
     # Also see test_NormalizeCrLf from the Java tests
     def test_upload_crlf(self):
         class CustomUploader(Uploader):
             def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
-                content = "1|A\r\n2|BB\r\n3|CCC\r\n"
-                upload.text_writer().write(content)
+                w = upload.text_writer()
+                w.write("1|A\r\n2|BB\r")
+                w.flush()
+                w.write("\n3|CCC\r\n")
 
         self.conn.set_uploader(CustomUploader())
         self.execute("COPY INTO foo2 FROM 'foo2' ON CLIENT")
-        self.execute("SELECT i, LENGTH(t) as len FROM foo2")
-        self.expect([(1, 1), (2, 2), (3, 3)])
+        self.execute("SELECT i, t FROM foo2")
+        self.expect([(1, "A"), (2, "BB"), (3, "CCC")])
 
     def test_client_refuses_upload(self):
         # our Uploader refuses filename that start with 'x'

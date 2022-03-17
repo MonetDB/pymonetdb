@@ -603,6 +603,7 @@ class Upload:
         self.bytes_sent = 0
         self.chunk_size = 100    # TODO set this for example to 1024 * 1024
         self.chunk_used = 0
+        self.rawio = None
         self.writer = None
         self.twriter = None
 
@@ -616,7 +617,7 @@ class Upload:
         return self.cancelled
 
     def has_been_used(self) -> bool:
-        return self.error or (self.writer is not None)
+        return self.error or (self.rawio is not None)
 
     def set_chunk_size(self, size: int):
         self.chunk_size = size
@@ -634,14 +635,21 @@ class Upload:
         self.mapi._putblock(message)
         self.mapi = None
 
+    def _raw(self):
+        if not self.rawio:
+            self.rawio = UploadIO(self)
+        return self.rawio
+
     def binary_writer(self):
         if not self.writer:
-            self.writer = BufferedWriter(UploadIO(self))
+            self.writer = BufferedWriter(self._raw())
         return self.writer
 
     def text_writer(self):
         if not self.twriter:
-            self.twriter = TextIOWrapper(self.binary_writer(), encoding='utf-8', newline='\n', write_through=True)
+            w = self._raw()
+            w = NormalizeCrLf(w)
+            self.twriter = TextIOWrapper(w, encoding='utf-8', newline='\n')
         return self.twriter
 
     def _send_data(self, data: Union[bytes, memoryview]):
@@ -690,6 +698,8 @@ class Upload:
     def close(self):
         if self.error:
             return
+        if self.twriter:
+            self.twriter.close()
         if self.writer:
             self.writer.close()
         if self.mapi:
@@ -861,3 +871,48 @@ class Downloader(ABC):
     @abstractmethod
     def handle_download(self, download: Download, filename: str, text_mode: bool):
         pass
+
+
+class NormalizeCrLf(BufferedIOBase):
+    inner: BufferedIOBase
+    pending: bool = False
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def writable(self):
+        return True
+
+    def write(self, data) -> int:
+        if not data:
+            return 0
+
+        if self.pending:
+            if data.startswith(b"\n"):
+                # normalize by forgetting the pending \r
+                pass
+            else:
+                # pending \r not followed by \n, write it
+                self.inner.write(b"\r")
+                # do not take the above write into account in the return value,
+                # it was included last time
+
+        normalized = data.replace(b"\r\n", b"\n")
+
+        if normalized[-1] == 13:  # \r
+            # not sure if it will be followed by \n, move it to pending
+            self.pending = True
+            normalized = memoryview(normalized)[:-1]
+        else:
+            self.pending = False
+
+        return int(self.pending) + self.inner.write(normalized)
+
+    def flush(self):
+        return self.inner.flush()
+
+    def close(self):
+        if self.pending:
+            self.inner.write(b"\r")
+            self.pending = False
+        return self.inner.close()
