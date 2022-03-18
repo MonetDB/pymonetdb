@@ -2,7 +2,6 @@ import pickle
 import tempfile
 import re
 import pdb
-from past.builtins import execfile  # type: ignore
 from typing import Any, TYPE_CHECKING
 
 
@@ -102,7 +101,8 @@ def debug(cursor, query, fname, sample=-1):
             arglist, fcode.replace("\n", "\n "))
         f.write(function_definition.encode('utf-8'))
         f.flush()
-        execfile(f.name, globals(), locals())
+        compiled = compile(function_definition, f.name, 'exec')
+        exec(compiled, globals(), locals())
 
         cleaned_arguments['_conn'] = LoopbackObject(cursor)
         pdb.set_trace()
