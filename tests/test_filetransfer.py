@@ -1,3 +1,13 @@
+"""
+This is the python implementation of the mapi protocol.
+"""
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.  If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
+
+
 from io import StringIO
 from pathlib import Path
 from shutil import copyfileobj
@@ -8,7 +18,7 @@ from unittest import TestCase, skip, skipUnless
 
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
-from pymonetdb.mapi import Download, Downloader, Upload, Uploader
+from pymonetdb import Download, Downloader, Upload, Uploader
 from tests.util import test_args, test_full
 
 

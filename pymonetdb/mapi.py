@@ -28,7 +28,6 @@ MAX_PACKAGE_LENGTH = (1024 * 8) - 2
 MSG_PROMPT = ""
 MSG_MORE = "\1\2\n"
 MSG_FILETRANS = "\1\3\n"
-MSG_FILETRANS_B = b"\1\3\n"
 MSG_INFO = "#"
 MSG_ERROR = "!"
 MSG_Q = "&"
@@ -43,6 +42,8 @@ MSG_TUPLE = "["
 MSG_TUPLE_NOSLICE = "="
 MSG_REDIRECT = "^"
 MSG_OK = "=OK"
+
+MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'utf-8')
 
 STATE_INIT = 0
 STATE_READY = 1
@@ -259,18 +260,20 @@ class Connection(object):
 
     def _sabotage(self):
         """ Kill the connection in a way that the server is sure to recognize as an error"""
-        self.state = STATE_INIT
-        if not self.socket:
-            return
-        bad_header = struct.pack('<H', 2 * 8193 + 0)  # too large, and not the final message
-        bad_body = b"ERROR\x80ERROR"  # invalid utf-8
-        try:
-            self.socket.send(bad_header + bad_body)
-            self.socket.close()
-        except Exception:
-            # whatever
-            pass
+        sock = self.socket
         self.socket = None
+        self.state = STATE_INIT
+        if not sock:
+            return
+        bad_header = struct.pack('<H', 2 * 8193 + 0)  # larger than allowed, and not the final message
+        bad_body = b"ERROR\x80ERROR"  # invalid utf-8, and too small
+        try:
+            sock.send(bad_header + bad_body)
+            # and then we hang up
+            sock.close()
+        except Exception:
+            # don't care
+            pass
 
     def cmd(self, operation):
         """ put a mapi command on the line"""
@@ -376,15 +379,14 @@ class Connection(object):
     def _getblock_and_transfer_files(self):
         """ read one mapi encoded block and take care of any file transfers the server requests"""
         prev = b''
-        prev_end = 0
-        # This loop only iterates more than once if
-        # file transfers occur.
+        prev_end = 0   # position of last line to chop off 'prev'
+        # This loop only iterates more than once if file transfers occur.
         while True:
             # preserve results from the previous iteration
             writer = BytesIO(memoryview(prev)[:prev_end])
             writer.seek(prev_end, SEEK_SET)
             self._getblock_raw(writer)
-            buf = writer.getvalue()    # unavoidable, we cannot scan the buffer efficiently
+            buf = writer.getvalue()    # unavoidable, we cannot scan memoryviews efficiently
             if not buf:
                 break
             # a FILETRANSFER request looks like this:
@@ -421,11 +423,12 @@ class Connection(object):
 
     def _getblock_inet(self, buffer):
         last = 0
+        flag_buf = BytesIO()
         while not last:
-            flag_buf = BytesIO()
             self._getbytes(flag_buf, 2)
             flag = flag_buf.getvalue()
-            unpacked = struct.unpack('<H', flag)[0]  # little endian short
+            unpacked = struct.unpack('<H', flag_buf.getbuffer())[0]  # little endian short
+            flag_buf.seek(0, SEEK_SET)
             length = unpacked >> 1
             last = unpacked & 1
             self._getbytes(buffer, length)
