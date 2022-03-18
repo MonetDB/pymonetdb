@@ -27,7 +27,7 @@ class LoopbackObject(object):
                       del dd['_conn']
                       del dd['_columns']
                       del dd['_column_types']
-                      return pickle.dumps(dd);
+                      return pickle.dumps(dd).hex();
                   };""")
         self.__conn.execute("""
                   SELECT *
@@ -135,7 +135,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
                 args, _, _, values = inspect.getargvalues(frame);
                 dd = {x: values[x] for x in args};
                 del dd['_conn']
-                return pickle.dumps(dd);
+                return pickle.dumps(dd).hex();
             };""" % return_type
     else:
         export_function = """
@@ -162,7 +162,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
                 dd[argname] = aux
                 print(dd[argname])
             print(x)
-            return pickle.dumps(dd);
+            return pickle.dumps(dd).hex();
             };
             """ % (return_type, str(sample))
 
@@ -179,7 +179,8 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
     if len(input_data) <= 0:
         raise Exception("Could not load input data!")
 
-    arguments = pickle.loads(input_data[0][0])
+    bin_data = bytes.fromhex(input_data[0][0])
+    arguments = pickle.loads(bin_data)
 
     if len(arguments) != quantity_parameters + 2:
         raise Exception("Incorrect amount of input arguments found!")

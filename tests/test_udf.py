@@ -28,7 +28,6 @@ class TestUdf(TestCase):
         if cls.conn:
             cls.conn.close()
 
-    @skip("Disabled, see issue #49")
     def test_debug_udf(self):
         self.cursor.execute("""
             CREATE FUNCTION test_python_udf(i INTEGER)
