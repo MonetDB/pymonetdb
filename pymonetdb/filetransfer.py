@@ -9,7 +9,11 @@ This is the python implementation of the mapi protocol.
 
 
 from abc import ABC, abstractmethod
+from codecs import CodecInfo
+import codecs
 from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
+from pathlib import Path
+from shutil import copyfileobj
 from typing import Union
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, ProgrammingError
@@ -495,3 +499,77 @@ class NormalizeCrLf(BufferedIOBase):
             self.inner.write(b"\r")
             self.pending = False
         return self.inner.close()
+
+
+class DefaultHandler(Uploader, Downloader):
+
+    def __init__(self, dir, encoding=None, newline=None):
+        self.dir = Path(dir).resolve()
+        self.encoding = encoding if encoding is None or isinstance(encoding, CodecInfo) else codecs.lookup(encoding)
+        self.is_utf8 = (codecs.lookup('utf-8') == self.encoding)
+        self.newline = newline
+
+    def secure_resolve(self, filename) -> Path:
+        p = self.dir.joinpath(filename).resolve()
+        return p if p.is_relative_to(self.dir) else None
+
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+        p = self.secure_resolve(filename)
+        if not p:
+            return upload.send_error("Forbidden")
+
+        # optimization
+        if self.is_utf8 and self.newline == "\n" and skip_amount == 0:
+            text_mode = False
+
+        # open
+        mode = "r" if text_mode else "rb"
+        try:
+            f = open(p, mode=mode, encoding=self.encoding, newline=self.newline)
+        except IOError as e:
+            return upload.send_error(str(e))
+
+        with f:
+            if text_mode:
+                for _ in range(skip_amount):
+                    f.readline()
+                tw = upload.text_writer()
+                self._upload_data(upload, f, tw)
+            else:
+                bw = upload.binary_writer()
+                self._upload_data(upload, f, bw)
+
+    def handle_download(self, download: Download, filename: str, text_mode: bool):
+        p = self.secure_resolve(filename)
+        if not p:
+            return download.send_error("Forbidden")
+
+        # optimization
+        if self.is_utf8 and self.newline == "\n":
+            text_mode = False
+
+        # open
+        mode = "w" if text_mode else "wb"
+        try:
+            f = open(p, mode=mode, encoding=self.encoding, newline=self.newline)
+        except IOError as e:
+            return download.send_error(str(e))
+
+        with f:
+            if text_mode:
+                tr = download.text_reader()
+                self._download_data(download, tr, f)
+            else:
+                br = download.binary_reader()
+                self._download_data(download, br, f)
+
+    def _upload_data(self, upload: Upload, src, dst):
+        bufsize = 1024 * 1024
+        while not upload.is_cancelled():
+            data = src.read(bufsize)
+            if not data:
+                break
+            dst.write(data)
+
+    def _download_data(self, download: Download, src, dst):
+        copyfileobj(src, dst, 8190)
