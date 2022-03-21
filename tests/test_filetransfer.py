@@ -10,8 +10,11 @@ This is the python implementation of the mapi protocol.
 
 import codecs
 from io import StringIO
+import os
 from pathlib import Path
+import re
 from shutil import copyfileobj
+import sys
 from tempfile import mkdtemp
 from typing import Optional, Tuple
 from unittest import TestCase, skipUnless
@@ -338,11 +341,13 @@ class TestFileTransfer(TestCase):
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
 
+    def get_testdata_name(self, enc_name: str, newline: str) -> str:
+        newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
+        return f"{enc_name}_{newline_name}.txt"
+
     def get_testdata(self, enc_name: str, newline: str, lines: int) -> str:
         encoding = codecs.lookup(enc_name) if enc_name else None
-        newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
-
-        fname = f"{enc_name}_{newline_name}.txt"
+        fname = self.get_testdata_name(enc_name, newline)
         p = self.file(fname)
         if not p.exists():
             enc = encoding.name if encoding else None
@@ -432,3 +437,69 @@ class TestFileTransfer(TestCase):
         self.conn.set_uploader(uploader)
         self.execute("COPY INTO foo2 FROM %s ON CLIENT", fname)
         self.assertEqual('binary', uploader.used_mode)
+
+    def test_download_encodings_and_line_endings(self):
+        encodings = [
+            'utf-8',
+            'latin1',
+            'shift-jis',
+            None  # means native
+        ]
+        file_endings = [
+            "\n",
+            "\r\n",
+            None,
+        ]
+        for encoding in encodings:
+            for handler_ending in file_endings + [None]:
+                with self.subTest(encoding=encoding, handler_ending=handler_ending):
+                    self.perform_download_test(encoding, handler_ending)
+
+    def perform_download_test(self, encoding, handler_ending):
+        # We want to check that when asked to use the given encoding and line endings,
+        # this happens.
+        n = 10
+        downloader = DefaultHandler(self.file(''), encoding, handler_ending)
+        self.conn.set_downloader(downloader)
+        self.execute("DELETE FROM foo2")
+        #
+        enc = encoding or sys.getdefaultencoding()
+        expected = b""
+        for k in range(n):
+            i, s = self.line(k)
+            expected += bytes(str(i), enc)
+            expected += b'|"'
+            expected += bytes(s, enc)
+            expected += b'"'
+            expected += bytes(handler_ending or os.linesep, enc)
+            self.execute("INSERT INTO foo2(i, t) VALUES (%s, %s)", [i, s])
+        #
+        fname = self.get_testdata_name(encoding, handler_ending)
+        self.execute("COPY (SELECT * FROM foo2) INTO %s ON CLIENT", [fname])
+        f = self.open(fname, 'rb')
+        content = f.read()
+        f.close()
+        #
+        self.assertEqual(expected, content)
+
+    def test_download_utf8_lf_uses_binary(self):
+        class CustomHandler(DefaultHandler):
+            used_mode = None
+
+            def __init__(self, dir):
+                super().__init__(dir, 'utf-8', '\n')
+
+            def handle_download(self, download: Download, filename: str, text_mode: bool):
+                super().handle_download(download, filename, text_mode)
+                # peek into the internals of the download
+                if download.reader:
+                    self.used_mode = 'binary'
+                if download.treader:
+                    # overwrite
+                    self.used_mode = 'text'
+
+        fname = self.get_testdata_name('utf-8', '\n')
+        downloader = CustomHandler(self.file(''))
+        self.conn.set_downloader(downloader)
+        self.execute("COPY SELECT * FROM sys.generate_series(0,10) INTO %s ON CLIENT", fname)
+        self.assertEqual('binary', downloader.used_mode)
