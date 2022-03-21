@@ -8,17 +8,19 @@ This is the python implementation of the mapi protocol.
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+import codecs
 from io import StringIO
 from pathlib import Path
 from shutil import copyfileobj
 from tempfile import mkdtemp
-from typing import Optional
-from unittest import TestCase, skip, skipUnless
+from typing import Optional, Tuple
+from unittest import TestCase, skipUnless
 
 
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
+from pymonetdb.filetransfer import DefaultHandler
 from tests.util import test_args, test_full
 
 
@@ -109,7 +111,7 @@ class TestFileTransfer(TestCase):
 
     def file(self, filename):
         if not self.tmpdir:
-            self.tmpdir = Path(mkdtemp())
+            self.tmpdir = Path(mkdtemp(prefix="filetrans_"))
         return self.tmpdir.joinpath(filename)
 
     def open(self, filename, mode, **kwargs):
@@ -335,3 +337,98 @@ class TestFileTransfer(TestCase):
         # .. the connection is dropped
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
+
+    def get_testdata(self, enc_name: str, newline: str, lines: int) -> str:
+        encoding = codecs.lookup(enc_name) if enc_name else None
+        newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
+
+        fname = f"{enc_name}_{newline_name}.txt"
+        p = self.file(fname)
+        if not p.exists():
+            enc = encoding.name if encoding else None
+            f = open(p, mode="w", encoding=enc, newline=newline)
+            for n in range(lines):
+                i, t = self.line(n)
+                print(f"{i}|{t}", file=f)
+            f.close()
+            assert p.exists()
+
+        return fname
+
+    def line(self, i: int) -> Tuple[int, str]:
+        k = i + 1
+        if i % 7 == 0:
+            s = ""
+        else:
+            # ÷ is interesting because it appears in all of UTF-8, Latin1 and
+            # Shift-JIS, but with different encodings.
+            s = f"÷{k}"
+        return (k, s)
+
+    def test_upload_encodings_and_line_endings(self):
+        # We want to demonstrate the following:
+        # 1. If we specify the encoding properly, files with that encoding get
+        #    uploaded correctly.
+        # 2. If we don't specify a line ending, or if we specify CRLF, both LF
+        #    and CRLF get uploaded correctly
+        # 3. If we specify LF line endings, LF-ended files upload correctly and
+        #    we don't say anything about CRLF-ended files.
+        encodings = [
+            'utf-8',
+            'latin1',
+            'shift-jis',
+            None  # means native
+        ]
+        file_endings = [
+            "\n",
+            "\r\n",
+        ]
+        for encoding in encodings:
+            for handler_ending in file_endings + [None]:
+                for file_ending in file_endings:
+                    if handler_ending == "\n" and file_ending != "\n":
+                        continue
+                    with self.subTest(encoding=encoding, file_ending=file_ending, handler_ending=handler_ending):
+                        self.perform_upload_test(encoding, file_ending, handler_ending)
+
+    def perform_upload_test(self, encoding, file_ending, handler_ending):
+        n = 10
+        uploader = DefaultHandler(self.file(''), encoding, file_ending)
+        self.conn.set_uploader(uploader)
+        fname = self.get_testdata(encoding, file_ending, n)
+        # Test the test:
+        marker = {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[encoding]
+        if marker:
+            f = self.open(fname, 'rb')
+            content = f.read()
+            f.close()
+            self.assertTrue(marker in content)
+        # Run the test
+        self.execute("DELETE FROM foo2")
+        self.execute("COPY INTO foo2 FROM %s ON CLIENT", [fname])
+        self.execute("SELECT * FROM foo2")
+        rows = self.cursor.fetchall()
+        expected = [self.line(i) for i in range(n)]
+        self.assertEqual(expected, rows)
+
+    def test_upload_utf8_lf_uses_binary(self):
+        class CustomHandler(DefaultHandler):
+            used_mode = None
+
+            def __init__(self, dir):
+                super().__init__(dir, 'utf-8', '\n')
+
+            def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+                super().handle_upload(upload, filename, text_mode, skip_amount)
+                # peek into the internals of the upload
+                if upload.writer:
+                    self.used_mode = 'binary'
+                if upload.twriter:
+                    # overwrite
+                    self.used_mode = 'text'
+
+        fname = self.get_testdata('utf-8', '\n', 10)
+        uploader = CustomHandler(self.file(''))
+        self.conn.set_uploader(uploader)
+        self.execute("COPY INTO foo2 FROM %s ON CLIENT", fname)
+        self.assertEqual('binary', uploader.used_mode)

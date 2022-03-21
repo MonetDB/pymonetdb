@@ -9,7 +9,6 @@ This is the python implementation of the mapi protocol.
 
 
 from abc import ABC, abstractmethod
-from codecs import CodecInfo
 import codecs
 from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
 from pathlib import Path
@@ -503,10 +502,10 @@ class NormalizeCrLf(BufferedIOBase):
 
 class DefaultHandler(Uploader, Downloader):
 
-    def __init__(self, dir, encoding=None, newline=None):
+    def __init__(self, dir, encoding: str=None, newline=None):
         self.dir = Path(dir).resolve()
-        self.encoding = encoding if encoding is None or isinstance(encoding, CodecInfo) else codecs.lookup(encoding)
-        self.is_utf8 = (codecs.lookup('utf-8') == self.encoding)
+        self.encoding = encoding
+        self.is_utf8 = (self.encoding and (codecs.lookup('utf-8') == codecs.lookup(self.encoding)))
         self.newline = newline
 
     def secure_resolve(self, filename) -> Path:
@@ -523,9 +522,17 @@ class DefaultHandler(Uploader, Downloader):
             text_mode = False
 
         # open
+        if text_mode:
+            mode = "r"
+            encoding = self.encoding
+            newline = self.newline
+        else:
+            mode = "rb"
+            encoding = None
+            newline = None
         mode = "r" if text_mode else "rb"
         try:
-            f = open(p, mode=mode, encoding=self.encoding, newline=self.newline)
+            f = open(p, mode=mode, encoding=encoding, newline=newline)
         except IOError as e:
             return upload.send_error(str(e))
 
@@ -550,8 +557,16 @@ class DefaultHandler(Uploader, Downloader):
 
         # open
         mode = "w" if text_mode else "wb"
+        if text_mode:
+            mode = "w"
+            encoding = self.encoding
+            newline = self.newline
+        else:
+            mode = "wb"
+            encoding = None
+            newline = None
         try:
-            f = open(p, mode=mode, encoding=self.encoding, newline=self.newline)
+            f = open(p, mode=mode, encoding=encoding, newline=newline)
         except IOError as e:
             return download.send_error(str(e))
 
