@@ -533,7 +533,6 @@ class DefaultHandler(Uploader, Downloader):
             mode = "rb"
             encoding = None
             newline = None
-        mode = "r" if text_mode else "rb"
         try:
             f = open(p, mode=mode, encoding=encoding, newline=newline)
         except IOError as e:
