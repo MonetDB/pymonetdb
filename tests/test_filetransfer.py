@@ -388,19 +388,26 @@ class TestFileTransfer(TestCase):
             "\n",
             "\r\n",
         ]
+        offsets = [None, 0, 1, 2, 5]
         for encoding in encodings:
             for handler_ending in file_endings + [None]:
                 for file_ending in file_endings:
-                    if handler_ending == "\n" and file_ending != "\n":
+                    if handler_ending is not None and handler_ending != file_ending:
                         continue
-                    with self.subTest(encoding=encoding, file_ending=file_ending, handler_ending=handler_ending):
-                        self.perform_upload_test(encoding, file_ending, handler_ending)
+                    for offset in offsets:
+                        with self.subTest(encoding=encoding, file_ending=file_ending, handler_ending=handler_ending, offset=offset):
+                            self.perform_upload_test(encoding, file_ending, handler_ending, offset=offset)
 
-    def perform_upload_test(self, encoding, file_ending, handler_ending):
-        n = 10
+    def perform_upload_test(self, encoding, file_ending, handler_ending, offset=None, end=10):
+        if offset is None:
+            offset_clause = ''
+            skip = 0
+        else:
+            offset_clause = f" OFFSET {offset}"
+            skip = offset - 1 if offset else 0
         uploader = DefaultHandler(self.file(''), encoding, handler_ending)
         self.conn.set_uploader(uploader)
-        fname = self.get_testdata(encoding, file_ending, n)
+        fname = self.get_testdata(encoding, file_ending, end)
         # Test the test:
         marker = {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[encoding]
         if marker:
@@ -411,10 +418,10 @@ class TestFileTransfer(TestCase):
         # Run the test
         # self.conn.rollback()
         self.execute("DELETE FROM foo2")
-        self.execute("COPY INTO foo2 FROM %s ON CLIENT", [fname])
+        self.execute("COPY" + offset_clause + " INTO foo2 FROM %s ON CLIENT", [fname])
         self.execute("SELECT * FROM foo2")
         rows = self.cursor.fetchall()
-        expected = [self.line(i) for i in range(n)]
+        expected = [self.line(i) for i in range(skip, end)]
         self.assertEqual(expected, rows)
 
     def test_upload_utf8_lf_uses_binary(self):
