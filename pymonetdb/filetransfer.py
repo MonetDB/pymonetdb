@@ -510,7 +510,10 @@ class DefaultHandler(Uploader, Downloader):
 
     def secure_resolve(self, filename) -> Optional[Path]:
         p = self.dir.joinpath(filename).resolve()
-        return p if p.is_relative_to(self.dir) else None
+        if str(p).startswith(str(self.dir)):
+            return p
+        else:
+            return None
 
     def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
         p = self.secure_resolve(filename)
