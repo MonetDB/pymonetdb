@@ -156,6 +156,9 @@ class Upload:
         self.mapi = None
 
     def _raw(self):
+        if self.bytes_sent == 0:
+            # send the magic newline indicating we're ok with the upload
+            self._send(b'\n', False)
         if not self.rawio:
             self.rawio = UploadIO(self)
         return self.rawio
@@ -186,9 +189,6 @@ class Upload:
         if self.cancelled:
             return
         self._check_usable()
-        if self.bytes_sent == 0:
-            # send the magic newline indicating we're ok with the upload
-            self._send(b'\n', False)
         pos = 0
         end = len(data)
         while pos < end:

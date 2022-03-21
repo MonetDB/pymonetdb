@@ -172,6 +172,12 @@ class TestFileTransfer(TestCase):
         self.execute("SELECT COUNT(*) FROM foo")
         self.expect1(self.uploader.rows)
 
+    def test_upload_empty(self):
+        self.uploader.rows = 0
+        self.execute("COPY INTO foo FROM 'foo' ON CLIENT")
+        self.execute("SELECT COUNT(*) FROM foo")
+        self.expect1(self.uploader.rows)
+
     # Also see test_NormalizeCrLf from the Java tests
     def test_upload_crlf(self):
         class CustomUploader(Uploader):
@@ -388,7 +394,7 @@ class TestFileTransfer(TestCase):
             "\n",
             "\r\n",
         ]
-        offsets = [None, 0, 1, 2, 5]
+        offsets = [None, 0, 1, 2, 5, 15]
         for encoding in encodings:
             for handler_ending in file_endings + [None]:
                 for file_ending in file_endings:
