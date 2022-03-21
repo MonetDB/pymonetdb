@@ -393,7 +393,7 @@ class TestFileTransfer(TestCase):
 
     def perform_upload_test(self, encoding, file_ending, handler_ending):
         n = 10
-        uploader = DefaultHandler(self.file(''), encoding, file_ending)
+        uploader = DefaultHandler(self.file(''), encoding, handler_ending)
         self.conn.set_uploader(uploader)
         fname = self.get_testdata(encoding, file_ending, n)
         # Test the test:
