@@ -13,7 +13,7 @@ import codecs
 from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
 from pathlib import Path
 from shutil import copyfileobj
-from typing import Union
+from typing import Optional, Union
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 
@@ -502,13 +502,13 @@ class NormalizeCrLf(BufferedIOBase):
 
 class DefaultHandler(Uploader, Downloader):
 
-    def __init__(self, dir, encoding: str=None, newline=None):
+    def __init__(self, dir, encoding: str = None, newline=None):
         self.dir = Path(dir).resolve()
         self.encoding = encoding
         self.is_utf8 = (self.encoding and (codecs.lookup('utf-8') == codecs.lookup(self.encoding)))
         self.newline = newline
 
-    def secure_resolve(self, filename) -> Path:
+    def secure_resolve(self, filename) -> Optional[Path]:
         p = self.dir.joinpath(filename).resolve()
         return p if p.is_relative_to(self.dir) else None
 
