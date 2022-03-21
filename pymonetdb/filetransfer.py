@@ -541,7 +541,8 @@ class DefaultHandler(Uploader, Downloader):
         with f:
             if text_mode:
                 for _ in range(skip_amount):
-                    f.readline()
+                    if not f.readline():
+                        break
                 tw = upload.text_writer()
                 self._upload_data(upload, f, tw)
             else:
