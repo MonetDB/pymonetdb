@@ -409,6 +409,7 @@ class TestFileTransfer(TestCase):
             f.close()
             self.assertTrue(marker in content)
         # Run the test
+        # self.conn.rollback()
         self.execute("DELETE FROM foo2")
         self.execute("COPY INTO foo2 FROM %s ON CLIENT", [fname])
         self.execute("SELECT * FROM foo2")
