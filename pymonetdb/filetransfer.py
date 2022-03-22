@@ -486,7 +486,9 @@ class NormalizeCrLf(BufferedIOBase):
         else:
             self.pending = False
 
-        return int(self.pending) + self.inner.write(normalized)
+        n = self.inner.write(normalized)
+        assert n == len(normalized)
+        return len(data)
 
     def flush(self):
         return self.inner.flush()

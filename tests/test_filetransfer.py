@@ -9,7 +9,7 @@ This is the python implementation of the mapi protocol.
 
 
 import codecs
-from io import StringIO
+from io import BufferedIOBase, StringIO
 import os
 from pathlib import Path
 import re
@@ -26,7 +26,7 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import DefaultHandler
+from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf
 from tests.util import test_args, test_full
 
 
@@ -105,7 +105,8 @@ class MyDownloader(Downloader):
                     raise MyException("oopsie")
                 else:
                     line = tr.readline()
-                    if not line: break
+                    if not line:
+                        break
                     self.buffer.write(line)
                 i += 1
 
@@ -572,3 +573,69 @@ class TestFileTransfer(TestCase):
         self.conn.set_downloader(downloader)
         self.execute("COPY SELECT * FROM sys.generate_series(0,10) INTO %s ON CLIENT", fname)
         self.assertEqual('binary', downloader.used_mode)
+
+
+class TestNormalizeCrLf(TestCase):
+
+    class Sink(BufferedIOBase):
+        def __init__(self):
+            self.written = b''
+
+        def writable(self) -> bool:
+            return True
+
+        def write(self, buf):
+            self.written += bytes(buf)
+            return len(buf)
+
+        def get_written(self):
+            res = self.written
+            self.written = b''
+            return res
+
+    def setUp(self):
+        self.sink = self.Sink()
+        self.normalizer = NormalizeCrLf(self.sink)
+
+    def transaction(self, buf, expect_pending, expect_written):
+        n = self.normalizer.write(buf)
+        self.assertEqual(len(buf), n)
+        written = self.sink.get_written()
+        pending = self.normalizer.pending
+        self.assertEqual(expect_written, written)
+        self.assertEqual(expect_pending, pending)
+
+    def test_normalizer(self):
+        self.assertEqual(False, self.normalizer.pending)
+        self.assertEqual(b'', self.sink.written)
+
+        # can all be written through
+        self.transaction(b"\r\naaa\n\n\r\n", False, b"\naaa\n\n\n")
+
+        # trailing CR pending
+        self.transaction(b"\n\r\naaa\r", True, b"\n\naaa")
+
+        # LF consumes the pending CR
+        self.transaction(b"\n", False, b"\n")
+
+        # a new pending CR
+        self.transaction(b"\r", True, b"")
+
+        # a new pending CR
+        self.transaction(b"a", False, b"\ra")
+
+        # CR after CR emits one CR and stays pending
+        self.transaction(b"\r", True, b"")
+        self.transaction(b"\r", True, b"\r")
+
+        # empty write stays pending
+        self.transaction(b"", True, b"")
+
+        # flushing the normalizer does not flush the pending CR
+        self.normalizer.flush()
+        self.assertTrue(self.normalizer.pending)
+
+        # but closing it does
+        self.normalizer.close()
+        self.assertFalse(self.normalizer.pending)
+        self.assertEqual(b"\r", self.sink.get_written())
