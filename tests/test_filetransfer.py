@@ -98,14 +98,16 @@ class MyDownloader(Downloader):
         if self.lines is None:
             copyfileobj(download.text_reader(), self.buffer)
         else:
+            tr = download.text_reader()
             i = 0
-            for line in download.text_reader():
-                if i >= self.lines >= 0:
-                    break
-                elif self.error_at_line is not None and self.error_at_line == i:
+            while self.lines is None or self.lines < 0 or i < self.lines:
+                if i == self.error_at_line:
                     raise MyException("oopsie")
+                else:
+                    line = tr.readline()
+                    if not line: break
+                    self.buffer.write(line)
                 i += 1
-                self.buffer.write(line)
 
     def get(self):
         return self.buffer.getvalue()
@@ -286,6 +288,11 @@ class TestFileTransfer(TestCase):
         self.fill_foo(5)
         self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
         self.assertEqual("1\n2\n3\n4\n5\n", self.downloader.get())
+
+    def test_download_empty(self):
+        self.fill_foo(0)
+        self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
+        self.assertEqual("", self.downloader.get())
 
     def test_download_lines(self):
         self.downloader.lines = -1
