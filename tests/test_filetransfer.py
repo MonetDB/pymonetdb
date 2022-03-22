@@ -403,6 +403,67 @@ class TestFileTransfer(TestCase):
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
 
+    def test_upload_handler_security(self):
+        f = self.open("foo.csv", "w")
+        f.write("1\n2\n3\n")
+        f.close()
+        outside = self.file('')
+        inside = self.file('inside')
+        inside.mkdir()
+        f = self.open(inside.joinpath("foo.csv"), "w")
+        f.write("10\n20\n30\n")
+        f.close()
+        #
+        handler = DefaultHandler(inside)
+        self.conn.set_uploader(handler)
+        #
+        testcases = [
+            ('foo.csv', True),
+            ('./foo.csv', True),
+            (inside.joinpath('foo.csv'), True),
+            ('../foo.csv', False),
+            (outside.joinpath('foo.csv'), False),
+        ]
+        for path, valid in testcases:
+            with self.subTest(dir=str(inside), path=str(path), expect_valid=valid):
+                self.conn.rollback()
+                path = str(path)
+                if valid:
+                    self.execute("COPY INTO foo FROM %s ON CLIENT", [path])
+                else:
+                    with self.assertRaises(OperationalError):
+                        self.execute("COPY INTO foo FROM %s ON CLIENT", [path])
+                    continue
+                self.execute("SELECT MAX(i) FROM foo")
+                self.expect1(30)
+
+    def test_download_handler_security(self):
+        self.execute("INSERT INTO foo SELECT * FROM sys.generate_series(0, 10)")
+        outside = self.file('')
+        inside = self.file('inside')
+        inside.mkdir()
+        #
+        handler = DefaultHandler(inside)
+        self.conn.set_downloader(handler)
+        #
+        testcases = [
+            ('foo.csv', True),
+            ('./foo.csv', True),
+            (inside.joinpath('foo.csv'), True),
+            ('../foo.csv', False),
+            (outside.joinpath('foo.csv'), False),
+        ]
+        for path, valid in testcases:
+            with self.subTest(dir=str(inside), path=str(path), expect_valid=valid):
+                self.conn.rollback()
+                path = str(path)
+                if valid:
+                    self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
+                else:
+                    with self.assertRaises(OperationalError):
+                        self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
+                    continue
+
     def get_testdata_name(self, enc_name: str, newline: str) -> str:
         newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
         return f"{enc_name}_{newline_name}.txt"
