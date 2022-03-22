@@ -14,8 +14,11 @@ import os
 from pathlib import Path
 import re
 from shutil import copyfileobj
+import signal
 import sys
 from tempfile import mkdtemp
+from threading import Condition, Thread
+import time
 from typing import Optional, Tuple
 from unittest import TestCase, skipUnless
 
@@ -108,6 +111,46 @@ class MyDownloader(Downloader):
         return self.buffer.getvalue()
 
 
+class DeadManHandle:
+    def __init__(self):
+        self.cond = Condition()
+        self.deadline = None
+        self.message = None
+        self.thread = Thread(target=self.work, daemon=True)
+        self.thread.start()
+
+    def set_timeout(self, t, msg):
+        self.set_deadline(time.time() + t, msg)
+
+    def set_deadline(self, d, msg):
+        with self.cond:
+            self.deadline = d
+            if msg:
+                self.message = msg
+            self.cond.notify_all()
+
+    def cancel(self):
+        with self.cond:
+            self.deadline = None
+            self.message = None
+
+    def work(self):
+        with self.cond:
+            while True:
+                now = time.time()
+                if self.deadline:
+                    delta = self.deadline - now
+                    if delta <= 0:
+                        print("\n\nTIMEOUT:", self.message, "\n\n", file=sys.stderr)
+                        os.kill(os.getpid(), signal.SIGKILL)
+                else:
+                    delta = None
+                self.cond.wait(timeout=delta)
+
+
+deadman = DeadManHandle()
+
+
 class TestFileTransfer(TestCase):
     first = True
     tmpdir: Optional[Path] = None
@@ -138,7 +181,10 @@ class TestFileTransfer(TestCase):
             conn.commit()
             self.first = False
 
+        deadman.set_timeout(10, f"timeout in {self._testMethodName}()")
+
     def tearDown(self):
+        deadman.cancel()
         try:
             self.cursor.close()
             self.conn.rollback()
@@ -258,6 +304,7 @@ class TestFileTransfer(TestCase):
 
     @skipUnless(test_full, "full test disabled")
     def test_large_upload(self):
+        deadman.set_timeout(50, None)
         n = 1_000_000
         self.uploader.rows = n
         self.uploader.chunkSize = 1024 * 1024
@@ -268,6 +315,7 @@ class TestFileTransfer(TestCase):
 
     @skipUnless(test_full, "full test disabled")
     def test_large_download(self):
+        deadman.set_timeout(50, None)
         n = 1_000_000
         self.fill_foo(n)
         self.execute("COPY (SELECT * FROM foo) INTO 'banana' ON CLIENT")
