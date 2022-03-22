@@ -388,12 +388,10 @@ class Download:
                 return 0
             unpacked = buf[0] + 256 * buf[1]
             length = unpacked // 2
-            if length == 0:
-                # valid but unlikely
-                continue
-            if not self._read_bytes(buf[:length]):
-                self._shutdown()
-                raise OperationalError("incomplete packet")
+            if length > 0:
+                if not self._read_bytes(buf[:length]):
+                    self._shutdown()
+                    raise OperationalError("incomplete packet")
             if unpacked & 1:
                 self._shutdown()
             return length
