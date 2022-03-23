@@ -154,7 +154,7 @@ class DeadManHandle:
 deadman = DeadManHandle()
 
 
-class TestFileTransfer(TestCase):
+class Common:
     first = True
     tmpdir: Optional[Path] = None
 
@@ -167,8 +167,7 @@ class TestFileTransfer(TestCase):
         fullname = self.file(filename)
         return open(fullname, mode, **kwargs)
 
-    def setUp(self):
-        super().setUp()
+    def commonSetUp(self):
         self.conn = conn = connect(**test_args)
         self.uploader = MyUploader()
         conn.set_uploader(self.uploader)
@@ -186,7 +185,7 @@ class TestFileTransfer(TestCase):
 
         deadman.set_timeout(10, f"timeout in {self._testMethodName}()")
 
-    def tearDown(self):
+    def commonTearDown(self):
         deadman.cancel()
         try:
             self.cursor.close()
@@ -194,7 +193,6 @@ class TestFileTransfer(TestCase):
             self.conn.close()
         except MonetError:
             pass
-        super().tearDown()
 
     def fill_foo(self, nrows):
         self.execute("INSERT INTO foo(i) SELECT * FROM sys.generate_series(1, %s + 1)", [nrows])
@@ -208,6 +206,17 @@ class TestFileTransfer(TestCase):
 
     def expect1(self, value):
         self.expect([(value,)])
+
+
+class TestFileTransfer(TestCase, Common):
+
+    def setUp(self):
+        super().setUp()
+        self.commonSetUp()
+
+    def tearDown(self):
+        self.commonTearDown()
+        super().tearDown()
 
     def test_do_nothing_at_all(self):
         self.uploader.do_nothing_at_all = True
@@ -402,6 +411,17 @@ class TestFileTransfer(TestCase):
         # .. the connection is dropped
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
+
+
+class TestDefaultHandler(TestCase, Common):
+
+    def setUp(self):
+        super().setUp()
+        self.commonSetUp()
+
+    def tearDown(self):
+        self.commonTearDown()
+        super().tearDown()
 
     def test_upload_handler_security(self):
         f = self.open("foo.csv", "w")
