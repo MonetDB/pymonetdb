@@ -513,33 +513,773 @@ class TestDefaultHandler(TestCase, Common):
             s = f"÷{k}"
         return (k, s)
 
-    def test_upload_encodings_and_line_endings(self):
-        # We want to demonstrate the following:
-        # 1. If we specify the encoding properly, files with that encoding get
-        #    uploaded correctly.
-        # 2. If we don't specify a line ending, or if we specify CRLF, both LF
-        #    and CRLF get uploaded correctly
-        # 3. If we specify LF line endings, LF-ended files upload correctly and
-        #    we don't say anything about CRLF-ended files.
-        encodings = [
-            'utf-8',
-            'latin1',
-            'shift-jis',
-            None  # means native
-        ]
-        file_endings = [
-            "\n",
-            "\r\n",
-        ]
-        offsets = [None, 0, 1, 2, 5, 15]
-        for encoding in encodings:
-            for handler_ending in file_endings + [None]:
-                for file_ending in file_endings:
-                    if handler_ending is not None and handler_ending != file_ending:
-                        continue
-                    for offset in offsets:
-                        with self.subTest(encoding=encoding, file_ending=file_ending, handler_ending=handler_ending, offset=offset):
-                            self.perform_upload_test(encoding, file_ending, handler_ending, offset=offset)
+    def test_utf8_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=None
+        )
+
+    def test_utf8_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=0
+        )
+
+    def test_utf8_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=1
+        )
+
+    def test_utf8_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=2
+        )
+
+    def test_utf8_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=5
+        )
+
+    def test_utf8_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=15
+        )
+
+    def test_utf8_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=None
+        )
+
+    def test_utf8_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=0
+        )
+
+    def test_utf8_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=1
+        )
+
+    def test_utf8_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=2
+        )
+
+    def test_utf8_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=5
+        )
+
+    def test_utf8_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=15
+        )
+
+    def test_utf8_native_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_utf8_native_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_utf8_native_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_utf8_native_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_utf8_native_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_utf8_native_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_utf8_native_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_utf8_native_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_utf8_native_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_utf8_native_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_utf8_native_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_utf8_native_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='utf-8',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_latin1_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=None
+        )
+
+    def test_latin1_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=0
+        )
+
+    def test_latin1_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=1
+        )
+
+    def test_latin1_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=2
+        )
+
+    def test_latin1_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=5
+        )
+
+    def test_latin1_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=15
+        )
+
+    def test_latin1_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=None
+        )
+
+    def test_latin1_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=0
+        )
+
+    def test_latin1_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=1
+        )
+
+    def test_latin1_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=2
+        )
+
+    def test_latin1_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=5
+        )
+
+    def test_latin1_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=15
+        )
+
+    def test_latin1_native_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_latin1_native_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_latin1_native_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_latin1_native_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_latin1_native_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_latin1_native_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_latin1_native_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_latin1_native_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_latin1_native_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_latin1_native_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_latin1_native_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_latin1_native_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_shiftjis_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=None
+        )
+
+    def test_shiftjis_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=0
+        )
+
+    def test_shiftjis_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=1
+        )
+
+    def test_shiftjis_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=2
+        )
+
+    def test_shiftjis_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=5
+        )
+
+    def test_shiftjis_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending='\n',
+            offset=15
+        )
+
+    def test_shiftjis_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=None
+        )
+
+    def test_shiftjis_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=0
+        )
+
+    def test_shiftjis_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=1
+        )
+
+    def test_shiftjis_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=2
+        )
+
+    def test_shiftjis_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=5
+        )
+
+    def test_shiftjis_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=15
+        )
+
+    def test_shiftjis_native_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_shiftjis_native_lf_offset0(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_shiftjis_native_lf_offset1(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_shiftjis_native_lf_offset2(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_shiftjis_native_lf_offset5(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_shiftjis_native_lf_offset15(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_shiftjis_native_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_shiftjis_native_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_shiftjis_native_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_shiftjis_native_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_shiftjis_native_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_shiftjis_native_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding='shift-jis',
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_native_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=None
+        )
+
+    def test_native_lf_offset0(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=0
+        )
+
+    def test_native_lf_offset1(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=1
+        )
+
+    def test_native_lf_offset2(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=2
+        )
+
+    def test_native_lf_offset5(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=5
+        )
+
+    def test_native_lf_offset15(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending='\n',
+            offset=15
+        )
+
+    def test_native_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=None
+        )
+
+    def test_native_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=0
+        )
+
+    def test_native_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=1
+        )
+
+    def test_native_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=2
+        )
+
+    def test_native_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=5
+        )
+
+    def test_native_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            offset=15
+        )
+
+    def test_native_native_lf_no_offset(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_native_native_lf_offset0(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_native_native_lf_offset1(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_native_native_lf_offset2(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_native_native_lf_offset5(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_native_native_lf_offset15(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\n',
+            handler_ending=None,
+            offset=15
+        )
+
+    def test_native_native_crlf_no_offset(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=None
+        )
+
+    def test_native_native_crlf_offset0(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=0
+        )
+
+    def test_native_native_crlf_offset1(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=1
+        )
+
+    def test_native_native_crlf_offset2(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=2
+        )
+
+    def test_native_native_crlf_offset5(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=5
+        )
+
+    def test_native_native_crlf_offset15(self):
+        self.perform_upload_test(
+            encoding=None,
+            file_ending='\r\n',
+            handler_ending=None,
+            offset=15
+        )
 
     def perform_upload_test(self, encoding, file_ending, handler_ending, offset=None, end=10):
         if offset is None:
