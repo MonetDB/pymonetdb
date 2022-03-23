@@ -10,6 +10,7 @@ This is the python implementation of the mapi protocol.
 
 from abc import ABC, abstractmethod
 import codecs
+from importlib import import_module
 from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
 from pathlib import Path
 from shutil import copyfileobj
@@ -526,7 +527,7 @@ class DefaultHandler(Uploader, Downloader):
 
         # open
         if text_mode:
-            mode = "r"
+            mode = "rt"
             encoding = self.encoding
             newline = self.newline
         else:
@@ -534,7 +535,11 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            f = open(p, mode=mode, encoding=encoding, newline=newline)
+            opener = get_opener(filename)
+        except ModuleNotFoundError as e:
+            return upload.send_error(str(e))
+        try:
+            f = opener(p, mode=mode, encoding=encoding, newline=newline)
         except IOError as e:
             return upload.send_error(str(e))
 
@@ -561,7 +566,7 @@ class DefaultHandler(Uploader, Downloader):
         # open
         mode = "w" if text_mode else "wb"
         if text_mode:
-            mode = "w"
+            mode = "wt"
             encoding = self.encoding
             newline = self.newline
         else:
@@ -569,7 +574,11 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            f = open(p, mode=mode, encoding=encoding, newline=newline)
+            opener = get_opener(filename)
+        except ModuleNotFoundError as e:
+            return download.send_error(str(e))
+        try:
+            f = opener(p, mode=mode, encoding=encoding, newline=newline)
         except IOError as e:
             return download.send_error(str(e))
 
@@ -591,3 +600,20 @@ class DefaultHandler(Uploader, Downloader):
 
     def _download_data(self, download: Download, src, dst):
         copyfileobj(src, dst, 8190)
+
+
+def get_opener(filename: str, *args, **kwargs):
+    lowercase = str(filename).lower()
+    if lowercase.endswith('.gz'):
+        mod = 'gzip'
+    elif lowercase.endswith('.bz2'):
+        mod = 'bz2'
+    elif lowercase.endswith('.xz'):
+        mod = 'lzma'
+    elif lowercase.endswith('.lz4'):
+        # not always available
+        mod = 'lz4.frame'
+    else:
+        return open
+    opener = import_module(mod).open
+    return opener

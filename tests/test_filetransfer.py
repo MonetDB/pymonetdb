@@ -12,7 +12,6 @@ import codecs
 from io import BufferedIOBase, StringIO
 import os
 from pathlib import Path
-import re
 from shutil import copyfileobj
 import signal
 import sys
@@ -26,8 +25,8 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf
-from tests.util import test_args, test_full
+from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, get_opener
+from tests.util import have_lz4, test_args, test_full
 
 
 class MyException(Exception):
@@ -484,17 +483,21 @@ class TestDefaultHandler(TestCase, Common):
                         self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
                     continue
 
-    def get_testdata_name(self, enc_name: str, newline: str) -> str:
+    def get_testdata_name(self, enc_name: str, newline: str, compression=None) -> str:
         newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
-        return f"{enc_name}_{newline_name}.txt"
+        file_name = f"{enc_name}_{newline_name}.txt"
+        if compression:
+            file_name += "." + compression
+        return file_name
 
-    def get_testdata(self, enc_name: str, newline: str, lines: int) -> str:
+    def get_testdata(self, enc_name: str, newline: str, lines: int, compression: str = None) -> str:
         encoding = codecs.lookup(enc_name) if enc_name else None
-        fname = self.get_testdata_name(enc_name, newline)
+        fname = self.get_testdata_name(enc_name, newline, compression)
         p = self.file(fname)
         if not p.exists():
             enc = encoding.name if encoding else None
-            f = open(p, mode="w", encoding=enc, newline=newline)
+            opener = get_opener(p)
+            f = opener(p, mode="wt", encoding=enc, newline=newline)
             for n in range(lines):
                 i, t = self.line(n)
                 print(f"{i}|{t}", file=f)
@@ -1281,7 +1284,309 @@ class TestDefaultHandler(TestCase, Common):
             offset=15
         )
 
-    def perform_upload_test(self, encoding, file_ending, handler_ending, offset=None, end=10):
+    def test_gz_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\n',
+            handler_ending='\n',
+            end=10
+        )
+
+    def test_gz_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\n',
+            handler_ending='\n',
+            end=0
+        )
+
+    def test_gz_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=10
+        )
+
+    def test_gz_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=0
+        )
+
+    def test_gz_native_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_gz_native_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def test_gz_native_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_gz_native_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='gz',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def test_bz2_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\n',
+            handler_ending='\n',
+            end=10
+        )
+
+    def test_bz2_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\n',
+            handler_ending='\n',
+            end=0
+        )
+
+    def test_bz2_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=10
+        )
+
+    def test_bz2_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=0
+        )
+
+    def test_bz2_native_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_bz2_native_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def test_bz2_native_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_bz2_native_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='bz2',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def test_xz_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\n',
+            handler_ending='\n',
+            end=10
+        )
+
+    def test_xz_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\n',
+            handler_ending='\n',
+            end=0
+        )
+
+    def test_xz_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=10
+        )
+
+    def test_xz_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=0
+        )
+
+    def test_xz_native_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_xz_native_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def test_xz_native_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=10
+        )
+
+    def test_xz_native_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='xz',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=0
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\n',
+            handler_ending='\n',
+            end=10
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\n',
+            handler_ending='\n',
+            end=0
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=10
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\r\n',
+            handler_ending='\r\n',
+            end=0
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_native_lf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\n',
+            handler_ending=None,
+            end=10
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_native_lf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\n',
+            handler_ending=None,
+            end=0
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_native_crlf_10lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=10
+        )
+
+    @skipUnless(have_lz4, "lz4 module not available")
+    def test_lz4_native_crlf_0lines(self):
+        self.perform_upload_test(
+            encoding='latin1',
+            compression='lz4',
+            file_ending='\r\n',
+            handler_ending=None,
+            end=0
+        )
+
+    def encoding_marker(self, enc):
+        return {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[enc]
+
+    def compression_prefix(self, scheme):
+        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
+
+    def perform_upload_test(self, encoding, file_ending, handler_ending, offset=None, end=10, compression=None):
         if offset is None:
             offset_clause = ''
             skip = 0
@@ -1290,14 +1595,24 @@ class TestDefaultHandler(TestCase, Common):
             skip = offset - 1 if offset else 0
         uploader = DefaultHandler(self.file(''), encoding, handler_ending)
         self.conn.set_uploader(uploader)
-        fname = self.get_testdata(encoding, file_ending, end)
-        # Test the test:
-        marker = {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[encoding]
-        if marker:
+        fname = self.get_testdata(encoding, file_ending, end, compression=compression)
+        # Double check the compression, are we testing what we want tot test?
+        compression_prefix = self.compression_prefix(compression)
+        if compression_prefix:
             f = self.open(fname, 'rb')
             content = f.read()
+            content_prefix = content[:len(compression_prefix)]
             f.close()
-            self.assertTrue(marker in content)
+            self.assertEqual(compression_prefix, content_prefix)
+        # Double check the testdata encoding, are we testing what we want tot test?
+        encmarker = self.encoding_marker(encoding)
+        if encmarker:
+            full_name = self.file(fname)
+            opener = get_opener(full_name)
+            f = opener(full_name, 'rb')
+            content = f.read()
+            f.close()
+            self.assertTrue(content == b'' or encmarker in content)
         # Run the test
         # self.conn.rollback()
         self.execute("DELETE FROM foo2")
