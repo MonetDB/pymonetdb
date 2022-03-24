@@ -416,13 +416,6 @@ class Connection(object):
 
     def _getblock_raw(self, buffer: BytesIO):
         """ read one mapi encoded block and append it to the buf"""
-        if self.language == 'control' and not self.hostname:
-            raise Exception("this is dead code")
-            self._getblock_socket(buffer)  # control doesn't do block splitting when using a socket
-        else:
-            self._getblock_inet(buffer)
-
-    def _getblock_inet(self, buffer):
         last = 0
         flag_buf = BytesIO()
         while not last:
@@ -433,14 +426,6 @@ class Connection(object):
             length = unpacked >> 1
             last = unpacked & 1
             self._getbytes(buffer, length)
-
-    def _getblock_socket(self, buffer):
-        while True:
-            x = self.socket.recv(1)
-            if len(x):
-                buffer.write(x)
-            else:
-                break
 
     def _getbytes(self, buffer, count):
         """Read 'count' bytes from the socket into 'buffer'"""
@@ -453,11 +438,7 @@ class Connection(object):
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
-        if self.language == 'control' and not self.hostname:
-            raise Exception("this is dead code")
-            return self.socket.send(block.encode())  # control doesn't do block splitting when using a socket
-        else:
-            self._putblock_inet_raw(block.encode(), True)
+        self._putblock_inet_raw(block.encode(), True)
 
     def _putblock_raw(self, block, finish: bool):
         """ put the data into the socket """
