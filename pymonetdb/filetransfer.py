@@ -1,5 +1,5 @@
 """
-This is the python implementation of the mapi protocol.
+Classes related to file transfer requests as used by COPY INTO ON CLIENT.
 """
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
@@ -136,7 +136,7 @@ class Upload:
     def set_chunk_size(self, size: int):
         """
         After every CHUNK_SIZE bytes, the server gets the opportunity to cancel
-        the rest of the update. Defaults to 1 MiB.
+        the rest of the upload. Defaults to 1 MiB.
         """
         self.chunk_size = size
 
@@ -274,7 +274,7 @@ class Uploader(ABC):
     .handle_upload() method.
 
     If the server cancels the upload halfway, the .cancel() methods is called
-    and all further data is ignored.
+    and all further data written is ignored.
     """
 
     @abstractmethod
@@ -306,7 +306,7 @@ class Uploader(ABC):
 
 class Download:
     """
-    Represents a request from the server to download daa from the server. It is
+    Represents a request from the server to download data from the server. It is
     passed to the Downloader registered by the application, which for example
     might write the data to a file on the client system. See
     pymonetdb.Connection.set_downloader().
@@ -502,6 +502,21 @@ class NormalizeCrLf(BufferedIOBase):
 
 
 class DefaultHandler(Uploader, Downloader):
+    """
+    File transfer handler which uploads and downloads files from a given
+    directory, taking care not to allow access to files outside that directory.
+    Instances of this class can be registered using the pymonetb.Connection's
+    set_uploader() and set_downloader() methods.
+
+    The 'encoding' and 'newline' parameters are applied to text file transfers
+    and ignored for binary transfers.
+
+    As an optimization, if you set encoding to 'utf-8' and newline to '\\\\n',
+    text mode transfers are performed as binary, which improves performance. For
+    uploads, only do this if you are absolutely, positively sure that all files
+    in the directory are actually valid UTF-8 encoded and have Unix line
+    endings.
+    """
 
     def __init__(self, dir, encoding: str = None, newline=None):
         self.dir = Path(dir).resolve()
@@ -517,6 +532,7 @@ class DefaultHandler(Uploader, Downloader):
             return None
 
     def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+        """:meta private:"""
         p = self.secure_resolve(filename)
         if not p:
             return upload.send_error("Forbidden")

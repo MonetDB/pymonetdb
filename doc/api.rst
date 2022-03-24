@@ -38,6 +38,12 @@ MAPI
     :show-inheritance:
 
 
+File Transfers
+==============
+
+.. automodule:: pymonetdb.filetransfer
+    :members: Uploader, Upload, Downloader, Download, DefaultHandler
+
 MonetDB remote control
 ======================
 

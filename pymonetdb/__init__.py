@@ -20,7 +20,7 @@ from pymonetdb.profiler import ProfilerConnection
 from pymonetdb.sql.connections import Connection
 from pymonetdb.sql.pythonize import *
 from pymonetdb.exceptions import *
-from pymonetdb.filetransfer import Download, Downloader, Upload, Uploader
+from pymonetdb.filetransfer import Download, Downloader, Upload, Uploader, DefaultHandler
 
 try:
     __version__ = pkg_resources.require("pymonetdb")[0].version
@@ -35,7 +35,7 @@ __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connecti
            'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
            'IntegrityError', 'InterfaceError', 'InternalError', 'NUMBER', 'NotSupportedError', 'OperationalError',
            'ProgrammingError', 'ROWID', 'STRING', 'TIME', 'Warning', 'apilevel', 'connect', 'paramstyle',
-           'threadsafety', 'Download', 'Downloader', 'Upload', 'Uploader']
+           'threadsafety', 'Download', 'Downloader', 'Upload', 'Uploader', 'DefaultHandler']
 
 
 def connect(*args, **kwargs) -> Connection:

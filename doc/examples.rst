@@ -60,3 +60,53 @@ you can use the MAPI library::
  > server.cmd("sSELECT * FROM tables;")
  ...
 
+
+File Transfers
+==============
+
+Here is an example script that uploads some data from the local file system::
+
+    #!/usr/bin/env python3
+
+    import os
+    import pymonetdb
+
+    # Create the data directory and the CSV file
+    try:
+        os.mkdir("datadir")
+    except FileExistsError:
+        pass
+    f = open("datadir/data.csv", "w")
+    for i in range(10):
+        print(f"{i},item{i + 1}", file=f)
+    f.close()
+
+    # Connect to MonetDB and register the upload handler
+    conn = pymonetdb.connect('demo')
+    handler = pymonetdb.DefaultHandler("datadir")
+    conn.set_uploader(handler)
+    cursor = conn.cursor()
+
+    # Set up the table
+    cursor.execute("DROP TABLE foo")
+    cursor.execute("CREATE TABLE foo(i INT, t TEXT)")
+    conn.commit()
+
+    # Upload the data, this will call the handler to upload data.csv
+    cursor.execute("COPY INTO foo FROM 'data.csv' ON CLIENT USING DELIMITERS ','")
+
+    # Check that it has loaded
+    cursor.execute("SELECT t FROM foo WHERE i = 9")
+    row = cursor.fetchone()
+    assert row[0] == 'item10'
+
+    # Goodbye
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+You can also write your own up- and download handler. The DefaultHandler used
+above is a good example of how to do that:
+
+.. literalinclude:: ../pymonetdb/filetransfer.py
+   :pyobject: DefaultHandler
