@@ -206,6 +206,12 @@ class Common:
     def expect1(self, value):
         self.expect([(value,)])
 
+    def encoding_marker(self, enc):
+        return {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[enc]
+
+    def compression_prefix(self, scheme):
+        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
+
 
 class TestFileTransfer(TestCase, Common):
 
@@ -1580,12 +1586,6 @@ class TestDefaultHandler(TestCase, Common):
             end=0
         )
 
-    def encoding_marker(self, enc):
-        return {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[enc]
-
-    def compression_prefix(self, scheme):
-        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
-
     def perform_upload_test(self, encoding, file_ending, handler_ending, offset=None, end=10, compression=None):
         if offset is None:
             offset_clause = ''
@@ -1645,6 +1645,14 @@ class TestDefaultHandler(TestCase, Common):
         self.assertEqual('binary', uploader.used_mode)
 
     def test_download_encodings_and_line_endings(self):
+        compressions = [
+            None,
+            'gz',
+            'bz2',
+            'xz',
+        ]
+        if have_lz4:
+            compressions.append('lz4')
         encodings = [
             'utf-8',
             'latin1',
@@ -1656,12 +1664,13 @@ class TestDefaultHandler(TestCase, Common):
             "\r\n",
             None,
         ]
-        for encoding in encodings:
-            for handler_ending in file_endings + [None]:
-                with self.subTest(encoding=encoding, handler_ending=handler_ending):
-                    self.perform_download_test(encoding, handler_ending)
+        for compression in compressions:
+            for encoding in encodings:
+                for handler_ending in file_endings + [None]:
+                    with self.subTest(compression=compression, encoding=encoding, handler_ending=handler_ending):
+                        self.perform_download_test(compression, encoding, handler_ending)
 
-    def perform_download_test(self, encoding, handler_ending):
+    def perform_download_test(self, compression, encoding, handler_ending):
         # We want to check that when asked to use the given encoding and line endings,
         # this happens.
         n = 10
@@ -1680,9 +1689,20 @@ class TestDefaultHandler(TestCase, Common):
             expected += bytes(handler_ending or os.linesep, enc)
             self.execute("INSERT INTO foo2(i, t) VALUES (%s, %s)", [i, s])
         #
-        fname = self.get_testdata_name(encoding, handler_ending)
+        fname = self.get_testdata_name(encoding, handler_ending, compression=compression)
         self.execute("COPY (SELECT * FROM foo2) INTO %s ON CLIENT", [fname])
-        f = self.open(fname, 'rb')
+        # check compression
+        compression_prefix = self.compression_prefix(compression)
+        if compression_prefix:
+            f = self.open(fname, 'rb')
+            content = f.read()
+            content_prefix = content[:len(compression_prefix)]
+            f.close()
+            self.assertEqual(compression_prefix, content_prefix)
+        # check contents
+        full_name = self.file(fname)
+        opener = get_opener(full_name)
+        f = opener(full_name, 'rb')
         content = f.read()
         f.close()
         #
