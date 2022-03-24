@@ -21,7 +21,7 @@ from pymonetdb.exceptions import OperationalError, ProgrammingError
 
 def handle_file_transfer(mapi, cmd: str):
     if cmd.startswith("r "):
-        parts = cmd[2:-1].split(' ', 2)
+        parts = cmd[2:].split(' ', 2)
         if len(parts) == 2:
             try:
                 n = int(parts[0])
@@ -29,11 +29,11 @@ def handle_file_transfer(mapi, cmd: str):
                 pass
             return handle_upload(mapi, parts[1], True, n)
     elif cmd.startswith("rb "):
-        return handle_upload(mapi, cmd[2:-1], False, 0)
+        return handle_upload(mapi, cmd[2:], False, 0)
     elif cmd.startswith("w "):
-        return handle_download(mapi, cmd[2:-1], True)
+        return handle_download(mapi, cmd[2:], True)
     elif cmd.startswith("wb "):
-        return handle_download(mapi, cmd[3:-1], False)
+        return handle_download(mapi, cmd[3:], False)
     else:
         pass
     # we only reach this if decoding the cmd went wrong:

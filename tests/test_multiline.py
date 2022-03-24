@@ -39,7 +39,12 @@ class MultilineResponseTest(unittest.TestCase):
         query_text = 'sINSERT INTO tbl VALUES (1)'
         response = b"&2 1 -1\n!40000!COMMIT: transaction is aborted " \
                    b"because of concurrency conflicts, will ROLLBACK instead\n"
-        mock_getblock_raw.side_effect = lambda w: w.write(response)
+
+        def mocked_getblock_raw(buf, off):
+            buf[off:] = response
+            return off + len(response)
+
+        mock_getblock_raw.side_effect = mocked_getblock_raw
         c = pymonetdb.mapi.Connection()
 
         # Simulate a connection

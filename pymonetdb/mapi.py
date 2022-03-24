@@ -48,6 +48,8 @@ MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'utf-8')
 STATE_INIT = 0
 STATE_READY = 1
 
+ZEROES = bytes(8192)
+
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
@@ -100,6 +102,7 @@ class Connection(object):
         self.connect_timeout = socket.getdefaulttimeout()
         self.uploader = None
         self.downloader = None
+        self.stashed_buffer = None
 
     def connect(self, database, username, password, language, hostname=None,
                 port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
@@ -378,44 +381,45 @@ class Connection(object):
 
     def _getblock_and_transfer_files(self):
         """ read one mapi encoded block and take care of any file transfers the server requests"""
-        prev = b''
-        prev_end = 0   # position of last line to chop off 'prev'
-        # This loop only iterates more than once if file transfers occur.
+        buffer = self._get_buffer()
+        offset = 0
         while True:
-            # preserve results from the previous iteration
-            writer = BytesIO(memoryview(prev)[:prev_end])
-            writer.seek(prev_end, SEEK_SET)
-            self._getblock_raw(writer)
-            buf = writer.getvalue()    # unavoidable, we cannot scan memoryviews efficiently
-            if not buf:
+            old_offset = offset
+            offset = self._getblock_raw(buffer, old_offset)
+            i = buffer.rfind(b'\n', old_offset, offset - 1)
+            if i >= old_offset + 2 and buffer[i - 2: i + 1] == MSG_FILETRANS_B:
+                # File transfer request. Chop the cmd off the buffer by lowering the offset
+                cmd = str(buffer[i + 1: offset - 1], 'utf-8')
+                offset = i - 2
+                handle_file_transfer(self, cmd)
+                continue
+            else:
                 break
-            # a FILETRANSFER request looks like this:
-            #     ... optional other contents (usually none) \n
-            #     \1\3\n
-            #     file transfer command\n
-            # the i below is the position of the second-last \n,
-            # separating the prompt from the file transfer command
-            i = buf.rfind(b'\n', 0, len(buf) - 1)
-            if i < 2:
-                break
-            if buf[i - 2:i + 1] != MSG_FILETRANS_B:
-                break
-            cmd = buf[i + 1:].decode()
-            prev = buf
-            prev_end = i - 2    # discard the file transfer prompt and command
+        self._stash_buffer(buffer)
+        return str(memoryview(buffer)[:offset], 'utf-8')
 
-            handle_file_transfer(self, cmd)
-
-        return buf.decode()
-
-    def _getblock(self):
+    def _getblock(self) -> str:
         """ read one mapi encoded block """
-        buf = BytesIO()
-        self._getblock_raw(buf)
-        return buf.getvalue().decode()
+        buf = self._get_buffer()
+        end = self._getblock_raw(buf, 0)
+        self._stash_buffer(buf)
+        return str(memoryview(buf)[:end], 'utf-8')
 
-    def _getblock_raw(self, buffer: BytesIO):
-        """ read one mapi encoded block and append it to the buf"""
+    def _getblock_raw(self, buffer: bytearray, offset: int) -> int:
+        """
+        Read one mapi block into 'buffer' starting at 'offset', enlarging the buffer
+        as necessary and returning offset plus the number of bytes read.
+        """
+        last = 0
+        while not last:
+            self._getbytes(buffer, offset, 2)
+            unpacked = buffer[offset] + 256 * buffer[offset + 1]
+            length = unpacked // 2
+            last = unpacked & 1
+            if length:
+                offset = self._getbytes(buffer, offset, length)
+        return offset
+
         last = 0
         flag_buf = BytesIO()
         while not last:
@@ -427,14 +431,36 @@ class Connection(object):
             last = unpacked & 1
             self._getbytes(buffer, length)
 
-    def _getbytes(self, buffer, count):
-        """Read 'count' bytes from the socket into 'buffer'"""
-        while count > 0:
-            recv = self.socket.recv(count)
-            if len(recv) == 0:
+    def _getbytes(self, buffer: bytearray, offset: int, count: int) -> int:
+        """
+        Read 'count' bytes from the socket into 'buffer' starting at 'offset'.
+        Enlarge buffer if necessary.
+        Return offset + count if all goes well.
+        """
+        assert self.socket
+        end = count + offset
+        while len(buffer) < end:
+            # enlarge
+            buffer += ZEROES
+        while offset < end:
+            view = memoryview(buffer)[offset:end]
+            n = self.socket.recv_into(view)
+            if n == 0:
                 raise BrokenPipeError("Server closed connection")
-            count -= len(recv)
-            buffer.write(recv)
+            offset += n
+        return end
+
+    def _get_buffer(self):
+        if self.stashed_buffer:
+            buffer = self.stashed_buffer
+            self.stashed_buffer = None
+        else:
+            buffer = bytearray(8192)
+        return buffer
+
+    def _stash_buffer(self, buffer):
+        if self.stashed_buffer is None or len(self.stashed_buffer) < len(buffer):
+            self.stashed_buffer = buffer
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
