@@ -12,7 +12,7 @@ import codecs
 from io import BufferedIOBase, StringIO
 import os
 from pathlib import Path
-from shutil import copyfileobj
+from shutil import copyfileobj, copyfile
 import signal
 import sys
 from tempfile import mkdtemp
@@ -25,7 +25,7 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, get_opener
+from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, get_compression_opener
 from tests.util import have_lz4, test_args, test_full
 
 
@@ -489,20 +489,23 @@ class TestDefaultHandler(TestCase, Common):
                         self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
                     continue
 
-    def get_testdata_name(self, enc_name: str, newline: str, compression=None) -> str:
+    def get_testdata_name(self, enc_name: str, newline: str, lines: int = None, compression=None) -> str:
         newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
-        file_name = f"{enc_name}_{newline_name}.txt"
+        file_name = f"{enc_name}_{newline_name}"
+        if lines is not None:
+            file_name += f"_{lines}lines"
+        file_name += ".txt"
         if compression:
             file_name += "." + compression
         return file_name
 
     def get_testdata(self, enc_name: str, newline: str, lines: int, compression: str = None) -> str:
         encoding = codecs.lookup(enc_name) if enc_name else None
-        fname = self.get_testdata_name(enc_name, newline, compression)
+        fname = self.get_testdata_name(enc_name, newline, lines, compression)
         p = self.file(fname)
         if not p.exists():
             enc = encoding.name if encoding else None
-            opener = get_opener(p)
+            opener = get_compression_opener(p)
             f = opener(p, mode="wt", encoding=enc, newline=newline)
             for n in range(lines):
                 i, t = self.line(n)
@@ -1608,7 +1611,7 @@ class TestDefaultHandler(TestCase, Common):
         encmarker = self.encoding_marker(encoding)
         if encmarker:
             full_name = self.file(fname)
-            opener = get_opener(full_name)
+            opener = get_compression_opener(full_name)
             f = opener(full_name, 'rb')
             content = f.read()
             f.close()
@@ -1701,7 +1704,7 @@ class TestDefaultHandler(TestCase, Common):
             self.assertEqual(compression_prefix, content_prefix)
         # check contents
         full_name = self.file(fname)
-        opener = get_opener(full_name)
+        opener = get_compression_opener(full_name)
         f = opener(full_name, 'rb')
         content = f.read()
         f.close()
@@ -1729,6 +1732,30 @@ class TestDefaultHandler(TestCase, Common):
         self.conn.set_downloader(downloader)
         self.execute("COPY SELECT * FROM sys.generate_series(0,10) INTO %s ON CLIENT", fname)
         self.assertEqual('binary', downloader.used_mode)
+
+    def test_upload_with_compression_disabled(self):
+        fname = self.get_testdata('utf-8', '\n', 3, compression=None)
+        # give it a misleading name
+        misleading_name = 'banana.txt.gz'
+        copyfile(self.file(fname), self.file(misleading_name))
+        # now upload it
+        handler = DefaultHandler(self.file(''), compression=False)
+        self.conn.set_uploader(handler)
+        self.execute("COPY INTO foo2 FROM %s ON CLIENT", misleading_name)
+        self.conn.commit()
+        self.execute("SELECT MAX(i) FROM foo2")
+        self.expect1(3)
+
+    def test_download_with_compression_disabled(self):
+        fname = 'misleading.txt.gz'
+        handler = DefaultHandler(self.file(''), encoding='utf-8', newline='\n', compression=False)
+        self.conn.set_downloader(handler)
+        self.execute("COPY SELECT value FROM sys.generate_series(1,4) INTO %s ON CLIENT", fname)
+        # should not be gzipped
+        f = self.open(fname, 'rb')
+        content = f.read()
+        f.close()
+        self.assertEqual(b'1\n2\n3\n', content)
 
 
 class TestNormalizeCrLf(TestCase):

@@ -516,13 +516,19 @@ class DefaultHandler(Uploader, Downloader):
     uploads, only do this if you are absolutely, positively sure that all files
     in the directory are actually valid UTF-8 encoded and have Unix line
     endings.
+
+    If 'compression' is set to True, which is the default, the DefaultHandler will
+    automatically compress and decompress files with extensions .gz, .bz2, .xz
+    and .lz4. Note that the first three algorithms are built into Python, but LZ4
+    only works if the lz4.frame module is available.
     """
 
-    def __init__(self, dir, encoding: str = None, newline=None):
+    def __init__(self, dir, encoding: str = None, newline=None, compression=True):
         self.dir = Path(dir).resolve()
         self.encoding = encoding
         self.is_utf8 = (self.encoding and (codecs.lookup('utf-8') == codecs.lookup(self.encoding)))
         self.newline = newline
+        self.compression = compression
 
     def secure_resolve(self, filename) -> Optional[Path]:
         p = self.dir.joinpath(filename).resolve()
@@ -551,7 +557,7 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            opener = get_opener(filename)
+            opener = get_compression_opener(filename) if self.compression else open
         except ModuleNotFoundError as e:
             return upload.send_error(str(e))
         try:
@@ -590,7 +596,7 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            opener = get_opener(filename)
+            opener = get_compression_opener(filename) if self.compression else open
         except ModuleNotFoundError as e:
             return download.send_error(str(e))
         try:
@@ -618,7 +624,7 @@ class DefaultHandler(Uploader, Downloader):
         copyfileobj(src, dst, 8190)
 
 
-def get_opener(filename: str, *args, **kwargs):
+def get_compression_opener(filename: str):
     lowercase = str(filename).lower()
     if lowercase.endswith('.gz'):
         mod = 'gzip'
