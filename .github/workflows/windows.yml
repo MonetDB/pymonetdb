@@ -38,6 +38,6 @@ jobs:
         run: |
           python -m venv venv
           venv\Scripts\Activate.ps1
-          python -m pip install -r requirements.txt
+          python -m pip install -r tests/requirements.txt
           mkdir ${{ runner.temp }}\dbfarm
-          python test.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
+          python tests/windows_tests.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
