@@ -44,7 +44,7 @@ def start_mserver(monetdbdir, farmdir, dbname, port):
     print(f'-- cmdline: {cmdline!r}')
     t0 = time.time()
     verbose = t0 + 1
-    proc = subprocess.Popen(cmdline, env=env, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(cmdline, env=env)
     #
     while True:
         try:
