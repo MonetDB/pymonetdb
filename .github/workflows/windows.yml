@@ -1,0 +1,43 @@
+name: Windows Test
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  runtests:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.6'
+
+      # Unfortunately msiexec does seem to work on the windows runner.
+      # 7zip is able to unpack .msi files but it loses the directory structure.
+      # We fix that in the next step.
+      - name: Download MonetDB
+        run: |
+          curl https://www.monetdb.org/downloads/Windows/Jan2022-SP1/MonetDB5-SQL-Installer-x86_64-20220207.msi -o ${{ runner.temp }}\monetdb.msi --no-progress-meter
+          dir ${{ runner.temp }}
+          7z x ${{ runner.temp }}\monetdb.msi -o${{ runner.temp }}\staging
+          dir ${{ runner.temp }}\staging
+
+      # Run a script to restore the directory structure and see if it works (a little)
+      - name: Install MonetDB
+        run: |
+          python tests/install_monetdb_from_msi_dir.py ${{ runner.temp }}\staging ${{ runner.temp }}\MONET
+          dir ${{ runner.temp }}\MONET
+          dir ${{ runner.temp }}\MONET\bin
+          ${{ runner.temp }}\MONET\bin\mserver5.exe --help
+
+      # Script tests/windows_tests.py starts an mserver in the background
+      # and runs pytest, excluding the Control tests.
+      - name: run the tests
+        run: |
+          python -m venv venv
+          venv\Scripts\Activate.ps1
+          python -m pip install -r requirements.txt
+          mkdir ${{ runner.temp }}\dbfarm
+          python test.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
