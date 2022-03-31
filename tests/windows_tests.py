@@ -74,6 +74,7 @@ db_port = int(sys.argv[4])
 
 proc = start_mserver(monet_dir, farm_dir, db_name, db_port, os.path.join(farm_dir, "errlog"))
 try:
+    print('The default encoding is', sys.getdefaultencoding())
     ret = pytest.main(args=['-k', 'not test_control'])
     exit(ret)
 finally:
