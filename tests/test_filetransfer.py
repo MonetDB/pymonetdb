@@ -157,6 +157,8 @@ class Common:
     first = True
     tmpdir: Optional[Path] = None
 
+    defaultencoding = None
+
     def file(self, filename):
         if not self.tmpdir:
             self.tmpdir = Path(mkdtemp(prefix="filetrans_"))
@@ -167,6 +169,9 @@ class Common:
         return open(fullname, mode, **kwargs)
 
     def commonSetUp(self):
+        with self.open('checkencoding.txt', 'wt') as f:
+            self.defaultencoding = f.encoding
+
         self.conn = conn = connect(**test_args)
         self.uploader = MyUploader()
         conn.set_uploader(self.uploader)
@@ -178,7 +183,7 @@ class Common:
             c.execute('DROP TABLE IF EXISTS foo')
             c.execute('CREATE TABLE foo(i INT)')
             c.execute('DROP TABLE IF EXISTS foo2')
-            c.execute('CREATE TABLE foo2(i INT, t VARCHAR(10))')
+            c.execute('CREATE TABLE foo2(i INT, t VARCHAR(20))')
             conn.commit()
             self.first = False
 
@@ -358,11 +363,20 @@ class TestFileTransfer(TestCase, Common):
         self.upload_file('unix.csv', dict(newline="\n"), False)
 
     def upload_file(self, filename, write_opts, read_text):
+        interesting_text = "Únïçøðε¡!÷"
+        encodable_text = ""
+        for c in interesting_text:
+            try:
+                bytes(c, self.defaultencoding)
+            except UnicodeEncodeError:
+                continue
+            encodable_text += c
+        assert len(encodable_text) > 0
         n = 1000
         f = self.open(filename, 'wt', **write_opts)
         f.encoding
         for i in range(n):
-            print(f"{i}|Únïçøðε{i}", file=f)
+            print(f"{i}|{encodable_text}{i}", file=f)
         f.close()
         testcase = self
 
@@ -381,7 +395,7 @@ class TestFileTransfer(TestCase, Common):
         self.conn.set_uploader(CustomUploader())
         self.execute(f"COPY INTO foo2 FROM '{filename}' ON CLIENT")
         self.execute("SELECT t FROM foo2 where i = 999")
-        self.expect1("Únïçøðε999")
+        self.expect1(f"{encodable_text}999")
 
     def test_fail_upload_late(self):
         self.uploader.error_at = 99
@@ -650,7 +664,7 @@ class TestDefaultHandler(TestCase, Common):
         self.conn.set_downloader(downloader)
         self.execute("DELETE FROM foo2")
         #
-        enc = encoding or sys.getdefaultencoding()
+        enc = encoding or self.defaultencoding
         expected = b""
         for k in range(n):
             i, s = self.line(k)
