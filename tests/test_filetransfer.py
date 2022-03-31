@@ -359,7 +359,8 @@ class TestFileTransfer(TestCase, Common):
 
     def upload_file(self, filename, write_opts, read_text):
         n = 1000
-        f = self.open(filename, 'w', **write_opts)
+        f = self.open(filename, 'wt', **write_opts)
+        f.encoding
         for i in range(n):
             print(f"{i}|Únïçøðε{i}", file=f)
         f.close()
