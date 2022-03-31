@@ -9,7 +9,7 @@ import time
 import pytest
 
 
-def start_mserver(monetdbdir, farmdir, dbname, port):
+def start_mserver(monetdbdir, farmdir, dbname, port, logfile):
     exe = os.path.join(monetdbdir, 'bin', 'mserver5')
     if platform.system() == 'Windows':
         exe += '.exe'
@@ -44,7 +44,7 @@ def start_mserver(monetdbdir, farmdir, dbname, port):
     print(f'-- cmdline: {cmdline!r}')
     t0 = time.time()
     verbose = t0 + 1
-    proc = subprocess.Popen(cmdline, env=env)
+    proc = subprocess.Popen(cmdline, env=env, stderr=open(logfile, 'wb'))
     #
     while True:
         try:
@@ -72,7 +72,7 @@ farm_dir = sys.argv[2]
 db_name = sys.argv[3]
 db_port = int(sys.argv[4])
 
-proc = start_mserver(monet_dir, farm_dir, db_name, db_port)
+proc = start_mserver(monet_dir, farm_dir, db_name, db_port, os.path.join(farm_dir, "errlog"))
 try:
     ret = pytest.main(args=['-k', 'not test_control'])
     exit(ret)

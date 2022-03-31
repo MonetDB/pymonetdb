@@ -41,3 +41,6 @@ jobs:
           python -m pip install -r tests/requirements.txt
           mkdir ${{ runner.temp }}\dbfarm
           python tests/windows_tests.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
+
+      - name: show the mserver5 stderr output
+        run: type ${{ runner.temp }}\dbfarm\errlog
