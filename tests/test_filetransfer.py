@@ -363,6 +363,7 @@ class TestFileTransfer(TestCase, Common):
         self.upload_file('unix.csv', dict(newline="\n"), False)
 
     def upload_file(self, filename, write_opts, read_text):
+        encoding = self.defaultencoding if read_text else 'utf-8'
         interesting_text = "Únïçøðε¡!÷"
         encodable_text = ""
         for c in interesting_text:
@@ -373,7 +374,7 @@ class TestFileTransfer(TestCase, Common):
             encodable_text += c
         assert len(encodable_text) > 0
         n = 1000
-        f = self.open(filename, 'wt', **write_opts)
+        f = self.open(filename, 'wt', encoding=encoding, **write_opts)
         f.encoding
         for i in range(n):
             print(f"{i}|{encodable_text}{i}", file=f)
