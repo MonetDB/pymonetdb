@@ -32,15 +32,18 @@ jobs:
           dir ${{ runner.temp }}\MONET\bin
           ${{ runner.temp }}\MONET\bin\mserver5.exe --help
 
+      - name: Setup virtual environment
+          python -m venv venv
+          venv\Scripts\Activate.ps1
+          python -m pip install -r tests/requirements.txt
+
       # Script tests/windows_tests.py starts an mserver in the background
       # and runs pytest, excluding the Control tests.
       - name: run the tests
         run: |
-          python -m venv venv
           venv\Scripts\Activate.ps1
-          python -m pip install -r tests/requirements.txt
           mkdir ${{ runner.temp }}\dbfarm
           python tests/windows_tests.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
-          echo; echo; echo "================ SERVER STDERR: ==================="; echo
+          echo ""; echo ""; echo "================ SERVER STDERR: ==================="; echo ""
           type ${{ runner.temp }}\dbfarm\errlog
 
