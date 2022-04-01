@@ -29,7 +29,7 @@ class MultilineResponseTest(unittest.TestCase):
     @patch('pymonetdb.mapi.Connection._putblock')
     @patch('pymonetdb.mapi.Connection._getblock_raw')
     def test_failed_transactions(self, mock_getblock_raw, _):
-        """This test is mocking 2 low level methods in the mapi.Connection class:
+        """This test mocks two low level methods in the mapi.Connection class:
            mapi.Connection._getblock_raw
            mapi.Connection._putblock
 

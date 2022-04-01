@@ -25,7 +25,7 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, get_compression_opener
+from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, lookup_compression_algorithm
 from tests.util import have_lz4, test_args, test_full
 
 
@@ -36,7 +36,7 @@ class MyException(Exception):
 class MyUploader(Uploader):
     rows: int = 5_000
     error_at: Optional[int] = None
-    chunkSize: int = 10_000
+    chunk_size: int = 10_000
     force_binary: bool = False
     forget_to_return_after_error: bool = False
     do_nothing_at_all: bool = False
@@ -47,16 +47,13 @@ class MyUploader(Uploader):
     def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
         if self.do_nothing_at_all:
             return
-        if filename.startswith("_"):
-            # do nothing at all
-            return
         elif filename.startswith("x"):
             upload.send_error("filename must not start with 'x'")
             if not self.forget_to_return_after_error:
                 return
 
         iter = range(skip_amount + 1, self.rows + 1)
-        upload.set_chunk_size(self.chunkSize)
+        upload.set_chunk_size(self.chunk_size)
         if text_mode and not self.force_binary:
             tw = upload.text_writer()
             for i in iter:
@@ -114,6 +111,11 @@ class MyDownloader(Downloader):
 
 
 class DeadManHandle:
+    """
+    Watchdog timer. Kills the process after a certain time. Great to detect
+    deadlocks, but can be inconvenient when running tests in the debugger. In
+    that case, temporarily call deadman.cancel() at the start of the test.
+    """
     def __init__(self):
         self.cond = Condition()
         self.deadline = None
@@ -160,11 +162,13 @@ class Common:
     defaultencoding = None
 
     def file(self, filename):
+        """Resolve the given relative path within our temp directory."""
         if not self.tmpdir:
             self.tmpdir = Path(mkdtemp(prefix="filetrans_"))
         return self.tmpdir.joinpath(filename)
 
     def open(self, filename, mode, **kwargs):
+        """Open the given filename, resolved within our temp directory"""
         fullname = self.file(filename)
         return open(fullname, mode, **kwargs)
 
@@ -210,9 +214,6 @@ class Common:
 
     def expect1(self, value):
         self.expect([(value,)])
-
-    def encoding_marker(self, enc):
-        return {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[enc]
 
     def compression_prefix(self, scheme):
         return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
@@ -267,7 +268,7 @@ class TestFileTransfer(TestCase, Common):
 
     def test_upload_offset0(self):
         # OFFSET 0 and OFFSET 1 behave the same, they do nothing
-        self.uploader.chunkSize = 100
+        self.uploader.chunk_size = 100
         self.uploader.rows = 100
         self.execute("COPY OFFSET 0 INTO foo FROM 'foo' ON CLIENT")
         self.execute("SELECT MIN(i) AS mi, MAX(i) AS ma FROM foo")
@@ -275,14 +276,14 @@ class TestFileTransfer(TestCase, Common):
 
     def test_upload_offset1(self):
         # OFFSET 0 and OFFSET 1 behave the same, they do nothing
-        self.uploader.chunkSize = 100
+        self.uploader.chunk_size = 100
         self.uploader.rows = 100
         self.execute("COPY OFFSET 1 INTO foo FROM 'foo' ON CLIENT")
         self.execute("SELECT MIN(i) AS mi, MAX(i) AS ma FROM foo")
         self.expect([(1, 100)])
 
     def test_upload_offset5(self):
-        self.uploader.chunkSize = 100
+        self.uploader.chunk_size = 100
         self.uploader.rows = 100
         self.execute("COPY OFFSET 5 INTO foo FROM 'foo' ON CLIENT")
         self.execute("SELECT MIN(i) AS mi, MAX(i) AS ma FROM foo")
@@ -334,7 +335,7 @@ class TestFileTransfer(TestCase, Common):
         deadman.set_timeout(50, None)
         n = 1_000_000
         self.uploader.rows = n
-        self.uploader.chunkSize = 1024 * 1024
+        self.uploader.chunk_size = 1024 * 1024
         self.execute("COPY INTO foo FROM 'foo' ON CLIENT")
         self.assertIsNone(self.uploader.cancelled_at)
         self.execute("SELECT COUNT(*) FROM foo")
@@ -368,6 +369,7 @@ class TestFileTransfer(TestCase, Common):
         encodable_text = ""
         for c in interesting_text:
             try:
+                # Not all of the following characters may be available in the system encoding
                 bytes(c, self.defaultencoding)
             except UnicodeEncodeError:
                 continue
@@ -375,7 +377,7 @@ class TestFileTransfer(TestCase, Common):
         assert len(encodable_text) > 0
         n = 1000
         f = self.open(filename, 'wt', encoding=encoding, **write_opts)
-        f.encoding
+        assert f.encoding
         for i in range(n):
             print(f"{i}|{encodable_text}{i}", file=f)
         f.close()
@@ -521,7 +523,7 @@ class TestDefaultHandler(TestCase, Common):
         p = self.file(fname)
         if not p.exists():
             enc = encoding.name if encoding else None
-            opener = get_compression_opener(p)
+            opener = lookup_compression_algorithm(p)
             f = opener(p, mode="wt", encoding=enc, newline=newline)
             for n in range(lines):
                 i, t = self.line(n)
@@ -592,10 +594,12 @@ class TestDefaultHandler(TestCase, Common):
             f.close()
             self.assertEqual(compression_prefix, content_prefix)
         # Double check the testdata encoding, are we testing what we want tot test?
-        encmarker = self.encoding_marker(encoding)
+        # These are the various encodings of the '÷' character as used by the
+        # .line() method above.
+        encmarker = {'utf-8': b'\xC3\xB7', 'latin1': b'\xF7', 'shift-jis': b'\x81\x80', None: None}[encoding]
         if encmarker:
             full_name = self.file(fname)
-            opener = get_compression_opener(full_name)
+            opener = lookup_compression_algorithm(full_name)
             f = opener(full_name, 'rb')
             content = f.read()
             f.close()
@@ -618,7 +622,7 @@ class TestDefaultHandler(TestCase, Common):
 
             def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
                 super().handle_upload(upload, filename, text_mode, skip_amount)
-                # peek into the internals of the upload
+                # peek into the internals of the upload to see what was used.
                 if upload.writer:
                     self.used_mode = 'binary'
                 if upload.twriter:
@@ -688,7 +692,7 @@ class TestDefaultHandler(TestCase, Common):
             self.assertEqual(compression_prefix, content_prefix)
         # check contents
         full_name = self.file(fname)
-        opener = get_compression_opener(full_name)
+        opener = lookup_compression_algorithm(full_name)
         f = opener(full_name, 'rb')
         content = f.read()
         f.close()

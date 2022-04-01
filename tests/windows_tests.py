@@ -43,7 +43,7 @@ def start_mserver(monetdbdir, farmdir, dbname, port, logfile):
     print(f'-- PATH={env["PATH"]}')
     print(f'-- cmdline: {cmdline!r}')
     t0 = time.time()
-    verbose = t0 + 1
+    awkward_silence = t0 + 2
     proc = subprocess.Popen(cmdline, env=env, stderr=open(logfile, 'wb'))
     #
     while True:
@@ -54,9 +54,9 @@ def start_mserver(monetdbdir, farmdir, dbname, port, logfile):
             if os.path.exists(os.path.join(dbpath, '.started')):
                 break
             t = time.time()
-            if t >= verbose:
+            if t >= awkward_silence:
                 print(f"-- Waited for {t - t0:.1f}s")
-                verbose = t + 1
+                awkward_silence = t + 1
             if t > t0 + 30.1:
                 print("Starting mserver took too long, giving up")
                 proc.kill()

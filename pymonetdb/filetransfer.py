@@ -142,7 +142,7 @@ class Upload:
 
     def send_error(self, message: str):
         """
-        Tell the server the requested upload is refused
+        Tell the server the requested upload has been refused
         """
         if self.cancelled:
             return
@@ -186,10 +186,10 @@ class Upload:
         return self.twriter
 
     def _send_data(self, data: Union[bytes, memoryview]):
-        assert self.mapi is not None
         if self.cancelled:
             return
         self._check_usable()
+        assert self.mapi is not None
         pos = 0
         end = len(data)
         while pos < end:
@@ -251,6 +251,7 @@ class Upload:
 
 
 class UploadIO(BufferedIOBase):
+    """IO adaptor for Upload. """
 
     def __init__(self, upload):
         self.upload = upload
@@ -316,7 +317,7 @@ class Download:
     file object to read text from.
 
     Implementations should be EXTREMELY CAREFUL to validate the file name before
-    opening any files on the client system!
+    opening and writing to any files on the client system!
     """
 
     def __init__(self, mapi):
@@ -363,6 +364,7 @@ class Download:
         """End the download succesfully. Any unconsumed data will be discarded."""
         while self.mapi:
             self._fetch()
+        assert not self.mapi
 
     def _available(self):
         return self.len - self.pos
@@ -455,7 +457,12 @@ class Downloader(ABC):
 
 
 class NormalizeCrLf(BufferedIOBase):
-    """Helper class used to normalize line ending before sending text to MonetDB."""
+    """
+    Helper class used to normalize line endings before sending text to MonetDB.
+
+    Existing normalization code mostly deals with normalizing after reading,
+    not before writing.
+    """
 
     def __init__(self, inner):
         self.inner = inner
@@ -543,8 +550,8 @@ class DefaultHandler(Uploader, Downloader):
         if not p:
             return upload.send_error("Forbidden")
 
-        # optimization
         if self.is_utf8 and self.newline == "\n" and skip_amount == 0:
+            # optimization
             text_mode = False
 
         # open
@@ -557,7 +564,7 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            opener = get_compression_opener(filename) if self.compression else open
+            opener = lookup_compression_algorithm(filename) if self.compression else open
         except ModuleNotFoundError as e:
             return upload.send_error(str(e))
         try:
@@ -567,22 +574,31 @@ class DefaultHandler(Uploader, Downloader):
 
         with f:
             if text_mode:
+                tw = upload.text_writer()
                 for _ in range(skip_amount):
                     if not f.readline():
                         break
-                tw = upload.text_writer()
                 self._upload_data(upload, f, tw)
             else:
                 bw = upload.binary_writer()
                 self._upload_data(upload, f, bw)
+
+    def _upload_data(self, upload: Upload, src, dst):
+        # Due to duck typing this method works equally well in text- and binary mode
+        bufsize = 1024 * 1024
+        while not upload.is_cancelled():
+            data = src.read(bufsize)
+            if not data:
+                break
+            dst.write(data)
 
     def handle_download(self, download: Download, filename: str, text_mode: bool):
         p = self.secure_resolve(filename)
         if not p:
             return download.send_error("Forbidden")
 
-        # optimization
         if self.is_utf8 and self.newline == "\n":
+            # optimization
             text_mode = False
 
         # open
@@ -596,7 +612,7 @@ class DefaultHandler(Uploader, Downloader):
             encoding = None
             newline = None
         try:
-            opener = get_compression_opener(filename) if self.compression else open
+            opener = lookup_compression_algorithm(filename) if self.compression else open
         except ModuleNotFoundError as e:
             return download.send_error(str(e))
         try:
@@ -607,24 +623,13 @@ class DefaultHandler(Uploader, Downloader):
         with f:
             if text_mode:
                 tr = download.text_reader()
-                self._download_data(download, tr, f)
+                copyfileobj(tr, f)
             else:
                 br = download.binary_reader()
-                self._download_data(download, br, f)
-
-    def _upload_data(self, upload: Upload, src, dst):
-        bufsize = 1024 * 1024
-        while not upload.is_cancelled():
-            data = src.read(bufsize)
-            if not data:
-                break
-            dst.write(data)
-
-    def _download_data(self, download: Download, src, dst):
-        copyfileobj(src, dst, 8190)
+                copyfileobj(br, f)
 
 
-def get_compression_opener(filename: str):
+def lookup_compression_algorithm(filename: str):
     lowercase = str(filename).lower()
     if lowercase.endswith('.gz'):
         mod = 'gzip'

@@ -48,8 +48,6 @@ MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'utf-8')
 STATE_INIT = 0
 STATE_READY = 1
 
-ZEROES = bytes(8192)
-
 # MonetDB error codes
 errors = {
     '42S02': OperationalError,  # no such table
@@ -402,8 +400,9 @@ class Connection(object):
         """ read one mapi encoded block """
         buf = self._get_buffer()
         end = self._getblock_raw(buf, 0)
+        ret = str(memoryview(buf)[:end], 'utf-8')
         self._stash_buffer(buf)
-        return str(memoryview(buf)[:end], 'utf-8')
+        return ret
 
     def _getblock_raw(self, buffer: bytearray, offset: int) -> int:
         """
@@ -414,22 +413,11 @@ class Connection(object):
         while not last:
             self._getbytes(buffer, offset, 2)
             unpacked = buffer[offset] + 256 * buffer[offset + 1]
-            length = unpacked // 2
+            length = unpacked >> 1
             last = unpacked & 1
             if length:
                 offset = self._getbytes(buffer, offset, length)
         return offset
-
-        last = 0
-        flag_buf = BytesIO()
-        while not last:
-            self._getbytes(flag_buf, 2)
-            flag = flag_buf.getvalue()
-            unpacked = struct.unpack('<H', flag_buf.getbuffer())[0]  # little endian short
-            flag_buf.seek(0, SEEK_SET)
-            length = unpacked >> 1
-            last = unpacked & 1
-            self._getbytes(buffer, length)
 
     def _getbytes(self, buffer: bytearray, offset: int, count: int) -> int:
         """
@@ -439,9 +427,10 @@ class Connection(object):
         """
         assert self.socket
         end = count + offset
-        while len(buffer) < end:
+        if len(buffer) < end:
             # enlarge
-            buffer += ZEROES
+            nblocks = 1 + (end - len(buffer)) // 8192
+            buffer += bytes(nblocks * 8192)
         while offset < end:
             view = memoryview(buffer)[offset:end]
             n = self.socket.recv_into(view)
@@ -450,7 +439,8 @@ class Connection(object):
             offset += n
         return end
 
-    def _get_buffer(self):
+    def _get_buffer(self) -> bytearray:
+        """Retrieve a previously stashed buffer for reuse, or create a new one"""
         if self.stashed_buffer:
             buffer = self.stashed_buffer
             self.stashed_buffer = None
@@ -459,6 +449,7 @@ class Connection(object):
         return buffer
 
     def _stash_buffer(self, buffer):
+        """Stash a used buffer for future reuse"""
         if self.stashed_buffer is None or len(self.stashed_buffer) < len(buffer):
             self.stashed_buffer = buffer
 
@@ -468,7 +459,6 @@ class Connection(object):
 
     def _putblock_raw(self, block, finish: bool):
         """ put the data into the socket """
-        assert self.language != 'control' or self.hostname
         self._putblock_inet_raw(block, finish)
 
     def _putblock_inet_raw(self, block, finish):
