@@ -475,7 +475,7 @@ class NormalizeCrLf(BufferedIOBase):
         return self.inner.close()
 
 
-class DefaultHandler(Uploader, Downloader):
+class SafeDirectoryHandler(Uploader, Downloader):
     """
     File transfer handler which uploads and downloads files from a given
     directory, taking care not to allow access to files outside that directory.
@@ -491,7 +491,7 @@ class DefaultHandler(Uploader, Downloader):
     in the directory are actually valid UTF-8 encoded and have Unix line
     endings.
 
-    If 'compression' is set to True, which is the default, the DefaultHandler will
+    If 'compression' is set to True, which is the default, the SafeDirectoryHandler will
     automatically compress and decompress files with extensions .gz, .bz2, .xz
     and .lz4. Note that the first three algorithms are built into Python, but LZ4
     only works if the lz4.frame module is available.

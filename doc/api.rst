@@ -42,7 +42,7 @@ File Transfers
 ==============
 
 .. automodule:: pymonetdb.filetransfer
-    :members: Uploader, Upload, Downloader, Download, DefaultHandler
+    :members: Uploader, Upload, Downloader, Download, SafeDirectoryHandler
 
 MonetDB remote control
 ======================

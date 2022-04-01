@@ -83,7 +83,7 @@ Here is an example script that uploads some data from the local file system::
 
     # Connect to MonetDB and register the upload handler
     conn = pymonetdb.connect('demo')
-    handler = pymonetdb.DefaultHandler("datadir")
+    handler = pymonetdb.SafeDirectoryHandler("datadir")
     conn.set_uploader(handler)
     cursor = conn.cursor()
 
@@ -105,8 +105,8 @@ Here is an example script that uploads some data from the local file system::
     cursor.close()
     conn.close()
 
-You can also write your own up- and download handler. The DefaultHandler used
+You can also write your own up- and download handler. The SafeDirectoryHandler used
 above is a good example of how to do that:
 
 .. literalinclude:: ../pymonetdb/filetransfer.py
-   :pyobject: DefaultHandler
+   :pyobject: SafeDirectoryHandler

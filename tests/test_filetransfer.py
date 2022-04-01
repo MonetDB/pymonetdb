@@ -25,7 +25,7 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import DefaultHandler, NormalizeCrLf, lookup_compression_algorithm
+from pymonetdb.filetransfer import SafeDirectoryHandler, NormalizeCrLf, lookup_compression_algorithm
 from tests.util import have_lz4, test_args, test_full
 
 
@@ -436,7 +436,7 @@ class TestFileTransfer(TestCase, Common):
             self.execute("SELECT COUNT(*) FROM foo")
 
 
-class TestDefaultHandler(TestCase, Common):
+class TestSafeDirectoryHandler(TestCase, Common):
 
     def setUp(self):
         super().setUp()
@@ -457,7 +457,7 @@ class TestDefaultHandler(TestCase, Common):
         f.write("10\n20\n30\n")
         f.close()
         #
-        handler = DefaultHandler(inside)
+        handler = SafeDirectoryHandler(inside)
         self.conn.set_uploader(handler)
         #
         testcases = [
@@ -486,7 +486,7 @@ class TestDefaultHandler(TestCase, Common):
         inside = self.file('inside')
         inside.mkdir()
         #
-        handler = DefaultHandler(inside)
+        handler = SafeDirectoryHandler(inside)
         self.conn.set_downloader(handler)
         #
         testcases = [
@@ -582,7 +582,7 @@ class TestDefaultHandler(TestCase, Common):
         else:
             offset_clause = f" OFFSET {offset}"
             skip = offset - 1 if offset else 0
-        uploader = DefaultHandler(self.file(''), encoding, handler_ending)
+        uploader = SafeDirectoryHandler(self.file(''), encoding, handler_ending)
         self.conn.set_uploader(uploader)
         fname = self.get_testdata(encoding, file_ending, end, compression=compression)
         # Double check the compression, are we testing what we want tot test?
@@ -614,7 +614,7 @@ class TestDefaultHandler(TestCase, Common):
         self.assertEqual(expected, rows)
 
     def test_upload_utf8_lf_uses_binary(self):
-        class CustomHandler(DefaultHandler):
+        class CustomHandler(SafeDirectoryHandler):
             used_mode = None
 
             def __init__(self, dir):
@@ -665,7 +665,7 @@ class TestDefaultHandler(TestCase, Common):
         # We want to check that when asked to use the given encoding and line endings,
         # this happens.
         n = 10
-        downloader = DefaultHandler(self.file(''), encoding, handler_ending)
+        downloader = SafeDirectoryHandler(self.file(''), encoding, handler_ending)
         self.conn.set_downloader(downloader)
         self.execute("DELETE FROM foo2")
         #
@@ -700,7 +700,7 @@ class TestDefaultHandler(TestCase, Common):
         self.assertEqual(expected, content)
 
     def test_download_utf8_lf_uses_binary(self):
-        class CustomHandler(DefaultHandler):
+        class CustomHandler(SafeDirectoryHandler):
             used_mode = None
 
             def __init__(self, dir):
@@ -727,7 +727,7 @@ class TestDefaultHandler(TestCase, Common):
         misleading_name = 'banana.txt.gz'
         copyfile(self.file(fname), self.file(misleading_name))
         # now upload it
-        handler = DefaultHandler(self.file(''), compression=False)
+        handler = SafeDirectoryHandler(self.file(''), compression=False)
         self.conn.set_uploader(handler)
         self.execute("COPY INTO foo2 FROM %s ON CLIENT", misleading_name)
         self.conn.commit()
@@ -736,7 +736,7 @@ class TestDefaultHandler(TestCase, Common):
 
     def test_download_with_compression_disabled(self):
         fname = 'misleading.txt.gz'
-        handler = DefaultHandler(self.file(''), encoding='utf-8', newline='\n', compression=False)
+        handler = SafeDirectoryHandler(self.file(''), encoding='utf-8', newline='\n', compression=False)
         self.conn.set_downloader(handler)
         self.execute("COPY SELECT value FROM sys.generate_series(1,4) INTO %s ON CLIENT", fname)
         # should not be gzipped
