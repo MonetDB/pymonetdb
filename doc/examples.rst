@@ -1,7 +1,12 @@
 Examples
 ========
 
-examples usage below::
+Here are some examples of how to use pymonetdb.
+
+Example session
+---------------
+
+::
 
  > # import the SQL module
  > import pymonetdb
@@ -49,6 +54,8 @@ examples usage below::
   ('commit_action', 'smallint', 1, 1, None, None, None),
   ('temporary', 'tinyint', 1, 1, None, None, None)]
 
+MAPI Connection
+---------------
 
 If you would like to communicate with the database at a lower level
 you can use the MAPI library::
@@ -61,52 +68,9 @@ you can use the MAPI library::
  ...
 
 
-File Transfers
-==============
+CSV Upload
+--------------
 
-Here is an example script that uploads some data from the local file system::
+This is an example script that uploads some csv data from the local file system:
 
-    #!/usr/bin/env python3
-
-    import os
-    import pymonetdb
-
-    # Create the data directory and the CSV file
-    try:
-        os.mkdir("datadir")
-    except FileExistsError:
-        pass
-    f = open("datadir/data.csv", "w")
-    for i in range(10):
-        print(f"{i},item{i + 1}", file=f)
-    f.close()
-
-    # Connect to MonetDB and register the upload handler
-    conn = pymonetdb.connect('demo')
-    handler = pymonetdb.SafeDirectoryHandler("datadir")
-    conn.set_uploader(handler)
-    cursor = conn.cursor()
-
-    # Set up the table
-    cursor.execute("DROP TABLE foo")
-    cursor.execute("CREATE TABLE foo(i INT, t TEXT)")
-    conn.commit()
-
-    # Upload the data, this will call the handler to upload data.csv
-    cursor.execute("COPY INTO foo FROM 'data.csv' ON CLIENT USING DELIMITERS ','")
-
-    # Check that it has loaded
-    cursor.execute("SELECT t FROM foo WHERE i = 9")
-    row = cursor.fetchone()
-    assert row[0] == 'item10'
-
-    # Goodbye
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-You can also write your own up- and download handler. The SafeDirectoryHandler used
-above is a good example of how to do that:
-
-.. literalinclude:: ../pymonetdb/filetransfer.py
-   :pyobject: SafeDirectoryHandler
+.. literalinclude:: examples/uploadcsv.py

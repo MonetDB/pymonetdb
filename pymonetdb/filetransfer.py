@@ -482,19 +482,27 @@ class SafeDirectoryHandler(Uploader, Downloader):
     Instances of this class can be registered using the pymonetb.Connection's
     set_uploader() and set_downloader() methods.
 
-    The 'encoding' and 'newline' parameters are applied to text file transfers
-    and ignored for binary transfers.
+    When downloading text files, the downloaded text is converted according to
+    the `encoding` and `newline` parameters, if present. Valid values for
+    `encoding` are any encoding known to Python, or None. Valid values for
+    `newline` are `"\\\\n"`, `"\\\\r\\\\n"` or None. None means to use the
+    system default.
 
-    As an optimization, if you set encoding to 'utf-8' and newline to '\\\\n',
-    text mode transfers are performed as binary, which improves performance. For
-    uploads, only do this if you are absolutely, positively sure that all files
-    in the directory are actually valid UTF-8 encoded and have Unix line
-    endings.
+    For binary up- and downloads, no conversions are applied.
 
-    If 'compression' is set to True, which is the default, the SafeDirectoryHandler will
-    automatically compress and decompress files with extensions .gz, .bz2, .xz
-    and .lz4. Note that the first three algorithms are built into Python, but LZ4
-    only works if the lz4.frame module is available.
+    When uploading text files, the `encoding` parameter indicates how the text
+    is read and `newline` is mostly ignored: both `\\\\n` and `\\\\r\\\\n` are
+    valid line endings. The exception is that because the server expects its
+    input to be `\\\\n`-terminated UTF-8 text,  if you set encoding to "utf-8"
+    and newline to "\\\\n", text mode transfers are performed as binary, which
+    improves performance. For uploads, only do this if you are absolutely,
+    positively sure that all files in the directory are actually valid UTF-8
+    encoded and have Unix line endings.
+
+    If `compression` is set to True, which is the default, the
+    SafeDirectoryHandler will automatically compress and decompress files with
+    extensions .gz, .bz2, .xz and .lz4. Note that the first three algorithms are
+    built into Python, but LZ4 only works if the lz4.frame module is available.
     """
 
     def __init__(self, dir, encoding: str = None, newline=None, compression=True):

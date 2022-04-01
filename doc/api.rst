@@ -38,8 +38,8 @@ MAPI
     :show-inheritance:
 
 
-File Transfers
-==============
+File Uploads and Downloads
+==========================
 
 .. automodule:: pymonetdb.filetransfer
     :members: Uploader, Upload, Downloader, Download, SafeDirectoryHandler
