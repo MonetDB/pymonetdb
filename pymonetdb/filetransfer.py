@@ -323,8 +323,7 @@ class Download:
     def __init__(self, mapi):
         self.mapi = mapi
         self.started = False
-        buffer = bytearray(8190)
-        self.buffer = memoryview(buffer)
+        self.buffer = bytearray(8190)
         self.pos = 0
         self.len = 0
         self.reader = None
@@ -375,46 +374,14 @@ class Download:
         self.pos = end
         return ret
 
-    def _fetch(self) -> memoryview:
+    def _fetch(self):
+        if not self.mapi:
+            return 0
         self.pos = 0
-        self.len = self._fetch_into(self.buffer)
-        return self.buffer[0:self.len]
-
-    def _fetch_into(self, buf: memoryview) -> int:
-        assert len(buf) >= 8190
-        # loop because the server *might* send empty blocks
-        while True:
-            if not self.mapi:
-                return 0
-            if not self._read_bytes(buf[:2]):
-                # clean EOF
-                return 0
-            unpacked = buf[0] + 256 * buf[1]
-            length = unpacked // 2
-            if length > 0:
-                if not self._read_bytes(buf[:length]):
-                    self._shutdown()
-                    raise OperationalError("incomplete packet")
-            if unpacked & 1:
-                self._shutdown()
-            return length
-
-    def _read_bytes(self, buf: memoryview) -> bool:
-        assert self.mapi.socket
-        pos = 0
-        end = len(buf)
-        while pos < end:
-            n = self.mapi.socket.recv_into(buf[pos:end])
-            if n == 0:
-                self._shutdown()
-                break
-            pos += n
-        if pos == end:
-            return True
-        elif pos == 0:
-            return False
-        else:
-            raise OperationalError("incomplete packet")
+        self.len = 0   # safety in case of exceptions
+        self.len, last = self.mapi._get_minor_block(self.buffer, 0)
+        if last:
+            self._shutdown()
 
     def _shutdown(self):
         self.started = True

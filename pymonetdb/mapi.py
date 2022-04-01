@@ -13,7 +13,7 @@ import logging
 import struct
 import hashlib
 import os
-from typing import Optional
+from typing import Optional, Tuple
 from io import SEEK_SET, BytesIO
 from urllib.parse import urlparse, parse_qs
 
@@ -409,15 +409,19 @@ class Connection(object):
         Read one mapi block into 'buffer' starting at 'offset', enlarging the buffer
         as necessary and returning offset plus the number of bytes read.
         """
-        last = 0
+        last = False
         while not last:
-            self._getbytes(buffer, offset, 2)
-            unpacked = buffer[offset] + 256 * buffer[offset + 1]
-            length = unpacked >> 1
-            last = unpacked & 1
-            if length:
-                offset = self._getbytes(buffer, offset, length)
+            offset, last = self._get_minor_block(buffer, offset)
         return offset
+
+    def _get_minor_block(self, buffer: bytearray, offset: int) -> Tuple[int, bool]:
+        self._getbytes(buffer, offset, 2)
+        unpacked = buffer[offset] + 256 * buffer[offset + 1]
+        length = unpacked >> 1
+        last = unpacked & 1
+        if length:
+            offset = self._getbytes(buffer, offset, length)
+        return (offset, bool(last))
 
     def _getbytes(self, buffer: bytearray, offset: int, count: int) -> int:
         """
