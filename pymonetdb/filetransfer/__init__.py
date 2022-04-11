@@ -9,14 +9,10 @@ Classes related to file transfer requests as used by COPY INTO ON CLIENT.
 
 
 from abc import ABC, abstractmethod
-import codecs
-from importlib import import_module
-from io import BufferedIOBase, BufferedWriter, RawIOBase, TextIOBase, TextIOWrapper
-from pathlib import Path
-from shutil import copyfileobj
-from typing import Any, BinaryIO, Optional, Union
 from pymonetdb import mapi as mapi_protocol
 from pymonetdb.exceptions import ProgrammingError
+import pymonetdb.filetransfer.uploads
+import pymonetdb.filetransfer.downloads
 
 
 def handle_file_transfer(mapi: "mapi_protocol.Connection", cmd: str):
@@ -45,7 +41,7 @@ def handle_upload(mapi: "mapi_protocol.Connection", filename: str, text_mode: bo
         mapi._putblock("No upload handler has been registered with pymonetdb\n")
         return
     skip_amount = offset - 1 if offset > 0 else 0
-    upload = Upload(mapi)
+    upload = pymonetdb.filetransfer.uploads.Upload(mapi)
     try:
         mapi.uploader.handle_upload(upload, filename, text_mode, skip_amount)
     except Exception as e:
@@ -65,7 +61,7 @@ def handle_download(mapi: "mapi_protocol.Connection", filename: str, text_mode: 
     if not mapi.downloader:
         mapi._putblock("No download handler has been registered with pymonetdb\n")
         return
-    download = Download(mapi)
+    download = pymonetdb.filetransfer.downloads.Download(mapi)
     try:
         mapi.downloader.handle_download(download, filename, text_mode)
     except Exception as e:
@@ -92,184 +88,6 @@ def handle_download(mapi: "mapi_protocol.Connection", filename: str, text_mode: 
         download.close()
 
 
-class Upload:
-    """
-    Represents a request from the server to upload data to the server. It is
-    passed to the Uploader registered by the application, which for example
-    might retrieve the data from a file on the client system. See
-    pymonetdb.Connection.set_uploader().
-
-    Use the method send_error() to refuse the upload, binary_writer() to get a
-    binary file object to write to, or text_writer() to get a text-mode file
-    object to write to.
-
-    Implementations should be VERY CAREFUL to validate the file name before
-    opening any files on the client system!
-    """
-
-    mapi: Optional["mapi_protocol.Connection"]
-    error = False
-    cancelled = False
-    bytes_sent = 0
-    chunk_size = 1024 * 1024
-    chunk_used = 0
-    rawio: Optional["UploadIO"] = None
-    writer: Optional[BufferedWriter] = None
-    twriter: Optional[TextIOBase] = None
-
-    def __init__(self, mapi: "mapi_protocol.Connection"):
-        self.mapi = mapi
-
-    def _check_usable(self):
-        if self.error:
-            raise ProgrammingError("Upload handle has had an error, cannot be used anymore")
-        if not self.mapi:
-            raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
-
-    def is_cancelled(self) -> bool:
-        """Returns true if the server has cancelled the upload."""
-        return self.cancelled
-
-    def has_been_used(self) -> bool:
-        """Returns true if .send_error(), .text_writer() or .binary_writer() have been called."""
-        return self.error or (self.rawio is not None)
-
-    def set_chunk_size(self, size: int):
-        """
-        After every CHUNK_SIZE bytes, the server gets the opportunity to cancel
-        the rest of the upload. Defaults to 1 MiB.
-        """
-        self.chunk_size = size
-
-    def send_error(self, message: str) -> None:
-        """
-        Tell the server the requested upload has been refused
-        """
-        if self.cancelled:
-            return
-        self._check_usable()
-        if self.bytes_sent:
-            raise ProgrammingError("Cannot send error after data has been sent")
-        if not message.endswith("\n"):
-            message += "\n"
-        self.error = True
-        assert self.mapi
-        self.mapi._putblock(message)
-        self.mapi = None
-
-    def _raw(self) -> "UploadIO":
-        if self.bytes_sent == 0:
-            # send the magic newline indicating we're ok with the upload
-            self._send(b'\n', False)
-        if not self.rawio:
-            self.rawio = UploadIO(self)
-        return self.rawio
-
-    def binary_writer(self) -> BufferedIOBase:
-        """
-        Returns a binary file-like object. All data written to it is uploaded
-        to the server.
-        """
-        if not self.writer:
-            self.writer = BufferedWriter(self._raw())
-        return self.writer
-
-    def text_writer(self) -> TextIOBase:
-        r"""
-        Returns a text-mode file-like object. All text written to it is uploaded
-        to the server. DOS/Windows style line endings (CR LF, \\r \\n) are
-        automatically rewritten to single \\n's.
-        """
-        if not self.twriter:
-            # Without the Any annotation there is no way I can convince the
-            # type checker that TextIOWrapper can accept a NormalizeCrLf
-            # object. Apparently being a subclass of BufferedIOBase is not enough.
-            w: Any = NormalizeCrLf(self._raw())
-            self.twriter = TextIOWrapper(w, encoding='utf-8', newline='\n')
-        return self.twriter
-
-    def _send_data(self, data: Union[bytes, memoryview]):
-        if self.cancelled:
-            return
-        self._check_usable()
-        assert self.mapi is not None
-        pos = 0
-        end = len(data)
-        while pos < end:
-            n = min(end - pos, self.chunk_size - self.chunk_used)
-            chunk = memoryview(data)[pos:pos + n]
-            if n == self.chunk_size - self.chunk_used and self.chunk_size > 0:
-                server_wants_more = self._send_and_get_prompt(chunk)
-                if not server_wants_more:
-                    self.cancelled = True
-                    self.mapi.uploader.cancel()
-                    self.mapi = None
-                    break
-            else:
-                self._send(chunk, False)
-            pos += n
-
-    def _send(self, data: Union[bytes, memoryview], finish: bool):
-        assert self.mapi
-        self.mapi._putblock_raw(data, finish)
-        self.bytes_sent += len(data)
-        self.chunk_used += len(data)
-
-    def _send_and_get_prompt(self, data: Union[bytes, memoryview]) -> bool:
-        assert self.mapi
-        self._send(data, True)
-        prompt = self.mapi._getblock()
-        if prompt == mapi_protocol.MSG_MORE:
-            self.chunk_used = 0
-            return True
-        elif prompt == mapi_protocol.MSG_FILETRANS:
-            # server says stop
-            return False
-        else:
-            raise ProgrammingError(f"Unexpected server response: {prompt[:50]!r}")
-
-    def close(self):
-        """
-        End the upload succesfully
-        """
-        if self.error:
-            return
-        if self.twriter:
-            self.twriter.close()
-        if self.writer:
-            self.writer.close()
-        if self.mapi:
-            server_wants_more = False
-            if self.chunk_used != 0:
-                # finish the current block
-                server_wants_more = self._send_and_get_prompt(b'')
-            if server_wants_more:
-                # send empty block to indicate end of upload
-                self.mapi._putblock('')
-                # receive acknowledgement
-                resp = self.mapi._getblock()
-                if resp != mapi_protocol.MSG_FILETRANS:
-                    raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
-            self.mapi = None
-
-
-class UploadIO(RawIOBase):
-    """IO adaptor for Upload. """
-
-    def __init__(self, upload: Upload):
-        self.upload = upload
-
-    def writable(self):
-        return True
-
-    def write(self, b):
-        n = len(b)
-        if self.upload.is_cancelled():
-            return n
-        self.upload._send_data(b)
-        return n
-
-
 class Uploader(ABC):
     """
     Base class for upload hooks. Instances of subclasses of this class can be
@@ -282,7 +100,7 @@ class Uploader(ABC):
     """
 
     @abstractmethod
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: "pymonetdb.filetransfer.uploads.Upload", filename: str, text_mode: bool, skip_amount: int):
         """
         Called when an upload request is received. Implementations should either
         send an error using upload.send_error(), or request a writer using
@@ -308,106 +126,6 @@ class Uploader(ABC):
         pass
 
 
-class Download:
-    """
-    Represents a request from the server to download data from the server. It is
-    passed to the Downloader registered by the application, which for example
-    might write the data to a file on the client system. See
-    pymonetdb.Connection.set_downloader().
-
-    Use the method send_error() to refuse the download, binary_reader() to get a
-    binary file object to read bytes from, or text_reader() to get a text-mode
-    file object to read text from.
-
-    Implementations should be EXTREMELY CAREFUL to validate the file name before
-    opening and writing to any files on the client system!
-    """
-
-    def __init__(self, mapi: "mapi_protocol.Connection"):
-        self.mapi = mapi
-        self.started = False
-        self.buffer = bytearray(8190)
-        self.pos = 0
-        self.len = 0
-        self.reader = None
-        self.treader = None
-
-    def send_error(self, message: str) -> None:
-        """
-        Tell the server the requested download is refused
-        """
-        if self.started:
-            raise ProgrammingError("Cannot send error anymore")
-        if not self.mapi:
-            return
-        self.started = True
-        if not message.endswith("\n"):
-            message += "\n"
-        self.mapi._putblock(message)
-        self._shutdown()
-
-    def binary_reader(self):
-        """Returns a binary file-like object to read the downloaded data from."""
-        if not self.reader:
-            if not self.mapi:
-                raise ProgrammingError("download has already been closed")
-            self.started = True
-            self.mapi._putblock("\n")
-            self.reader = DownloadIO(self)
-        return self.reader
-
-    def text_reader(self):
-        """Returns a text mode file-like object to read the downloaded data from."""
-        if not self.treader:
-            self.treader = TextIOWrapper(self.binary_reader(), encoding='utf-8', newline='\n')
-        return self.treader
-
-    def close(self):
-        """End the download succesfully. Any unconsumed data will be discarded."""
-        while self.mapi:
-            self._fetch()
-        assert not self.mapi
-
-    def _available(self) -> int:
-        return self.len - self.pos
-
-    def _consume(self, n: int) -> memoryview:
-        end = min(self.pos + n, self.len)
-        ret = memoryview(self.buffer)[self.pos:end]
-        self.pos = end
-        return ret
-
-    def _fetch(self):
-        if not self.mapi:
-            return
-        self.pos = 0
-        self.len = 0   # safety in case of exceptions
-        self.len, last = self.mapi._get_minor_block(self.buffer, 0)
-        if last:
-            self._shutdown()
-
-    def _shutdown(self):
-        self.started = True
-        self.mapi = None
-
-
-class DownloadIO(BufferedIOBase):
-
-    def __init__(self, download: Download):
-        self.download = download
-
-    def readable(self):
-        return True
-
-    def read(self, n=0):
-        if self.download._available() == 0:
-            self.download._fetch()
-        return bytes(self.download._consume(n))
-
-    def read1(self, n=0):
-        return self.read(n)
-
-
 class Downloader(ABC):
     """
     Base class for download hooks. Instances of subclasses of this class can be
@@ -422,204 +140,5 @@ class Downloader(ABC):
     """
 
     @abstractmethod
-    def handle_download(self, download: Download, filename: str, text_mode: bool):
+    def handle_download(self, download: "pymonetdb.filetransfer.downloads.Download", filename: str, text_mode: bool):
         pass
-
-
-class NormalizeCrLf(BufferedIOBase):
-    """
-    Helper class used to normalize line endings before sending text to MonetDB.
-
-    Existing normalization code mostly deals with normalizing after reading,
-    this one normalizes before writing.
-    """
-
-    def __init__(self, inner):
-        self.inner = inner
-        self.pending = False
-
-    def writable(self):
-        return True
-
-    def write(self, data) -> int:
-        if not data:
-            return 0
-
-        if self.pending:
-            if data.startswith(b"\n"):
-                # normalize by forgetting the pending \r
-                pass
-            else:
-                # pending \r not followed by \n, write it
-                self.inner.write(b"\r")
-                # do not take the above write into account in the return value,
-                # it was included last time
-
-        normalized = data.replace(b"\r\n", b"\n")
-
-        if normalized[-1] == 13:  # \r
-            # not sure if it will be followed by \n, move it to pending
-            self.pending = True
-            normalized = memoryview(normalized)[:-1]
-        else:
-            self.pending = False
-
-        n = self.inner.write(normalized)
-        assert n == len(normalized)
-        return len(data)
-
-    def flush(self):
-        return self.inner.flush()
-
-    def close(self):
-        if self.pending:
-            self.inner.write(b"\r")
-            self.pending = False
-        return self.inner.close()
-
-
-class SafeDirectoryHandler(Uploader, Downloader):
-    """
-    File transfer handler which uploads and downloads files from a given
-    directory, taking care not to allow access to files outside that directory.
-    Instances of this class can be registered using the pymonetb.Connection's
-    set_uploader() and set_downloader() methods.
-
-    When downloading text files, the downloaded text is converted according to
-    the `encoding` and `newline` parameters, if present. Valid values for
-    `encoding` are any encoding known to Python, or None. Valid values for
-    `newline` are `"\\\\n"`, `"\\\\r\\\\n"` or None. None means to use the
-    system default.
-
-    For binary up- and downloads, no conversions are applied.
-
-    When uploading text files, the `encoding` parameter indicates how the text
-    is read and `newline` is mostly ignored: both `\\\\n` and `\\\\r\\\\n` are
-    valid line endings. The exception is that because the server expects its
-    input to be `\\\\n`-terminated UTF-8 text,  if you set encoding to "utf-8"
-    and newline to "\\\\n", text mode transfers are performed as binary, which
-    improves performance. For uploads, only do this if you are absolutely,
-    positively sure that all files in the directory are actually valid UTF-8
-    encoded and have Unix line endings.
-
-    If `compression` is set to True, which is the default, the
-    SafeDirectoryHandler will automatically compress and decompress files with
-    extensions .gz, .bz2, .xz and .lz4. Note that the first three algorithms are
-    built into Python, but LZ4 only works if the lz4.frame module is available.
-    """
-
-    def __init__(self, dir, encoding: Optional[str] = None, newline: Optional[str] = None, compression=True):
-        self.dir = Path(dir).resolve()
-        self.encoding = encoding
-        self.is_utf8 = (self.encoding and (codecs.lookup('utf-8') == codecs.lookup(self.encoding)))
-        self.newline = newline
-        self.compression = compression
-
-    def secure_resolve(self, filename: str) -> Optional[Path]:
-        p = self.dir.joinpath(filename).resolve()
-        if str(p).startswith(str(self.dir)):
-            return p
-        else:
-            return None
-
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
-        """:meta private:"""  # keep the API docs cleaner, this has already been documented on class Uploader.
-
-        p = self.secure_resolve(filename)
-        if not p:
-            return upload.send_error("Forbidden")
-
-        if self.is_utf8 and self.newline == "\n" and skip_amount == 0:
-            # optimization
-            text_mode = False
-
-        # open
-        if text_mode:
-            mode = "rt"
-            encoding = self.encoding
-            newline = self.newline
-        else:
-            mode = "rb"
-            encoding = None
-            newline = None
-        try:
-            opener = lookup_compression_algorithm(filename) if self.compression else open
-        except ModuleNotFoundError as e:
-            return upload.send_error(str(e))
-        try:
-            f = opener(p, mode=mode, encoding=encoding, newline=newline)
-        except IOError as e:
-            return upload.send_error(str(e))
-
-        with f:
-            if text_mode:
-                tw = upload.text_writer()
-                for _ in range(skip_amount):
-                    if not f.readline():
-                        break
-                self._upload_data(upload, f, tw)
-            else:
-                bw = upload.binary_writer()
-                self._upload_data(upload, f, bw)
-
-    def _upload_data(self, upload: Upload, src, dst):
-        # Due to duck typing this method works equally well in text- and binary mode
-        bufsize = 1024 * 1024
-        while not upload.is_cancelled():
-            data = src.read(bufsize)
-            if not data:
-                break
-            dst.write(data)
-
-    def handle_download(self, download: Download, filename: str, text_mode: bool):
-        p = self.secure_resolve(filename)
-        if not p:
-            return download.send_error("Forbidden")
-
-        if self.is_utf8 and self.newline == "\n":
-            # optimization
-            text_mode = False
-
-        # open
-        mode = "w" if text_mode else "wb"
-        if text_mode:
-            mode = "wt"
-            encoding = self.encoding
-            newline = self.newline
-        else:
-            mode = "wb"
-            encoding = None
-            newline = None
-        try:
-            opener = lookup_compression_algorithm(filename) if self.compression else open
-        except ModuleNotFoundError as e:
-            return download.send_error(str(e))
-        try:
-            f = opener(p, mode=mode, encoding=encoding, newline=newline)
-        except IOError as e:
-            return download.send_error(str(e))
-
-        with f:
-            if text_mode:
-                tr = download.text_reader()
-                copyfileobj(tr, f)
-            else:
-                br = download.binary_reader()
-                copyfileobj(br, f)
-
-
-def lookup_compression_algorithm(filename: str):
-    lowercase = str(filename).lower()
-    if lowercase.endswith('.gz'):
-        mod = 'gzip'
-    elif lowercase.endswith('.bz2'):
-        mod = 'bz2'
-    elif lowercase.endswith('.xz'):
-        mod = 'lzma'
-    elif lowercase.endswith('.lz4'):
-        # not always available
-        mod = 'lz4.frame'
-    else:
-        return open
-    opener = import_module(mod).open
-    return opener

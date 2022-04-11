@@ -25,7 +25,8 @@ from unittest import TestCase, skipUnless
 from pymonetdb import connect, Error as MonetError
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
-from pymonetdb.filetransfer import SafeDirectoryHandler, NormalizeCrLf, lookup_compression_algorithm
+from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler, lookup_compression_algorithm
+from pymonetdb.filetransfer.uploads import NormalizeCrLf
 from tests.util import have_lz4, test_args, test_full
 
 

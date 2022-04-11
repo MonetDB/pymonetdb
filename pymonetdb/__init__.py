@@ -20,7 +20,10 @@ from pymonetdb.profiler import ProfilerConnection
 from pymonetdb.sql.connections import Connection
 from pymonetdb.sql.pythonize import *
 from pymonetdb.exceptions import *
-from pymonetdb.filetransfer import Download, Downloader, Upload, Uploader, SafeDirectoryHandler
+from pymonetdb.filetransfer import Downloader, Uploader
+from pymonetdb.filetransfer.downloads import Download
+from pymonetdb.filetransfer.uploads import Upload
+from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 
 try:
     __version__ = pkg_resources.require("pymonetdb")[0].version
