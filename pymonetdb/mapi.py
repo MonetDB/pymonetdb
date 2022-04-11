@@ -14,7 +14,6 @@ import struct
 import hashlib
 import os
 from typing import Optional, Tuple
-from io import SEEK_SET, BytesIO
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \

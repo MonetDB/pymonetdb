@@ -16,7 +16,7 @@ from pathlib import Path
 from shutil import copyfileobj
 from typing import Optional, Union
 from pymonetdb import mapi as mapi_protocol
-from pymonetdb.exceptions import OperationalError, ProgrammingError
+from pymonetdb.exceptions import ProgrammingError
 
 
 def handle_file_transfer(mapi, cmd: str):
