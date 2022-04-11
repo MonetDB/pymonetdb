@@ -11,15 +11,15 @@ Classes related to file transfer requests as used by COPY INTO ON CLIENT.
 from abc import ABC, abstractmethod
 import codecs
 from importlib import import_module
-from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
+from io import BufferedIOBase, BufferedWriter, RawIOBase, TextIOBase, TextIOWrapper
 from pathlib import Path
 from shutil import copyfileobj
-from typing import Optional, Union
+from typing import Any, BinaryIO, Optional, Union
 from pymonetdb import mapi as mapi_protocol
 from pymonetdb.exceptions import ProgrammingError
 
 
-def handle_file_transfer(mapi, cmd: str):
+def handle_file_transfer(mapi: "mapi_protocol.Connection", cmd: str):
     if cmd.startswith("r "):
         parts = cmd[2:].split(' ', 2)
         if len(parts) == 2:
@@ -40,7 +40,7 @@ def handle_file_transfer(mapi, cmd: str):
     mapi._putblock(f"Invalid file transfer command: {cmd!r}")
 
 
-def handle_upload(mapi, filename, text_mode, offset):
+def handle_upload(mapi: "mapi_protocol.Connection", filename: str, text_mode: bool, offset: int):
     if not mapi.uploader:
         mapi._putblock("No upload handler has been registered with pymonetdb\n")
         return
@@ -62,7 +62,7 @@ def handle_upload(mapi, filename, text_mode, offset):
         upload.close()
 
 
-def handle_download(mapi, filename, text_mode):
+def handle_download(mapi: "mapi_protocol.Connection", filename: str, text_mode: bool):
     if not mapi.downloader:
         mapi._putblock("No download handler has been registered with pymonetdb\n")
         return
@@ -108,16 +108,18 @@ class Upload:
     opening any files on the client system!
     """
 
-    def __init__(self, mapi):
+    mapi: Optional["mapi_protocol.Connection"]
+    error = False
+    cancelled = False
+    bytes_sent = 0
+    chunk_size = 1024 * 1024
+    chunk_used = 0
+    rawio: Optional["UploadIO"] = None
+    writer: Optional[BufferedWriter] = None
+    twriter: Optional[TextIOBase] = None
+
+    def __init__(self, mapi: "mapi_protocol.Connection"):
         self.mapi = mapi
-        self.error = False
-        self.cancelled = False
-        self.bytes_sent = 0
-        self.chunk_size = 1024 * 1024
-        self.chunk_used = 0
-        self.rawio = None
-        self.writer = None
-        self.twriter = None
 
     def _check_usable(self):
         if self.error:
@@ -125,7 +127,7 @@ class Upload:
         if not self.mapi:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
-    def is_cancelled(self):
+    def is_cancelled(self) -> bool:
         """Returns true if the server has cancelled the upload."""
         return self.cancelled
 
@@ -140,7 +142,7 @@ class Upload:
         """
         self.chunk_size = size
 
-    def send_error(self, message: str):
+    def send_error(self, message: str) -> None:
         """
         Tell the server the requested upload has been refused
         """
@@ -156,7 +158,7 @@ class Upload:
         self.mapi._putblock(message)
         self.mapi = None
 
-    def _raw(self):
+    def _raw(self) -> "UploadIO":
         if self.bytes_sent == 0:
             # send the magic newline indicating we're ok with the upload
             self._send(b'\n', False)
@@ -180,8 +182,10 @@ class Upload:
         automatically rewritten to single \\n's.
         """
         if not self.twriter:
-            w = self._raw()
-            w = NormalizeCrLf(w)
+            # Without the Any annotation there is no way I can convince the
+            # type checker that TextIOWrapper can accept a NormalizeCrLf
+            # object. Apparently being a subclass of BufferedIOBase is not enough.
+            w: Any = NormalizeCrLf(self._raw())
             self.twriter = TextIOWrapper(w, encoding='utf-8', newline='\n')
         return self.twriter
 
@@ -250,10 +254,10 @@ class Upload:
             self.mapi = None
 
 
-class UploadIO(BufferedIOBase):
+class UploadIO(RawIOBase):
     """IO adaptor for Upload. """
 
-    def __init__(self, upload):
+    def __init__(self, upload: Upload):
         self.upload = upload
 
     def writable(self):
@@ -320,7 +324,7 @@ class Download:
     opening and writing to any files on the client system!
     """
 
-    def __init__(self, mapi):
+    def __init__(self, mapi: "mapi_protocol.Connection"):
         self.mapi = mapi
         self.started = False
         self.buffer = bytearray(8190)
@@ -329,7 +333,7 @@ class Download:
         self.reader = None
         self.treader = None
 
-    def send_error(self, message: str):
+    def send_error(self, message: str) -> None:
         """
         Tell the server the requested download is refused
         """
@@ -365,18 +369,18 @@ class Download:
             self._fetch()
         assert not self.mapi
 
-    def _available(self):
+    def _available(self) -> int:
         return self.len - self.pos
 
     def _consume(self, n: int) -> memoryview:
         end = min(self.pos + n, self.len)
-        ret = self.buffer[self.pos:end]
+        ret = memoryview(self.buffer)[self.pos:end]
         self.pos = end
         return ret
 
     def _fetch(self):
         if not self.mapi:
-            return 0
+            return
         self.pos = 0
         self.len = 0   # safety in case of exceptions
         self.len, last = self.mapi._get_minor_block(self.buffer, 0)
@@ -390,7 +394,7 @@ class Download:
 
 class DownloadIO(BufferedIOBase):
 
-    def __init__(self, download):
+    def __init__(self, download: Download):
         self.download = download
 
     def readable(self):
@@ -428,7 +432,7 @@ class NormalizeCrLf(BufferedIOBase):
     Helper class used to normalize line endings before sending text to MonetDB.
 
     Existing normalization code mostly deals with normalizing after reading,
-    not before writing.
+    this one normalizes before writing.
     """
 
     def __init__(self, inner):
@@ -505,14 +509,14 @@ class SafeDirectoryHandler(Uploader, Downloader):
     built into Python, but LZ4 only works if the lz4.frame module is available.
     """
 
-    def __init__(self, dir, encoding: str = None, newline=None, compression=True):
+    def __init__(self, dir, encoding: Optional[str] = None, newline: Optional[str] = None, compression=True):
         self.dir = Path(dir).resolve()
         self.encoding = encoding
         self.is_utf8 = (self.encoding and (codecs.lookup('utf-8') == codecs.lookup(self.encoding)))
         self.newline = newline
         self.compression = compression
 
-    def secure_resolve(self, filename) -> Optional[Path]:
+    def secure_resolve(self, filename: str) -> Optional[Path]:
         p = self.dir.joinpath(filename).resolve()
         if str(p).startswith(str(self.dir)):
             return p
