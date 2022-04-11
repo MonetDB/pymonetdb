@@ -18,7 +18,7 @@ from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
-from pymonetdb.filetransfer import Downloader, Uploader, handle_file_transfer
+import pymonetdb.filetransfer
 
 logger = logging.getLogger(__name__)
 
@@ -388,7 +388,7 @@ class Connection(object):
                 # File transfer request. Chop the cmd off the buffer by lowering the offset
                 cmd = str(buffer[i + 1: offset - 1], 'utf-8')
                 offset = i - 2
-                handle_file_transfer(self, cmd)
+                pymonetdb.filetransfer.handle_file_transfer(self, cmd)
                 continue
             else:
                 break
@@ -492,14 +492,12 @@ class Connection(object):
 
         self.cmd("Xreply_size %s" % size)
 
-    def set_uploader(self, uploader):
+    def set_uploader(self, uploader: "pymonetdb.filetransfer.Uploader"):
         """Register the given Uploader, or None to deregister"""
-        assert isinstance(uploader, Uploader)
         self.uploader = uploader
 
-    def set_downloader(self, downloader):
+    def set_downloader(self, downloader: "pymonetdb.filetransfer.Downloader"):
         """Register the given Downloader, or None to deregister"""
-        assert isinstance(downloader, Downloader)
         self.downloader = downloader
 
 
