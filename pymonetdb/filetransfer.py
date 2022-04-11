@@ -520,7 +520,8 @@ class SafeDirectoryHandler(Uploader, Downloader):
             return None
 
     def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
-        """:meta private:"""
+        """:meta private:"""  # keep the API docs cleaner, this has already been documented on class Uploader.
+
         p = self.secure_resolve(filename)
         if not p:
             return upload.send_error("Forbidden")
