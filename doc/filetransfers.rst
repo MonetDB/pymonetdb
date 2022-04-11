@@ -12,7 +12,7 @@ For example::
 	COPY INTO mytable FROM 'data'.csv' ON CLIENT
 	USING DELIMITERS ',', E'\n', '"';
 
-By default, if pymonetdb receives a file request from the server it will refuse
+By default, if pymonetdb receives a file request from the server, it will refuse
 it for security considerations. You do not want the server or a hacker pretending
 to be the server to be able to request arbitrary files on your system and even
 overwrite them.
@@ -50,7 +50,7 @@ with:
 In this example we called `upload.text_writer()` which yields a text-mode
 file-like object. There is also `upload.binary_writer()` which yields a
 binary-mode file-like object. This works even if the server requested a text
-mode object but in that case you have to make sure the bytes you write are valid
+mode object, but in that case you have to make sure the bytes you write are valid
 utf-8 and delimited with Unix line endings rather than Windows line endings.
 
 If you want to refuse an up- or download, call `upload.send_error()` to send an
@@ -111,8 +111,8 @@ However, note that copyfileobj does not handle cancellations as described above.
 Security considerations
 -----------------------
 
-If your handler accesses the file system or the network it is absolutely critical
-to carefully validate the file name you are given. Otherwise and attacker can take
+If your handler accesses the file system or the network, it is absolutely critical
+to carefully validate the file name you are given. Otherwise an attacker can take
 over the server or the connection to the server and cause great damage.
 
 An example of how to validate file systems paths is given in the code sample above.
