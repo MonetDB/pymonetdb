@@ -1,6 +1,3 @@
-"""
-Classes related to file transfer requests as used by COPY INTO ON CLIENT.
-"""
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.  If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -142,3 +139,7 @@ class Downloader(ABC):
     @abstractmethod
     def handle_download(self, download: "pymonetdb.filetransfer.downloads.Download", filename: str, text_mode: bool):
         pass
+
+
+# Only import this at the end to avoid circular imports
+from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler

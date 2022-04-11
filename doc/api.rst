@@ -41,8 +41,18 @@ MAPI
 File Uploads and Downloads
 ==========================
 
+Classes related to file transfer requests as used by COPY INTO ON CLIENT.
+
 .. automodule:: pymonetdb.filetransfer
-    :members: Uploader, Upload, Downloader, Download, SafeDirectoryHandler
+    :members: Uploader, Downloader, SafeDirectoryHandler
+    :member-order: bysource
+
+.. automodule:: pymonetdb.filetransfer.uploads
+    :members: Upload
+
+.. automodule:: pymonetdb.filetransfer.downloads
+    :members: Download
+
 
 MonetDB remote control
 ======================
