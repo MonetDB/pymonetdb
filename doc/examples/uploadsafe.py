@@ -14,12 +14,12 @@ class MyUploader(pymonetdb.Uploader):
             return upload.send_error('Forbidden')
         # open
         tw = upload.text_writer()
-        f = open(path)
-        # skip
-        for i in range(skip_amount):
-            f.readline()
-        # bulk upload
-        shutil.copyfileobj(f, tw)
+        with open(path) as f:
+            # skip
+            for i in range(skip_amount):
+                f.readline()
+            # bulk upload
+            shutil.copyfileobj(f, tw)
 
 conn = pymonetdb.connect('demo')
 conn.set_uploader(MyUploader('datadir'))
