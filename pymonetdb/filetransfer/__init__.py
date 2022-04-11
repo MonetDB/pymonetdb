@@ -138,6 +138,20 @@ class Downloader(ABC):
 
     @abstractmethod
     def handle_download(self, download: "pymonetdb.filetransfer.downloads.Download", filename: str, text_mode: bool):
+        """
+        Called when a download request is received from the server. Implementations
+        should either refuse by sending an error using download.send_error(), or
+        request a reader using download.binary_reader() or download.text_reader().
+
+        Parameter 'filename' is the file name used in the COPY INTO statement.
+        Parameter 'text_mode' indicates whether the server requested to send a binary
+        file or a text file.
+
+        SECURITY NOTE! Make sure to carefully validate the file name before opening
+        files on the file system. Otherwise, if an adversary has taken control of
+        the network connection or of the server, they can use download requests to
+        OVERWRITE ARBITRARY FILES on your computer
+        """
         pass
 
 
