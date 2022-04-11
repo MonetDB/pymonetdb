@@ -15,7 +15,7 @@ from io import BufferedIOBase, BufferedWriter, TextIOBase, TextIOWrapper
 from pathlib import Path
 from shutil import copyfileobj
 from typing import Optional, Union
-from pymonetdb import mapi
+from pymonetdb import mapi as mapi_protocol
 from pymonetdb.exceptions import OperationalError, ProgrammingError
 
 
@@ -216,10 +216,10 @@ class Upload:
         assert self.mapi
         self._send(data, True)
         prompt = self.mapi._getblock()
-        if prompt == mapi.MSG_MORE:
+        if prompt == mapi_protocol.MSG_MORE:
             self.chunk_used = 0
             return True
-        elif prompt == mapi.MSG_FILETRANS:
+        elif prompt == mapi_protocol.MSG_FILETRANS:
             # server says stop
             return False
         else:
@@ -245,7 +245,7 @@ class Upload:
                 self.mapi._putblock('')
                 # receive acknowledgement
                 resp = self.mapi._getblock()
-                if resp != mapi.MSG_FILETRANS:
+                if resp != mapi_protocol.MSG_FILETRANS:
                     raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
             self.mapi = None
 
