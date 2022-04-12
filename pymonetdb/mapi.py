@@ -92,7 +92,6 @@ class Connection(object):
         self.hostname = ""
         self.port = 0
         self.username = ""
-        self.password = ""
         self.database = ""
         self.language = ""
         self.handshake_options = None
@@ -158,7 +157,6 @@ class Connection(object):
         self.hostname = hostname
         self.port = port
         self.username = username
-        self.password = password
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
@@ -199,17 +197,17 @@ class Connection(object):
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
-            self._login()
+            self._login(password=password)
 
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, iteration=0):
+    def _login(self, iteration=0, password: Optional[str] = None):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
         challenge = self._getblock()
-        response = self._challenge_response(challenge)
+        response = self._challenge_response(challenge, password)
         self._putblock(response)
         prompt = self._getblock().strip()
 
@@ -232,7 +230,7 @@ class Connection(object):
             if redirect[1] == "merovingian":
                 logger.debug("restarting authentication")
                 if iteration <= 10:
-                    self._login(iteration=iteration + 1)
+                    self._login(iteration=iteration + 1, password=password)
                 else:
                     raise OperationalError("maximal number of redirects "
                                            "reached (10)")
@@ -245,7 +243,7 @@ class Connection(object):
                             (self.hostname, self.port, self.database))
                 self.socket.close()
                 self.connect(hostname=self.hostname, port=self.port,
-                             username=self.username, password=self.password,
+                             username=self.username, password=password,
                              database=self.database, language=self.language)
 
             else:
@@ -322,7 +320,7 @@ class Connection(object):
         else:
             raise ProgrammingError("unknown state: %s" % response)
 
-    def _challenge_response(self, challenge):  # noqa: C901
+    def _challenge_response(self, challenge: str, password: str):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
@@ -331,7 +329,6 @@ class Connection(object):
         challenges.pop()
 
         salt, identity, protocol, hashes, endian = challenges[:5]
-        password = self.password
 
         if protocol == '9':
             algo = challenges[5]
