@@ -2,8 +2,11 @@
 
 changes since 1.5.1
 
-* Fix failing unicode test by @gijzelaerr in (#98)
-* Perform bin<->hex conversion directly, not in pymonetdb.Binary by @joerivanruth in (#100)
+* Support for COPY INTO ON CLIENT (#57)
+* Connection object leaks the password (#93)
+* Make code style checking stricter (mypy and flake8) (#104)
+* Make python UDF debug code work with Python3 (#45 )
+
 
 # 1.5.1
 
