@@ -32,19 +32,23 @@ class TestMapiUri(TestCase):
         self.attempt_connect(self.database, username=self.username, password=self.password)
 
     def test_full_mapi_uri(self):
-        self.attempt_connect(f"mapi:monetdb://{self.hostname}:{self.port}/{self.database}", username=self.username, password=self.password)
+        self.attempt_connect(f"mapi:monetdb://{self.hostname}:{self.port}/{self.database}",
+                             username=self.username, password=self.password)
 
     def test_without_port(self):
-        self.attempt_connect(f"mapi:monetdb://{self.hostname}/{self.database}", username=self.username, password=self.password)
+        self.attempt_connect(f"mapi:monetdb://{self.hostname}/{self.database}",
+                             username=self.username, password=self.password)
 
     def test_username_component(self):
         try:
-            self.attempt_connect(f"mapi:monetdb://{self.hostname}:{self.port}/{self.database}", username="not" + self.username, password="not" + self.password)
+            self.attempt_connect(f"mapi:monetdb://{self.hostname}:{self.port}/{self.database}",
+                                 username="not" + self.username, password="not" + self.password)
         except DatabaseError:
             # expected to fail, username and password incorrect
             pass
         # override username and password parameters from within url
-        self.attempt_connect(f"mapi:monetdb://{self.username}:{self.password}@{self.hostname}:{self.port}/{self.database}", username="not" + self.username, password="not" + self.password)
+        s = f"mapi:monetdb://{self.username}:{self.password}@{self.hostname}:{self.port}/{self.database}"
+        self.attempt_connect(s, username="not" + self.username, password="not" + self.password)
 
     def test_ipv4_address(self):
         try:
@@ -53,7 +57,8 @@ class TestMapiUri(TestCase):
         except Exception:
             # can't test, return success
             return
-        self.attempt_connect(f"mapi:monetdb://{ip}:{self.port}/{self.database}", username=self.username, password=self.password)
+        self.attempt_connect(f"mapi:monetdb://{ip}:{self.port}/{self.database}",
+                             username=self.username, password=self.password)
 
     def test_unix_domain_socket(self):
         sock_path = "/tmp/.s.monetdb.%i" % self.port

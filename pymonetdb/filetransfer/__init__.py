@@ -154,7 +154,3 @@ class Downloader(ABC):
         OVERWRITE ARBITRARY FILES on your computer
         """
         pass
-
-
-# Only import this at the end to avoid circular imports
-from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler

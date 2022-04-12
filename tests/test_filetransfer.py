@@ -217,7 +217,8 @@ class Common:
         self.expect([(value,)])
 
     def compression_prefix(self, scheme):
-        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
+        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00',
+                'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
 
 
 class TestFileTransfer(TestCase, Common):

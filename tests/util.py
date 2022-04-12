@@ -32,4 +32,3 @@ try:
     have_lz4 = True
 except ModuleNotFoundError:
     have_lz4 = False
-

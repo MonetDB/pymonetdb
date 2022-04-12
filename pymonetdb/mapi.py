@@ -111,7 +111,8 @@ class Connection(object):
 
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
-                raise DatabaseError("colon not allowed in database name, except as part of mapi:monetdb://<hostname>[:<port>]/<database> URI")
+                raise DatabaseError("colon not allowed in database name, except as part of "
+                                    "mapi:monetdb://<hostname>[:<port>]/<database> URI")
             parsed = urlparse(database[5:])
             # parse basic settings
             if parsed.hostname or parsed.port:

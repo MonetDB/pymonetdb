@@ -242,4 +242,3 @@ class NormalizeCrLf(BufferedIOBase):
             self.inner.write(b"\r")
             self.pending = False
         return self.inner.close()
-
