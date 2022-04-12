@@ -202,7 +202,7 @@ class Connection(object):
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, iteration=0, password: Optional[str] = None):
+    def _login(self, password: str, iteration=0):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
@@ -241,7 +241,8 @@ class Connection(object):
                 self.port = int(self.port)
                 logger.info("redirect to monetdb://%s:%s/%s" %
                             (self.hostname, self.port, self.database))
-                self.socket.close()
+                if self.socket:
+                    self.socket.close()
                 self.connect(hostname=self.hostname, port=self.port,
                              username=self.username, password=password,
                              database=self.database, language=self.language)
@@ -341,15 +342,15 @@ class Connection(object):
         else:
             raise NotSupportedError("We only speak protocol v9")
 
-        for h in hashes.split(","):
+        for i in hashes.split(","):
             try:
-                s = hashlib.new(h)
+                s = hashlib.new(i)
             except ValueError:
                 pass
             else:
                 s.update(password.encode())
                 s.update(salt.encode())
-                pwhash = "{" + h + "}" + s.hexdigest()
+                pwhash = "{" + i + "}" + s.hexdigest()
                 break
         else:
             raise NotSupportedError("Unsupported hash algorithms required"
