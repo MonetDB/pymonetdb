@@ -14,12 +14,13 @@ import pkg_resources
 from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
-from pymonetdb import profiler
 
 from pymonetdb.profiler import ProfilerConnection
 from pymonetdb.sql.connections import Connection
-from pymonetdb.sql.pythonize import *
-from pymonetdb.exceptions import *
+from pymonetdb.sql.pythonize import BINARY, Binary, DATE, Date, Time, Timestamp, DateFromTicks, TimestampFromTicks, \
+    TimeFromTicks, NUMBER, ROWID, STRING, TIME, types, DATETIME, TimeTzFromTicks, TimestampTzFromTicks
+from pymonetdb.exceptions import Error, DataError, DatabaseError, IntegrityError, InterfaceError, InternalError, \
+    NotSupportedError, OperationalError, ProgrammingError, Warning
 from pymonetdb.filetransfer import Downloader, Uploader
 from pymonetdb.filetransfer.downloads import Download
 from pymonetdb.filetransfer.uploads import Upload
@@ -38,7 +39,8 @@ __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connecti
            'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',
            'IntegrityError', 'InterfaceError', 'InternalError', 'NUMBER', 'NotSupportedError', 'OperationalError',
            'ProgrammingError', 'ROWID', 'STRING', 'TIME', 'Warning', 'apilevel', 'connect', 'paramstyle',
-           'threadsafety', 'Download', 'Downloader', 'Upload', 'Uploader', 'SafeDirectoryHandler']
+           'threadsafety', 'Download', 'Downloader', 'Upload', 'Uploader', 'SafeDirectoryHandler', 'types', 'DATETIME',
+           'TimeTzFromTicks', 'TimestampTzFromTicks']
 
 
 def connect(*args, **kwargs) -> Connection:

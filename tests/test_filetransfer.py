@@ -45,7 +45,7 @@ class MyUploader(Uploader):
     #
     cancelled_at: Optional[int] = None
 
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):  # noqa: C901
         if self.do_nothing_at_all:
             return
         elif filename.startswith("x"):

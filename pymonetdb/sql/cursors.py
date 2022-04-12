@@ -133,8 +133,7 @@ class Cursor(object):
             pass
         self.connection = None
 
-    def execute(self, operation, parameters=None):
-        # type: (str, Optional[Dict]) -> int
+    def execute(self, operation: str, parameters: Optional[Dict] = None):
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
         will be bound to variables in the operation.
@@ -344,7 +343,7 @@ class Cursor(object):
     def __next__(self):
         return self.next()
 
-    def _store_result(self, block):
+    def _store_result(self, block):  # noqa: C901
         """ parses the mapi result into a resultset"""
 
         if not block:

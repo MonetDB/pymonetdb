@@ -62,7 +62,7 @@ class SafeDirectoryHandler(Uploader, Downloader):
         else:
             return None
 
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):  # noqa: C901
         """:meta private:"""  # keep the API docs cleaner, this has already been documented on class Uploader.
 
         p = self.secure_resolve(filename)

@@ -25,7 +25,7 @@ class TestMapiUri(TestCase):
         cursor = connection.cursor()
         q = "select tag from sys.queue()"
         cursor.execute(q)
-        rows = cursor.fetchall()
+        cursor.fetchall()
 
     def test_no_uri(self):
         # test setUp and attempt_connect themselves

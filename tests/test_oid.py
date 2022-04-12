@@ -11,4 +11,4 @@ class TestOid(TestCase):
     def test_oid(self):
         q = "select tag from sys.queue()"
         self.cursor.execute(q)
-        rows = self.cursor.fetchall()
+        self.cursor.fetchall()

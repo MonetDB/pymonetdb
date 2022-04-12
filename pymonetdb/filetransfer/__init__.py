@@ -3,16 +3,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
-
-
+import typing
 from abc import ABC, abstractmethod
-from pymonetdb import mapi as mapi_protocol
 from pymonetdb.exceptions import ProgrammingError
 import pymonetdb.filetransfer.uploads
 import pymonetdb.filetransfer.downloads
 
+if typing.TYPE_CHECKING:
+    from pymonetdb.mapi import Connection
 
-def handle_file_transfer(mapi: "mapi_protocol.Connection", cmd: str):
+
+def handle_file_transfer(mapi: "Connection", cmd: str):
     if cmd.startswith("r "):
         parts = cmd[2:].split(' ', 2)
         if len(parts) == 2:
@@ -33,7 +34,7 @@ def handle_file_transfer(mapi: "mapi_protocol.Connection", cmd: str):
     mapi._putblock(f"Invalid file transfer command: {cmd!r}")
 
 
-def handle_upload(mapi: "mapi_protocol.Connection", filename: str, text_mode: bool, offset: int):
+def handle_upload(mapi: "Connection", filename: str, text_mode: bool, offset: int):
     if not mapi.uploader:
         mapi._putblock("No upload handler has been registered with pymonetdb\n")
         return
@@ -54,7 +55,7 @@ def handle_upload(mapi: "mapi_protocol.Connection", filename: str, text_mode: bo
         raise ProgrammingError("Upload handler didn't do anything")
 
 
-def handle_download(mapi: "mapi_protocol.Connection", filename: str, text_mode: bool):
+def handle_download(mapi: "Connection", filename: str, text_mode: bool):
     if not mapi.downloader:
         mapi._putblock("No download handler has been registered with pymonetdb\n")
         return

@@ -59,7 +59,14 @@ venv/bin/flake8: setup
 
 flake8: venv/bin/flake8
 	venv/bin/flake8 --count --select=E9,F63,F7,F82 --show-source --statistics pymonetdb tests
-	venv/bin/flake8 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics pymonetdb tests
+	venv/bin/flake8 --count --max-complexity=10 --max-line-length=127 --statistics pymonetdb tests
+
+venv/bin/pylama: setup
+	venv/bin/pip install "pylama[all]"
+	touch venv/bin/pylama
+
+pylama: venv/bin/pylama
+	venv/bin/pylama pymonetdb tests
 
 checks: mypy pycodestyle flake8
 

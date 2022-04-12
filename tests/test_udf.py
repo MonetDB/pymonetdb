@@ -1,4 +1,4 @@
-from unittest import TestCase, SkipTest, skip
+from unittest import TestCase, SkipTest
 import tempfile
 from typing import Optional
 from tests.util import test_args

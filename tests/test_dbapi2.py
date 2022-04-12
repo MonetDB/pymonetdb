@@ -14,7 +14,6 @@ Python DB API 2.0 driver compliance unit test suite.
 #
 import unittest
 import time
-import sys
 import pymonetdb
 from tests.util import test_args
 

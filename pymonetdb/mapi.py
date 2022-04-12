@@ -101,8 +101,9 @@ class Connection(object):
         self.downloader = None
         self.stashed_buffer = None
 
-    def connect(self, database, username, password, language, hostname=None,
-                port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
+    def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
+                hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
+                handshake_options=None):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
@@ -275,7 +276,7 @@ class Connection(object):
             # don't care
             pass
 
-    def cmd(self, operation):
+    def cmd(self, operation):  # noqa: C901
         """ put a mapi command on the line"""
         logger.debug("executing command %s" % operation)
 
@@ -320,7 +321,7 @@ class Connection(object):
         else:
             raise ProgrammingError("unknown state: %s" % response)
 
-    def _challenge_response(self, challenge):
+    def _challenge_response(self, challenge):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
