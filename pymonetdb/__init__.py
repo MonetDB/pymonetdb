@@ -21,9 +21,8 @@ from pymonetdb.sql.pythonize import BINARY, Binary, DATE, Date, Time, Timestamp,
     TimeFromTicks, NUMBER, ROWID, STRING, TIME, types, DATETIME, TimeTzFromTicks, TimestampTzFromTicks
 from pymonetdb.exceptions import Error, DataError, DatabaseError, IntegrityError, InterfaceError, InternalError, \
     NotSupportedError, OperationalError, ProgrammingError, Warning
-from pymonetdb.filetransfer import Downloader, Uploader
-from pymonetdb.filetransfer.downloads import Download
-from pymonetdb.filetransfer.uploads import Upload
+from pymonetdb.filetransfer.downloads import Download, Downloader
+from pymonetdb.filetransfer.uploads import Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 
 try:

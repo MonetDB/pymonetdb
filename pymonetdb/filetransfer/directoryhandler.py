@@ -13,9 +13,8 @@ from importlib import import_module
 from pathlib import Path
 from shutil import copyfileobj
 from typing import Optional
-from pymonetdb.filetransfer import Uploader, Downloader
-from pymonetdb.filetransfer.uploads import Upload
-from pymonetdb.filetransfer.downloads import Download
+from pymonetdb.filetransfer.uploads import Upload, Uploader
+from pymonetdb.filetransfer.downloads import Download, Downloader
 
 
 class SafeDirectoryHandler(Uploader, Downloader):

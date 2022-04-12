@@ -13,12 +13,16 @@ import logging
 import struct
 import hashlib
 import os
+import typing
 from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
-import pymonetdb.filetransfer
+
+if typing.TYPE_CHECKING:
+    from pymonetdb.filetransfer.downloads import Downloader
+    from pymonetdb.filetransfer.uploads import Uploader
 
 logger = logging.getLogger(__name__)
 
@@ -380,6 +384,10 @@ class Connection(object):
         """ read one mapi encoded block and take care of any file transfers the server requests"""
         buffer = self._get_buffer()
         offset = 0
+
+        # import this here to solve circular import
+        from pymonetdb.filetransfer import handle_file_transfer
+
         while True:
             old_offset = offset
             offset = self._getblock_raw(buffer, old_offset)
@@ -388,7 +396,7 @@ class Connection(object):
                 # File transfer request. Chop the cmd off the buffer by lowering the offset
                 cmd = str(buffer[i + 1: offset - 1], 'utf-8')
                 offset = i - 2
-                pymonetdb.filetransfer.handle_file_transfer(self, cmd)
+                handle_file_transfer(self, cmd)
                 continue
             else:
                 break
@@ -492,11 +500,11 @@ class Connection(object):
 
         self.cmd("Xreply_size %s" % size)
 
-    def set_uploader(self, uploader: "pymonetdb.filetransfer.Uploader"):
+    def set_uploader(self, uploader: "Uploader"):
         """Register the given Uploader, or None to deregister"""
         self.uploader = uploader
 
-    def set_downloader(self, downloader: "pymonetdb.filetransfer.Downloader"):
+    def set_downloader(self, downloader: "Downloader"):
         """Register the given Downloader, or None to deregister"""
         self.downloader = downloader
 
