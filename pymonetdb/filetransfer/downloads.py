@@ -143,6 +143,5 @@ class Downloader(ABC):
         control of the network connection or of the server, they can use file
         download requests to overwrite arbitrary files on your computer.
         (../../)
-
         """
         pass
