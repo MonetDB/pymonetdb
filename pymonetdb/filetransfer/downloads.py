@@ -129,4 +129,20 @@ class Downloader(ABC):
 
     @abstractmethod
     def handle_download(self, download: Download, filename: str, text_mode: bool):
+        """
+        Called when a download request is received. Implementations should either
+        send an error using download.send_error(), or request a reader using
+        download.text_reader() or download.binary_reader().
+
+        Parameter 'filename' is the file name used in the COPY INTO statement.
+        Parameter 'text_mode' indicates whether the server requested text
+        or binary mode.
+
+        SECURITY NOTE! Make sure to carefully validate the file name before
+        opening files on the file system. Otherwise, if an adversary has taken
+        control of the network connection or of the server, they can use file
+        download requests to overwrite arbitrary files on your computer.
+        (../../)
+
+        """
         pass
