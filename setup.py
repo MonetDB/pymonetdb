@@ -33,7 +33,7 @@ setup(
     author_email='info@monetdb.org',
     url='http://www.monetdb.org/',
     packages=['pymonetdb', 'pymonetdb.sql', 'pymonetdb.filetransfer'],
-    download_url='https://github.com/gijzelaerr/pymonetdb',
+    download_url='https://github.com/MonetDB/pymonetdb',
     classifiers=[
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",
