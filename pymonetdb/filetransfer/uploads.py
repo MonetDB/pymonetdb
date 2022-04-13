@@ -6,12 +6,15 @@ Classes related to file transfer requests as used by COPY INTO ON CLIENT.
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
-
-
+import typing
 from io import BufferedIOBase, BufferedWriter, RawIOBase, TextIOBase, TextIOWrapper
+from abc import ABC, abstractmethod
 from typing import Any, Optional, Union
-from pymonetdb import mapi as mapi_protocol
+from pymonetdb.mapi import MSG_MORE, MSG_FILETRANS
 from pymonetdb.exceptions import ProgrammingError
+
+if typing.TYPE_CHECKING:
+    from pymonetdb.mapi import Connection as MapiConnection
 
 
 class Upload:
@@ -19,7 +22,7 @@ class Upload:
     Represents a request from the server to upload data to the server. It is
     passed to the Uploader registered by the application, which for example
     might retrieve the data from a file on the client system. See
-    pymonetdb.Connection.set_uploader().
+    pymonetdb.sql.connections.Connection.set_uploader().
 
     Use the method send_error() to refuse the upload, binary_writer() to get a
     binary file object to write to, or text_writer() to get a text-mode file
@@ -29,7 +32,7 @@ class Upload:
     opening any files on the client system!
     """
 
-    mapi: Optional["mapi_protocol.Connection"]
+    mapi: Optional["MapiConnection"]
     error = False
     cancelled = False
     bytes_sent = 0
@@ -39,7 +42,7 @@ class Upload:
     writer: Optional[BufferedWriter] = None
     twriter: Optional[TextIOBase] = None
 
-    def __init__(self, mapi: "mapi_protocol.Connection"):
+    def __init__(self, mapi: "MapiConnection"):
         self.mapi = mapi
 
     def _check_usable(self):
@@ -141,10 +144,10 @@ class Upload:
         assert self.mapi
         self._send(data, True)
         prompt = self.mapi._getblock()
-        if prompt == mapi_protocol.MSG_MORE:
+        if prompt == MSG_MORE:
             self.chunk_used = 0
             return True
-        elif prompt == mapi_protocol.MSG_FILETRANS:
+        elif prompt == MSG_FILETRANS:
             # server says stop
             return False
         else:
@@ -170,7 +173,7 @@ class Upload:
                 self.mapi._putblock('')
                 # receive acknowledgement
                 resp = self.mapi._getblock()
-                if resp != mapi_protocol.MSG_FILETRANS:
+                if resp != MSG_FILETRANS:
                     raise ProgrammingError(f"Unexpected server response: {resp[:50]!r}")
             self.mapi = None
 
@@ -243,3 +246,40 @@ class NormalizeCrLf(BufferedIOBase):
             self.pending = False
         return self.inner.close()
 
+
+class Uploader(ABC):
+    """
+    Base class for upload hooks. Instances of subclasses of this class can be
+    registered using pymonetdb.Connection.set_uploader(). Every time an upload
+    request is received, an Upload object is created and passed to this objects
+    .handle_upload() method.
+
+    If the server cancels the upload halfway, the .cancel() methods is called
+    and all further data written is ignored.
+    """
+
+    @abstractmethod
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool,
+                      skip_amount: int):
+        """
+        Called when an upload request is received. Implementations should either
+        send an error using upload.send_error(), or request a writer using
+        upload.text_writer() or upload.binary_writer(). All data written to the
+        writer will be sent to the server.
+
+        Parameter 'filename' is the file name used in the COPY INTO statement.
+        Parameter 'text_mode' indicates whether the server requested a text file
+        or a binary file. In case of a text file, 'skip_amount' indicates the
+        number of lines to skip. In binary mode, 'skip_amount' is always 0.
+
+        SECURITY NOTE! Make sure to carefully validate the file name before
+        opening files on the file system. Otherwise, if an adversary has taken
+        control of the network connection or of the server, they can use file
+        upload requests to read arbitrary files from your computer
+        (../../)
+        """
+        pass
+
+    def cancel(self):
+        """Optional method called when the server cancels the upload."""
+        pass

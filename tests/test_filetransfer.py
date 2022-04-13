@@ -45,7 +45,7 @@ class MyUploader(Uploader):
     #
     cancelled_at: Optional[int] = None
 
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):  # noqa: C901
         if self.do_nothing_at_all:
             return
         elif filename.startswith("x"):
@@ -217,7 +217,8 @@ class Common:
         self.expect([(value,)])
 
     def compression_prefix(self, scheme):
-        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00', 'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
+        return {'gz': b'\x1F\x8B', 'bz2': b'\x42\x5A\x68', 'xz': b'\xFD\x37\x7A\x58\x5A\x00',
+                'lz4': b'\x04\x22\x4D\x18', None: None}[scheme]
 
 
 class TestFileTransfer(TestCase, Common):

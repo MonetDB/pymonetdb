@@ -48,8 +48,7 @@ class LoopbackObject(object):
         return result
 
 
-def debug(cursor, query, fname, sample=-1):
-    # type: (Cursor, str, str, int) -> Any
+def debug(cursor: "Cursor", query: str, fname: str, sample: int = -1) -> Any:
     """ Locally debug a given Python UDF function in a SQL query
         using the PDB debugger. Optionally can run on only a
         sample of the input data, for faster data export.

@@ -9,7 +9,7 @@ import time
 import pytest
 
 
-def start_mserver(monetdbdir, farmdir, dbname, port, logfile):
+def start_mserver(monetdbdir, farmdir, dbname, port, logfile):  # noqa: C901
     exe = os.path.join(monetdbdir, 'bin', 'mserver5')
     if platform.system() == 'Windows':
         exe += '.exe'

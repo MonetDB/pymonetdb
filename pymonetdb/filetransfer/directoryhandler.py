@@ -13,9 +13,8 @@ from importlib import import_module
 from pathlib import Path
 from shutil import copyfileobj
 from typing import Optional
-from pymonetdb.filetransfer import Uploader, Downloader
-from pymonetdb.filetransfer.uploads import Upload
-from pymonetdb.filetransfer.downloads import Download
+from pymonetdb.filetransfer.uploads import Upload, Uploader
+from pymonetdb.filetransfer.downloads import Download, Downloader
 
 
 class SafeDirectoryHandler(Uploader, Downloader):
@@ -62,7 +61,7 @@ class SafeDirectoryHandler(Uploader, Downloader):
         else:
             return None
 
-    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+    def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):  # noqa: C901
         """:meta private:"""  # keep the API docs cleaner, this has already been documented on class Uploader.
 
         p = self.secure_resolve(filename)

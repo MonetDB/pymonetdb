@@ -13,12 +13,16 @@ import logging
 import struct
 import hashlib
 import os
+import typing
 from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
-import pymonetdb.filetransfer
+
+if typing.TYPE_CHECKING:
+    from pymonetdb.filetransfer.downloads import Downloader
+    from pymonetdb.filetransfer.uploads import Uploader
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +96,6 @@ class Connection(object):
         self.hostname = ""
         self.port = 0
         self.username = ""
-        self.password = ""
         self.database = ""
         self.language = ""
         self.handshake_options = None
@@ -101,8 +104,9 @@ class Connection(object):
         self.downloader = None
         self.stashed_buffer = None
 
-    def connect(self, database, username, password, language, hostname=None,
-                port=None, unix_socket=None, connect_timeout=-1, handshake_options=None):
+    def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
+                hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
+                handshake_options=None):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
@@ -110,7 +114,8 @@ class Connection(object):
 
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
-                raise DatabaseError("colon not allowed in database name, except as part of mapi:monetdb://<hostname>[:<port>]/<database> URI")
+                raise DatabaseError("colon not allowed in database name, except as part of "
+                                    "mapi:monetdb://<hostname>[:<port>]/<database> URI")
             parsed = urlparse(database[5:])
             # parse basic settings
             if parsed.hostname or parsed.port:
@@ -141,10 +146,10 @@ class Connection(object):
                 # Future work: parse other parameters such as reply_size.
 
         if hostname and hostname[:1] == '/' and not unix_socket:
-            unix_socket = '%s/.s.monetdb.%d' % (hostname, port)
+            unix_socket = f'{hostname}/.s.monetdb.{port}'
             hostname = None
-        if not unix_socket and os.path.exists("/tmp/.s.monetdb.%i" % port):
-            unix_socket = "/tmp/.s.monetdb.%i" % port
+        if not unix_socket and os.path.exists(f"/tmp/.s.monetdb.{port}"):
+            unix_socket = f"/tmp/.s.monetdb.{port}"
         elif not unix_socket and not hostname:
             hostname = 'localhost'
 
@@ -156,7 +161,6 @@ class Connection(object):
         self.hostname = hostname
         self.port = port
         self.username = username
-        self.password = password
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
@@ -197,17 +201,17 @@ class Connection(object):
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
-            self._login()
+            self._login(password=password)
 
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, iteration=0):
+    def _login(self, password: str, iteration=0):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
         challenge = self._getblock()
-        response = self._challenge_response(challenge)
+        response = self._challenge_response(challenge, password)
         self._putblock(response)
         prompt = self._getblock().strip()
 
@@ -230,7 +234,7 @@ class Connection(object):
             if redirect[1] == "merovingian":
                 logger.debug("restarting authentication")
                 if iteration <= 10:
-                    self._login(iteration=iteration + 1)
+                    self._login(iteration=iteration + 1, password=password)
                 else:
                     raise OperationalError("maximal number of redirects "
                                            "reached (10)")
@@ -241,9 +245,10 @@ class Connection(object):
                 self.port = int(self.port)
                 logger.info("redirect to monetdb://%s:%s/%s" %
                             (self.hostname, self.port, self.database))
-                self.socket.close()
+                if self.socket:
+                    self.socket.close()
                 self.connect(hostname=self.hostname, port=self.port,
-                             username=self.username, password=self.password,
+                             username=self.username, password=password,
                              database=self.database, language=self.language)
 
             else:
@@ -275,7 +280,7 @@ class Connection(object):
             # don't care
             pass
 
-    def cmd(self, operation):
+    def cmd(self, operation):  # noqa: C901
         """ put a mapi command on the line"""
         logger.debug("executing command %s" % operation)
 
@@ -320,7 +325,7 @@ class Connection(object):
         else:
             raise ProgrammingError("unknown state: %s" % response)
 
-    def _challenge_response(self, challenge):
+    def _challenge_response(self, challenge: str, password: str):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
@@ -329,7 +334,6 @@ class Connection(object):
         challenges.pop()
 
         salt, identity, protocol, hashes, endian = challenges[:5]
-        password = self.password
 
         if protocol == '9':
             algo = challenges[5]
@@ -342,15 +346,15 @@ class Connection(object):
         else:
             raise NotSupportedError("We only speak protocol v9")
 
-        for h in hashes.split(","):
+        for i in hashes.split(","):
             try:
-                s = hashlib.new(h)
+                s = hashlib.new(i)
             except ValueError:
                 pass
             else:
                 s.update(password.encode())
                 s.update(salt.encode())
-                pwhash = "{" + h + "}" + s.hexdigest()
+                pwhash = "{" + i + "}" + s.hexdigest()
                 break
         else:
             raise NotSupportedError("Unsupported hash algorithms required"
@@ -380,6 +384,10 @@ class Connection(object):
         """ read one mapi encoded block and take care of any file transfers the server requests"""
         buffer = self._get_buffer()
         offset = 0
+
+        # import this here to solve circular import
+        from pymonetdb.filetransfer import handle_file_transfer
+
         while True:
             old_offset = offset
             offset = self._getblock_raw(buffer, old_offset)
@@ -388,7 +396,7 @@ class Connection(object):
                 # File transfer request. Chop the cmd off the buffer by lowering the offset
                 cmd = str(buffer[i + 1: offset - 1], 'utf-8')
                 offset = i - 2
-                pymonetdb.filetransfer.handle_file_transfer(self, cmd)
+                handle_file_transfer(self, cmd)
                 continue
             else:
                 break
@@ -492,11 +500,11 @@ class Connection(object):
 
         self.cmd("Xreply_size %s" % size)
 
-    def set_uploader(self, uploader: "pymonetdb.filetransfer.Uploader"):
+    def set_uploader(self, uploader: "Uploader"):
         """Register the given Uploader, or None to deregister"""
         self.uploader = uploader
 
-    def set_downloader(self, downloader: "pymonetdb.filetransfer.Downloader"):
+    def set_downloader(self, downloader: "Downloader"):
         """Register the given Downloader, or None to deregister"""
         self.downloader = downloader
 

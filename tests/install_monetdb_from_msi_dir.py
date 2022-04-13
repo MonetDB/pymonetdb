@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from shutil import copyfile
 import shutil
 import sys
 
