@@ -7,7 +7,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import os
-from setuptools import setup
+from setuptools import find_packages, setup
 
 tests_require = ['pytest', 'mypy', 'pycodestyle', 'types-setuptools']
 
@@ -32,7 +32,7 @@ setup(
     author='MonetDB BV',
     author_email='info@monetdb.org',
     url='http://www.monetdb.org/',
-    packages=['pymonetdb', 'pymonetdb.sql', 'pymonetdb.filetransfer'],
+    packages=find_packages(),
     download_url='https://github.com/MonetDB/pymonetdb',
     classifiers=[
         "Topic :: Database",
