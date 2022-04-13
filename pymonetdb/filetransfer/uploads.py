@@ -277,7 +277,6 @@ class Uploader(ABC):
         control of the network connection or of the server, they can use file
         upload requests to read arbitrary files from your computer
         (../../)
-
         """
         pass
 

@@ -6,11 +6,15 @@
 import typing
 
 from pymonetdb.exceptions import ProgrammingError
-from .uploads import Upload
-from .downloads import Download
+from .uploads import Uploader, Upload
+from .downloads import Downloader, Download
+from .directoryhandler import SafeDirectoryHandler
 
 if typing.TYPE_CHECKING:
     from pymonetdb.mapi import Connection
+
+# these are used in the code but they are referred to in the docs
+(Uploader, Downloader, SafeDirectoryHandler)
 
 
 def handle_file_transfer(mapi: "Connection", cmd: str):

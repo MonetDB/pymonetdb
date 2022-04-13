@@ -43,15 +43,9 @@ File Uploads and Downloads
 
 Classes related to file transfer requests as used by COPY INTO ON CLIENT.
 
-.. automodule:: pymonetdb.filetransfer.directoryhandler
-    :members: SafeDirectoryHandler
+.. automodule:: pymonetdb.filetransfer
+    :members: Upload, Uploader, Download, Downloader, SafeDirectoryHandler
     :member-order: bysource
-
-.. automodule:: pymonetdb.filetransfer.uploads
-    :members: Upload, Uploader
-
-.. automodule:: pymonetdb.filetransfer.downloads
-    :members: Download, Downloader
 
 
 MonetDB remote control
