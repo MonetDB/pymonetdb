@@ -47,7 +47,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
-    install_requires=['future'],
     tests_require=tests_require,
     test_suite="tests",
     extras_require=extras_require,

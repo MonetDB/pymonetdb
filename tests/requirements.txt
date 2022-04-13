@@ -1,5 +1,4 @@
 coveralls
-future
 pycodestyle
 pytest
 Sphinx
