@@ -1,3 +1,38 @@
+# 1.6.1
+
+changes since 1.6.0
+
+* Various packaging fixes
+
+# 1.6.0
+
+changes since 1.5.1
+
+* Support for COPY INTO ON CLIENT (#57)
+* Connection object leaks the password (#93)
+* Make code style checking stricter (mypy and flake8) (#104)
+* Make python UDF debug code work with Python3 (#45 )
+
+
+# 1.5.1
+
+changes since 1.5.0
+
+* Fix failing unicode test by @gijzelaerr in (#98)
+* Perform bin<->hex conversion directly, not in pymonetdb.Binary by @joerivanruth in (#100)
+
+
+# 1.5.0
+
+changes since 1.4.1
+
+ - Use new MAPI handshake options, if available by @joerivanruth in (#88)
+ - Allow to connect using a full mapi uri in place of the database parameter. by @joerivanruth in (#89)
+ - Improve timezone handling by @joerivanruth in (#90)
+ - Add Python->MonetDB UUID conversion by @kutsurak in (#92
+ - Try any hash algorithm that the server gives us in order. by @sjoerdmullender in (#95)
+ - Send Xclose commands to avoid server side space leaks by @joerivanruth in (#97)
+
 
 # 1.4.1
 

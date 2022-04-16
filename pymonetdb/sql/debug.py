@@ -2,7 +2,6 @@ import pickle
 import tempfile
 import re
 import pdb
-from past.builtins import execfile  # type: ignore
 from typing import Any, TYPE_CHECKING
 
 
@@ -27,7 +26,7 @@ class LoopbackObject(object):
                       del dd['_conn']
                       del dd['_columns']
                       del dd['_column_types']
-                      return pickle.dumps(dd);
+                      return pickle.dumps(dd).hex();
                   };""")
         self.__conn.execute("""
                   SELECT *
@@ -49,8 +48,7 @@ class LoopbackObject(object):
         return result
 
 
-def debug(cursor, query, fname, sample=-1):
-    # type: (Cursor, str, str, int) -> Any
+def debug(cursor: "Cursor", query: str, fname: str, sample: int = -1) -> Any:
     """ Locally debug a given Python UDF function in a SQL query
         using the PDB debugger. Optionally can run on only a
         sample of the input data, for faster data export.
@@ -102,7 +100,8 @@ def debug(cursor, query, fname, sample=-1):
             arglist, fcode.replace("\n", "\n "))
         f.write(function_definition.encode('utf-8'))
         f.flush()
-        execfile(f.name, globals(), locals())
+        compiled = compile(function_definition, f.name, 'exec')
+        exec(compiled, globals(), locals())
 
         cleaned_arguments['_conn'] = LoopbackObject(cursor)
         pdb.set_trace()
@@ -135,7 +134,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
                 args, _, _, values = inspect.getargvalues(frame);
                 dd = {x: values[x] for x in args};
                 del dd['_conn']
-                return pickle.dumps(dd);
+                return pickle.dumps(dd).hex();
             };""" % return_type
     else:
         export_function = """
@@ -162,7 +161,7 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
                 dd[argname] = aux
                 print(dd[argname])
             print(x)
-            return pickle.dumps(dd);
+            return pickle.dumps(dd).hex();
             };
             """ % (return_type, str(sample))
 
@@ -179,7 +178,8 @@ def exportparameters(cursor, ftype, fname, query, quantity_parameters, sample):
     if len(input_data) <= 0:
         raise Exception("Could not load input data!")
 
-    arguments = pickle.loads(input_data[0][0])
+    bin_data = bytes.fromhex(input_data[0][0])
+    arguments = pickle.loads(bin_data)
 
     if len(arguments) != quantity_parameters + 2:
         raise Exception("Incorrect amount of input arguments found!")

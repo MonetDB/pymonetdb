@@ -116,7 +116,7 @@ class DatabaseTest(unittest.TestCase):
         self.assertTrue(len(rows) == 1, "ROLLBACK didn't work")
         self.cursor.execute('drop table %s' % self.table)
 
-    def test_truncation(self):
+    def test_truncation(self):  # noqa: C901
         columndefs = ('col1 INT', 'col2 VARCHAR(255)')
 
         def generator(row, col):

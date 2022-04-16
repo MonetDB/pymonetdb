@@ -38,6 +38,16 @@ MAPI
     :show-inheritance:
 
 
+File Uploads and Downloads
+==========================
+
+Classes related to file transfer requests as used by COPY INTO ON CLIENT.
+
+.. automodule:: pymonetdb.filetransfer
+    :members: Upload, Uploader, Download, Downloader, SafeDirectoryHandler
+    :member-order: bysource
+
+
 MonetDB remote control
 ======================
 

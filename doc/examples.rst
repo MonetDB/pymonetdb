@@ -1,7 +1,12 @@
 Examples
 ========
 
-examples usage below::
+Here are some examples of how to use pymonetdb.
+
+Example session
+---------------
+
+::
 
  > # import the SQL module
  > import pymonetdb
@@ -49,6 +54,8 @@ examples usage below::
   ('commit_action', 'smallint', 1, 1, None, None, None),
   ('temporary', 'tinyint', 1, 1, None, None, None)]
 
+MAPI Connection
+---------------
 
 If you would like to communicate with the database at a lower level
 you can use the MAPI library::
@@ -60,3 +67,10 @@ you can use the MAPI library::
  > server.cmd("sSELECT * FROM tables;")
  ...
 
+
+CSV Upload
+--------------
+
+This is an example script that uploads some csv data from the local file system:
+
+.. literalinclude:: examples/uploadcsv.py

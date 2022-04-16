@@ -14,7 +14,6 @@ Python DB API 2.0 driver compliance unit test suite.
 #
 import unittest
 import time
-import sys
 import pymonetdb
 from tests.util import test_args
 
@@ -710,8 +709,9 @@ class DatabaseAPI20Test(unittest.TestCase):
         self.assertEqual(str(t1), str(t2))
 
     def test_Binary(self):
-        b = pymonetdb.Binary('1234567890ABCDEF')
-        b = pymonetdb.Binary('')
+        b1 = b'\x00\x01\x02\x03'
+        b2 = pymonetdb.Binary(b1)
+        self.assertEqual(b1, b2)
 
     def test_STRING(self):
         self.assertTrue(hasattr(pymonetdb, 'STRING'), 'module.STRING must be defined')

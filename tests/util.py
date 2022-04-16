@@ -7,6 +7,7 @@ Module containing shared utilities only used for testing MonetDB
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+from importlib import import_module
 from os import environ
 
 test_port = int(environ.get('MAPIPORT', 50000))
@@ -24,3 +25,10 @@ test_args = {
     'username': test_username,
     'password': test_password,
 }
+
+
+try:
+    import_module('lz4.frame')
+    have_lz4 = True
+except ModuleNotFoundError:
+    have_lz4 = False

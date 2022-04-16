@@ -1,4 +1,4 @@
-from unittest import TestCase, SkipTest, skip
+from unittest import TestCase, SkipTest
 import tempfile
 from typing import Optional
 from tests.util import test_args
@@ -28,7 +28,6 @@ class TestUdf(TestCase):
         if cls.conn:
             cls.conn.close()
 
-    @skip("Disabled, see issue #49")
     def test_debug_udf(self):
         self.cursor.execute("""
             CREATE FUNCTION test_python_udf(i INTEGER)

@@ -126,6 +126,22 @@ class Connection:
         c.execute(cmd)
         c.close()
 
+    def set_uploader(self, uploader):
+        """
+        Register an Uploader object which will handle file upload requests.
+
+        Must be an instance of class pymonetdb.Uploader or None.
+        """
+        self.mapi.set_uploader(uploader)
+
+    def set_downloader(self, downloader):
+        """
+        Register a Downloader object which will handle file download requests.
+
+        Must be an instance of class pymonetdb.Downloader or None
+        """
+        self.mapi.set_downloader(downloader)
+
     def commit(self):
         """
         Commit any pending transaction to the database. Note that

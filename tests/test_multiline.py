@@ -27,19 +27,24 @@ class MultilineResponseTest(unittest.TestCase):
     """
 
     @patch('pymonetdb.mapi.Connection._putblock')
-    @patch('pymonetdb.mapi.Connection._getblock')
-    def test_failed_transactions(self, mock_getblock, _):
-        """This test is mocking 2 low level methods in the mapi.Connection class:
-           mapi.Connection._getblock
+    @patch('pymonetdb.mapi.Connection._getblock_raw')
+    def test_failed_transactions(self, mock_getblock_raw, _):
+        """This test mocks two low level methods in the mapi.Connection class:
+           mapi.Connection._getblock_raw
            mapi.Connection._putblock
 
            and tests mapi.Connection.cmd. Specifically we test for the event
            that a transaction has failed due to concurrency conflicts.
         """
         query_text = 'sINSERT INTO tbl VALUES (1)'
-        response = "&2 1 -1\n!40000!COMMIT: transaction is aborted " \
-                   "because of concurrency conflicts, will ROLLBACK instead\n"
-        mock_getblock.return_value = response
+        response = b"&2 1 -1\n!40000!COMMIT: transaction is aborted " \
+                   b"because of concurrency conflicts, will ROLLBACK instead\n"
+
+        def mocked_getblock_raw(buf, off):
+            buf[off:] = response
+            return off + len(response)
+
+        mock_getblock_raw.side_effect = mocked_getblock_raw
         c = pymonetdb.mapi.Connection()
 
         # Simulate a connection
