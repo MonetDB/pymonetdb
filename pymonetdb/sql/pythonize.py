@@ -54,45 +54,50 @@ def py_bool(data):
 def py_time(data):
     """ returns a python Time
     """
-    if '.' in data:
-        return datetime.datetime.strptime(data, '%H:%M:%S.%f').time()
+    hour, min, sec_usec = data.split(':', 3)
+    sec_parts = sec_usec.split('.', 2)
+    sec = sec_parts[0]
+    if len(sec_parts) == 2:
+        usec = int((sec_parts[1] + '000000')[:6])
     else:
-        return datetime.datetime.strptime(data, '%H:%M:%S').time()
+        usec = 0
+    return datetime.time(int(hour), int(min), int(sec), usec)
 
 
 def py_timetz(data):
     """ returns a python Time where data contains a tz code
     """
     t, timezone_delta = _extract_timezone(data)
-    if '.' in t:
-        return datetime.datetime.strptime(t, '%H:%M:%S.%f').time().replace(tzinfo=timezone_delta)
-    else:
-        return datetime.datetime.strptime(t, '%H:%M:%S').time().replace(tzinfo=timezone_delta)
+    return py_time(t).replace(tzinfo=timezone_delta)
 
 
 def py_date(data):
     """ Returns a python Date
     """
-    return datetime.datetime.strptime(data, '%Y-%m-%d').date()
+    year, month, day = data.split('-', 3)
+    return datetime.date(int(year), int(month), int(day))
 
 
 def py_timestamp(data):
     """ Returns a python Timestamp
     """
-    if '.' in data:
-        return datetime.datetime.strptime(data, '%Y-%m-%d %H:%M:%S.%f')
+    date_part, time_part = data.split(' ', 2)
+    year, month, day = date_part.split('-', 3)
+    hour, min, sec_usec = time_part.split(':', 3)
+    sec_parts = sec_usec.split('.', 2)
+    sec = sec_parts[0]
+    if len(sec_parts) == 2:
+        usec = int((sec_parts[1] + '000000')[:6])
     else:
-        return datetime.datetime.strptime(data, '%Y-%m-%d %H:%M:%S')
+        usec = 0
+    return datetime.datetime(int(year), int(month), int(day), int(hour), int(min), int(sec), usec)
 
 
 def py_timestamptz(data):
     """ Returns a python Timestamp where data contains a tz code
     """
     dt, timezone_delta = _extract_timezone(data)
-    if '.' in dt:
-        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=timezone_delta)
-    else:
-        return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone_delta)
+    return py_timestamp(dt).replace(tzinfo=timezone_delta)
 
 
 def py_sec_interval(data: str) -> timedelta:
