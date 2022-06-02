@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from shutil import copyfileobj, copyfile
 import signal
+import struct
 import sys
 from tempfile import mkdtemp
 from threading import Condition, Thread
@@ -436,6 +437,19 @@ class TestFileTransfer(TestCase, Common):
         # .. the connection is dropped
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
+
+    def test_binary_upload(self):
+        items = [1, 2, 3, 0x1234_5678]
+
+        class BinaryUploader(Uploader):
+            def handle_upload(self, upload: Upload, filename: str, text_mode: bool, skip_amount: int):
+                assert filename == 'binarydata'
+                bw = upload.binary_writer()
+                bw.write(struct.pack('>4i', *items))
+        self.conn.set_uploader(BinaryUploader())
+        self.execute("COPY BIG ENDIAN BINARY INTO FOO from 'binarydata' ON CLIENT")
+        self.execute("SELECT * FROM foo")
+        self.expect([(i,) for i in items])
 
 
 class TestSafeDirectoryHandler(TestCase, Common):

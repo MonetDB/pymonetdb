@@ -27,7 +27,7 @@ def handle_file_transfer(mapi: "Connection", cmd: str):
                 pass
             return handle_upload(mapi, parts[1], True, n)
     elif cmd.startswith("rb "):
-        return handle_upload(mapi, cmd[2:], False, 0)
+        return handle_upload(mapi, cmd[3:], False, 0)
     elif cmd.startswith("w "):
         return handle_download(mapi, cmd[2:], True)
     elif cmd.startswith("wb "):
