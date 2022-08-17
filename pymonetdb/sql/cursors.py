@@ -177,7 +177,7 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        self._must_close_resultset = self.rowcount > len(self._rows)
+        self._must_close_resultset = self._rows and self.rowcount > len(self._rows)
         return self.rowcount
 
     def executemany(self, operation, seq_of_parameters):
