@@ -1,3 +1,11 @@
+# 1.6.2
+
+changes since 1.6.1
+
+* correctly deal with DATE results where the year is less than 1000 (#108)
+* fix bug for ON CLIENT binary files
+* tweak documentation config for recent Sphynx versions
+
 # 1.6.1
 
 changes since 1.6.0
