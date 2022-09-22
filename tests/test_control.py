@@ -140,7 +140,6 @@ class TestControl(unittest.TestCase):
     def test_neighbours(self):
         self.control.neighbours()
 
-@unittest.skipUnless(test_full, "full test disabled")
 class TestLocalControl(TestControl):
     def setUpControl(self):
         # use socket

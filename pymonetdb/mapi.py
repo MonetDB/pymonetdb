@@ -488,7 +488,7 @@ class Connection(object):
         data = block.encode('utf-8')
         if self.language == 'control' and not self.hostname:
             # control does not use the blocking protocol
-            return self._send_all(data)
+            return self._send_all_and_shutdown(data)
         else:
             self._putblock_raw(block.encode(), True)
 
@@ -506,7 +506,7 @@ class Connection(object):
             self.socket.send(data)
             pos += length
 
-    def _send_all(self, block):
+    def _send_all_and_shutdown(self, block):
         """ put the data into the socket """
         pos = 0
         end = len(block)
@@ -516,6 +516,7 @@ class Connection(object):
             length = len(data)
             nsent = self.socket.send(data)
             pos += nsent
+        self.socket.shutdown(socket.SHUT_WR)
 
     def __del__(self):
         if self.socket:
