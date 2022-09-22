@@ -140,6 +140,7 @@ class TestControl(unittest.TestCase):
     def test_neighbours(self):
         self.control.neighbours()
 
+
 class TestLocalControl(TestControl):
     def setUpControl(self):
         # use socket

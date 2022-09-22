@@ -463,6 +463,7 @@ class Connection(object):
         """
         parts = []
         while True:
+            assert self.socket
             received = self.socket.recv(4096)
             if not received:
                 break
@@ -513,7 +514,6 @@ class Connection(object):
         block = memoryview(block)
         while pos < end:
             data = block[pos:pos + 8192]
-            length = len(data)
             nsent = self.socket.send(data)
             pos += nsent
         self.socket.shutdown(socket.SHUT_WR)
