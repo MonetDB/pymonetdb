@@ -30,12 +30,12 @@ class TestControl(unittest.TestCase):
     Where /var/lib/monetdb is the path to your dbfarm. Don't forget to restart the db after setting the credentials.
     """
 
-    def setUp(self):
+    def setUpControl(self):
         # use tcp
-        self.control = Control(test_hostname, test_port, test_passphrase)
+        return Control(test_hostname, test_port, test_passphrase)
 
-        # use socket
-        # self.control = Control()
+    def setUp(self):
+        self.control = self.setUpControl()
 
         do_without_fail(lambda: self.control.stop(database_name))
         do_without_fail(lambda: self.control.destroy(database_name))
@@ -139,3 +139,9 @@ class TestControl(unittest.TestCase):
     @unittest.skipUnless(test_full, "full test disabled")
     def test_neighbours(self):
         self.control.neighbours()
+
+@unittest.skipUnless(test_full, "full test disabled")
+class TestLocalControl(TestControl):
+    def setUpControl(self):
+        # use socket
+        return Control()
