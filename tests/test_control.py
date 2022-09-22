@@ -32,7 +32,7 @@ class TestControl(unittest.TestCase):
 
     def setUpControl(self):
         # use tcp
-        return Control(test_hostname, test_port, test_passphrase)
+        return Control(hostname=test_hostname, port=test_port, passphrase=test_passphrase)
 
     def setUp(self):
         self.control = self.setUpControl()
@@ -143,5 +143,5 @@ class TestControl(unittest.TestCase):
 
 class TestLocalControl(TestControl):
     def setUpControl(self):
-        # use socket
-        return Control()
+        # use unix domain socket
+        return Control(port=test_port, passphrase=test_passphrase)
