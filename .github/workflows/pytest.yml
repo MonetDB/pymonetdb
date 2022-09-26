@@ -31,6 +31,7 @@ jobs:
           sudo -u monetdb monetdbd set control=yes ${{ env.DBFARM }}
           sudo -u monetdb monetdbd set passphrase=testdb ${{ env.DBFARM }}
           sudo -u monetdb monetdbd start ${{ env.DBFARM }}
+          sudo -u monetdb chmod o+rwx /tmp/.s.mero*
       - name: Create MonetDB test database
         run: |
           sudo -u monetdb monetdb create demo

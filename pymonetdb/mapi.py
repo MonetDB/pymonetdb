@@ -382,6 +382,10 @@ class Connection(object):
 
     def _getblock_and_transfer_files(self):
         """ read one mapi encoded block and take care of any file transfers the server requests"""
+        if self.language == 'control' and not self.hostname:
+            # control connections do not use the blocking protocol and do not transfer files
+            return self._recv_to_end()
+
         buffer = self._get_buffer()
         offset = 0
 
@@ -405,6 +409,9 @@ class Connection(object):
 
     def _getblock(self) -> str:
         """ read one mapi encoded block """
+        if self.language == 'control' and not self.hostname:
+            # control connections do not use the blocking protocol
+            return self._recv_to_end()
         buf = self._get_buffer()
         end = self._getblock_raw(buf, 0)
         ret = str(memoryview(buf)[:end], 'utf-8')
@@ -450,6 +457,19 @@ class Connection(object):
             offset += n
         return end
 
+    def _recv_to_end(self) -> str:
+        """
+        Read bytes from the socket until the server closes the connection
+        """
+        parts = []
+        while True:
+            assert self.socket
+            received = self.socket.recv(4096)
+            if not received:
+                break
+            parts.append(received)
+        return str(b"".join(parts).strip(), 'utf-8')
+
     def _get_buffer(self) -> bytearray:
         """Retrieve a previously stashed buffer for reuse, or create a new one"""
         if self.stashed_buffer:
@@ -466,13 +486,15 @@ class Connection(object):
 
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
-        self._putblock_inet_raw(block.encode(), True)
+        data = block.encode('utf-8')
+        if self.language == 'control' and not self.hostname:
+            # control does not use the blocking protocol
+            return self._send_all_and_shutdown(data)
+        else:
+            self._putblock_raw(block.encode(), True)
 
-    def _putblock_raw(self, block, finish: bool):
+    def _putblock_raw(self, block, finish):
         """ put the data into the socket """
-        self._putblock_inet_raw(block, finish)
-
-    def _putblock_inet_raw(self, block, finish):
         pos = 0
         last = 0
         while not last:
@@ -484,6 +506,17 @@ class Connection(object):
             self.socket.send(flag)
             self.socket.send(data)
             pos += length
+
+    def _send_all_and_shutdown(self, block):
+        """ put the data into the socket """
+        pos = 0
+        end = len(block)
+        block = memoryview(block)
+        while pos < end:
+            data = block[pos:pos + 8192]
+            nsent = self.socket.send(data)
+            pos += nsent
+        self.socket.shutdown(socket.SHUT_WR)
 
     def __del__(self):
         if self.socket:
