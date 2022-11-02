@@ -9,7 +9,7 @@ file on its behalf.
 
 For example::
 
-	COPY INTO mytable FROM 'data'.csv' ON CLIENT
+	COPY INTO mytable FROM 'data.csv' ON CLIENT
 	USING DELIMITERS ',', E'\n', '"';
 
 By default, if pymonetdb receives a file request from the server, it will refuse
