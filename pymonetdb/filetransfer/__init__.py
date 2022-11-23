@@ -19,7 +19,7 @@ if typing.TYPE_CHECKING:
 
 def handle_file_transfer(mapi: "Connection", cmd: str):
     if cmd.startswith("r "):
-        parts = cmd[2:].split(' ', 2)
+        parts = cmd[2:].split(' ', 1)
         if len(parts) == 2:
             try:
                 n = int(parts[0])
