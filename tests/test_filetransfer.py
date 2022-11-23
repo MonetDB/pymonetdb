@@ -365,6 +365,9 @@ class TestFileTransfer(TestCase, Common):
 
     def test_upload_unix_binary_file(self):
         self.upload_file('unix.csv', dict(newline="\n"), False)
+    
+    def test_upload_native_text_filename_w_whitespaces(self):
+        self.upload_file('filename with spaces.csv', {}, True)
 
     def upload_file(self, filename, write_opts, read_text):
         encoding = self.defaultencoding if read_text else 'utf-8'
