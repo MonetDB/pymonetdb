@@ -84,11 +84,13 @@ class MyDownloader(Downloader):
     refuse: Optional[str] = None
     forget_to_return_after_refusal: bool = False
     buffer: StringIO
+    filename: Optional[str] = None
 
     def __init__(self):
         self.buffer = StringIO()
 
     def handle_download(self, download: Download, filename: str, text_mode: bool):
+        self.filename = filename
         if self.refuse:
             download.send_error(self.refuse)
             if not self.forget_to_return_after_refusal:
@@ -110,6 +112,9 @@ class MyDownloader(Downloader):
 
     def get(self):
         return self.buffer.getvalue()
+
+    def get_filename(self):
+        return self.filename
 
 
 class DeadManHandle:
@@ -312,6 +317,7 @@ class TestFileTransfer(TestCase, Common):
         self.fill_foo(5)
         self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
         self.assertEqual("1\n2\n3\n4\n5\n", self.downloader.get())
+        self.assertEqual("foo", self.downloader.get_filename())
 
     def test_download_empty(self):
         self.fill_foo(0)
@@ -332,6 +338,12 @@ class TestFileTransfer(TestCase, Common):
         # connection still alive
         self.execute("SELECT 42")
         self.expect1(42)
+
+    def test_download_filename_with_spaces(self):
+        self.fill_foo(5)
+        self.execute("COPY (SELECT * FROM foo) INTO 'foo bar' ON CLIENT")
+        self.assertEqual("1\n2\n3\n4\n5\n", self.downloader.get())
+        self.assertEqual("foo bar", self.downloader.get_filename())
 
     @skipUnless(test_full, "full test disabled")
     def test_large_upload(self):
