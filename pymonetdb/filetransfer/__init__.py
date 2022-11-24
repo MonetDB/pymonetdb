@@ -19,6 +19,8 @@ if typing.TYPE_CHECKING:
 
 def handle_file_transfer(mapi: "Connection", cmd: str):
     if cmd.startswith("r "):
+        # r 0 filename.txt
+        # where 0 is the number of lines to skip
         parts = cmd[2:].split(' ', 1)
         if len(parts) == 2:
             try:
@@ -27,10 +29,13 @@ def handle_file_transfer(mapi: "Connection", cmd: str):
                 pass
             return handle_upload(mapi, parts[1], True, n)
     elif cmd.startswith("rb "):
+        # rb filename.bin
         return handle_upload(mapi, cmd[3:], False, 0)
     elif cmd.startswith("w "):
+        # w filename.txt
         return handle_download(mapi, cmd[2:], True)
     elif cmd.startswith("wb "):
+        # wb filename.bin
         return handle_download(mapi, cmd[3:], False)
     else:
         pass
