@@ -40,7 +40,7 @@ def handle_file_transfer(mapi: "Connection", cmd: str):
     else:
         pass
     # we only reach this if decoding the cmd went wrong:
-    mapi._putblock(f"Invalid file transfer command: {cmd!r}")
+    mapi._putblock(f"Invalid file transfer command: {cmd!r}\n")
 
 
 def handle_upload(mapi: "Connection", filename: str, text_mode: bool, offset: int):
