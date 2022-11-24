@@ -88,10 +88,12 @@ class Connection(object):
     MAPI (low level MonetDB API) connection
     """
 
+    socket: Optional[socket.socket]
+
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket: Optional[socket.socket] = None
+        self.socket = None
         self.unix_socket = None
         self.hostname = ""
         self.port = 0

@@ -123,6 +123,7 @@ class DeadManHandle:
     deadlocks, but can be inconvenient when running tests in the debugger. In
     that case, temporarily call deadman.cancel() at the start of the test.
     """
+
     def __init__(self):
         self.cond = Condition()
         self.deadline = None
@@ -538,7 +539,11 @@ class TestSafeDirectoryHandler(TestCase, Common):
                         self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
                     continue
 
-    def get_testdata_name(self, enc_name: str, newline: str, lines: int = None, compression=None) -> str:
+    def get_testdata_name(self,
+                          enc_name: str, newline: str,
+                          lines: Optional[int] = None,
+                          compression: Optional[str] = None
+                          ) -> str:
         newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
         file_name = f"{enc_name}_{newline_name}"
         if lines is not None:
@@ -548,7 +553,7 @@ class TestSafeDirectoryHandler(TestCase, Common):
             file_name += "." + compression
         return file_name
 
-    def get_testdata(self, enc_name: str, newline: str, lines: int, compression: str = None) -> str:
+    def get_testdata(self, enc_name: str, newline: str, lines: int, compression: Optional[str] = None) -> str:
         encoding = codecs.lookup(enc_name) if enc_name else None
         fname = self.get_testdata_name(enc_name, newline, lines, compression)
         p = self.file(fname)
