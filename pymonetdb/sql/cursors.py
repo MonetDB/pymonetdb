@@ -6,7 +6,8 @@
 
 import logging
 from collections import namedtuple
-from typing import Optional, Dict
+from typing import List, Optional, Dict
+import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
 from pymonetdb.sql import monetize, pythonize
 from pymonetdb.exceptions import Error, ProgrammingError, InterfaceError
@@ -24,6 +25,20 @@ class Cursor(object):
     connection are not isolated, i.e., any changes done to the
     database by a cursor are immediately visible by the other
     cursors"""
+
+    connection: 'pymonetdb.sql.connections.Connection'
+    operation: str
+    arraysize: int
+    rowcount: int
+    description: Optional[Description]
+    rownumber: int
+    _executed: str
+    _offset: int
+    _rows: List[int]
+    _must_close_resultset: bool
+    _query_id: int
+    messages: List[str]
+    lastrowid: int
 
     def __init__(self, connection):
         """This read-only attribute return a reference to the Connection
@@ -177,7 +192,8 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        self._must_close_resultset = self._rows and self.rowcount > len(self._rows)
+        nrows = len(self._rows)
+        self._must_close_resultset = nrows > 0 and self.rowcount > nrows
         return self.rowcount
 
     def executemany(self, operation, seq_of_parameters):
