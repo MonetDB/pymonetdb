@@ -313,10 +313,16 @@ class Cursor(object):
 
         end = min(self.rowcount, self.rownumber + self.arraysize)
         amount = end - self._offset
-
-        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
-        block = self.connection.command(command)
-        self._store_result(block)
+        if self.arraysize != 3:
+            command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
+            block = self.connection.command(command)
+            self._store_result(block)
+        else:
+            command = 'Xexportbin %s %s %s' % (self._query_id, self._offset, amount)
+            binary_block = self.connection.binary_command(command)
+            import sys
+            print(repr(bytes(binary_block)), file=sys.stderr)
+            raise NotImplementedError("binary blocks")
         return True
 
     def setinputsizes(self, sizes):

@@ -187,6 +187,11 @@ class Connection:
         self.__mapi_check()
         return self.mapi.cmd(command)
 
+    def binary_command(self, command):
+        """ use this function to send low level mapi commands that return raw bytes"""
+        self.__mapi_check()
+        return self.mapi.binary_cmd(command)
+
     def __mapi_check(self):
         """ check if there is a connection with a server """
         if not self.mapi:

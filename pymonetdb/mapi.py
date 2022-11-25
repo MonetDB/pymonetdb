@@ -46,7 +46,8 @@ MSG_TUPLE_NOSLICE = "="
 MSG_REDIRECT = "^"
 MSG_OK = "=OK"
 
-MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'utf-8')
+MSG_ERROR_B = bytes(MSG_ERROR, 'ascii')
+MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'ascii')
 
 STATE_INIT = 0
 STATE_READY = 1
@@ -282,7 +283,7 @@ class Connection(object):
             # don't care
             pass
 
-    def cmd(self, operation):  # noqa: C901
+    def cmd(self, operation: str):  # noqa: C901
         """ put a mapi command on the line"""
         logger.debug("executing command %s" % operation)
 
@@ -326,6 +327,33 @@ class Connection(object):
                 return response
         else:
             raise ProgrammingError("unknown state: %s" % response)
+
+    def binary_cmd(self, operation: str) -> memoryview:
+        """ put a mapi command on the line, with a binary response.
+
+        returns a memoryview that can only be used until the next
+        operation on this Connection object.
+        """
+        logger.debug("executing binary command %s" % operation)
+
+        if self.state != STATE_READY:
+            raise ProgrammingError("Not connected")
+
+        self._putblock(operation)
+        buffer = self._get_buffer()
+        n = self._getblock_raw(buffer, 0)
+        view = memoryview(buffer)[:n]
+        self._stash_buffer(buffer)
+
+        if view[0:len(MSG_ERROR_B)] == MSG_ERROR_B:
+            msg_bytes = bytes(view)
+            idx = msg_bytes.find(b'\n')
+            if idx > 0:
+                msg_bytes = msg_bytes[1:idx + 1]
+            exception, msg = handle_error(str(msg_bytes, 'utf-8'))
+            raise exception(msg)
+
+        return view
 
     def _challenge_response(self, challenge: str, password: str):  # noqa: C901
         """ generate a response to a mapi login challenge """
@@ -382,7 +410,7 @@ class Connection(object):
 
         return response
 
-    def _getblock_and_transfer_files(self):
+    def _getblock_and_transfer_files(self) -> str:
         """ read one mapi encoded block and take care of any file transfers the server requests"""
         if self.language == 'control' and not self.hostname:
             # control connections do not use the blocking protocol and do not transfer files
