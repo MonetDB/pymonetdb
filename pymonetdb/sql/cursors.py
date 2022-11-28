@@ -218,7 +218,7 @@ class Cursor(object):
             return None
 
         if self.rownumber >= (self._offset + len(self._rows)):
-            self.nextset()
+            self._nextchunk()
 
         result = self._rows[self.rownumber - self._offset]
         self.rownumber += 1
@@ -256,7 +256,7 @@ class Cursor(object):
         result = self._rows[self.rownumber - self._offset:end - self._offset]
         self.rownumber = min(end, len(self._rows) + self._offset)
 
-        while (end > self.rownumber) and self.nextset():
+        while (end > self.rownumber) and self._nextchunk():
             result += self._rows[self.rownumber - self._offset:end - self._offset]
             self.rownumber = min(end, len(self._rows) + self._offset)
         return result
@@ -281,26 +281,13 @@ class Cursor(object):
         self.rownumber = len(self._rows) + self._offset
 
         # slide the window over the resultset
-        while self.nextset():
+        while self._nextchunk():
             result += self._rows
             self.rownumber = len(self._rows) + self._offset
 
         return result
 
-    def nextset(self):
-        """This method will make the cursor skip to the next
-        available set, discarding any remaining rows from the
-        current set.
-
-        If there are no more sets, the method returns
-        None. Otherwise, it returns a true value and subsequent
-        calls to the fetch methods will return rows from the next
-        result set.
-
-        An Error (or subclass) exception is raised if the previous
-        call to .execute*() did not produce any result set or no
-        call was issued yet."""
-
+    def _nextchunk(self):
         self._check_executed()
 
         if self.rownumber >= self.rowcount:
