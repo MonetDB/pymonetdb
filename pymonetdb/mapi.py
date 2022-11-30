@@ -345,6 +345,7 @@ class Connection(object):
         view = memoryview(buffer)[:n]
         self._stash_buffer(buffer)
 
+        # Handle !Error message
         if view[0:len(MSG_ERROR_B)] == MSG_ERROR_B:
             msg_bytes = bytes(view)
             idx = msg_bytes.find(b'\n')
@@ -364,6 +365,13 @@ class Connection(object):
         challenges.pop()
 
         salt, identity, protocol, hashes, endian = challenges[:5]
+
+        if endian == 'LIT':
+            self.server_endian = 'little'
+        elif endian == 'BIG':
+            self.server_endian = 'big'
+        else:
+            raise NotSupportedError('Unknown byte order: ' + endian)
 
         if protocol == '9':
             algo = challenges[5]
@@ -407,6 +415,14 @@ class Connection(object):
                     options.append(opt.name + "=" + str(int(opt.value)))
                     opt.sent = True
             response += ",".join(options) + ":"
+
+        self.supports_binexport = False
+        if len(challenges) >= 8:
+            part = challenges[7]
+            assert part.startswith('BINARY=')
+            bits = int(part[7:])
+            if bits & 1:
+                self.supports_binexport = True
 
         return response
 

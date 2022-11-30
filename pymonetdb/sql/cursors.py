@@ -6,10 +6,11 @@
 
 import logging
 from collections import namedtuple
-from typing import List, Optional, Dict
+import struct
+from typing import List, Optional, Dict, Tuple
 import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
-from pymonetdb.sql import monetize, pythonize
+from pymonetdb.sql import monetize, pythonize, pythonizebin
 from pymonetdb.exceptions import Error, ProgrammingError, InterfaceError
 from pymonetdb import mapi
 
@@ -31,10 +32,12 @@ class Cursor(object):
     arraysize: int
     rowcount: int
     description: Optional[Description]
+    _can_bindecode: Optional[bool]
+    _bindecoders: Optional[List['pythonizebin.BinaryDecoder']]
     rownumber: int
     _executed: str
     _offset: int
-    _rows: List[int]
+    _rows: List[Tuple]
     _must_close_resultset: bool
     _query_id: int
     messages: List[str]
@@ -80,6 +83,13 @@ class Cursor(object):
         # do not return rows or if the cursor has not had an
         # operation invoked via the .execute*() method yet.
         self.description = None
+
+        # When the opportunity presents itself to fetch a result set in binary
+        # we need to know if we can handle the result and if so, how.
+        #
+        # These attributes are cleared by execute() and set by _nextchunk()
+        self._can_bindecode = None
+        self._bindecoders = None
 
         # This read-only attribute indicates at which row
         # we currently are
@@ -161,6 +171,8 @@ class Cursor(object):
         self.messages = []
 
         self._close_earlier_resultset()
+        self._can_bindecode = None
+        self._bindecoders = None
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
@@ -311,19 +323,37 @@ class Cursor(object):
 
         self._offset += len(self._rows)
 
-        end = min(self.rowcount, self.rownumber + self.arraysize)
+        asize = self.arraysize or 100
+        end = min(self.rowcount, self.rownumber + asize)
         amount = end - self._offset
-        if self.arraysize != 3:
+
+        if self._can_bindecode == None:
+            self._check_bindecode_possible()
+
+        if self._can_bindecode:
+            command = 'Xexportbin %s %s %s' % (self._query_id, self._offset, amount)
+            binary_block = self.connection.binary_command(command)
+            self._store_binary_result(binary_block)
+        else:
             command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
             block = self.connection.command(command)
             self._store_result(block)
-        else:
-            command = 'Xexportbin %s %s %s' % (self._query_id, self._offset, amount)
-            binary_block = self.connection.binary_command(command)
-            import sys
-            print(repr(bytes(binary_block)), file=sys.stderr)
-            raise NotImplementedError("binary blocks")
         return True
+
+    def _check_bindecode_possible(self):
+        self._can_bindecode = False
+        decoders = []
+        if not self.connection.mapi.supports_binexport:
+            return
+        for desc in self.description:
+            dec = pythonizebin.get_decoder(desc)
+            if not dec:
+                return
+            decoders.append(dec)
+        # if we get here, all columns have a decoder
+        self._can_bindecode = True
+        self._bindecoders = decoders
+
 
     def setinputsizes(self, sizes):
         """
@@ -464,6 +494,25 @@ class Cursor(object):
                 self._exception_handler(ProgrammingError, line[1:])
 
         self._exception_handler(InterfaceError, "Unknown state, %s" % block)
+
+    def _store_binary_result(self, block: memoryview):
+        assert self._bindecoders is not None
+        ncols = len(self._bindecoders)
+        trailer_start = len(block) - 2 * 8 * ncols
+        cols = []
+        for i in range(ncols):
+            # TODO fix endianness
+            start_pos = trailer_start + 16 * i
+            length_pos = start_pos + 8
+            start = struct.unpack_from('@q', block, start_pos)[0]
+            length = struct.unpack_from('@q', block, length_pos)[0]
+            slice = block[start:start+length]
+            decoder = self._bindecoders[i]
+            col = decoder.decode(slice)
+            cols.append(col)
+        rows = list(zip(*cols))
+        self._rows = rows
+
 
     def _parse_tuple(self, line):
         """
