@@ -11,7 +11,6 @@ functions for converting binary result sets to Python objects
 from abc import abstractmethod
 import array
 import json
-import struct
 from typing import Any, Callable, Dict, List, Optional
 import uuid
 

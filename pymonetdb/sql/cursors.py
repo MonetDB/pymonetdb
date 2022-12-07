@@ -53,7 +53,7 @@ class Cursor(object):
 
         # This read/write attribute specifies the number of rows to
         # fetch at a time with .fetchmany()
-        self.arraysize = connection.replysize
+        self.arraysize = connection._policy.decide_arraysize()
 
         # This read-only attribute specifies the number of rows that
         # the last .execute*() produced (for DQL statements like
@@ -173,10 +173,12 @@ class Cursor(object):
         self._close_earlier_resultset()
         self._can_bindecode = None
         self._bindecoders = None
+        self._adjacent = 1
 
         # set the number of rows to fetch
-        if self.arraysize != self.connection.replysize:
-            self.connection.set_replysize(self.arraysize)
+        desired_replysize = self.connection._policy.decide_cursor_reply_size(self.arraysize)
+        if self.connection.replysize != desired_replysize:
+            self.connection.set_replysize(desired_replysize)
 
         if operation == self.operation:
             # same operation, DBAPI mentioned something about reuse
@@ -246,7 +248,7 @@ class Cursor(object):
             return None
 
         if self.rownumber >= (self._offset + len(self._rows)):
-            self._nextchunk()
+            self._nextchunk(fetch_all=False)
 
         result = self._rows[self.rownumber - self._offset]
         self.rownumber += 1
@@ -284,7 +286,7 @@ class Cursor(object):
         result = self._rows[self.rownumber - self._offset:end - self._offset]
         self.rownumber = min(end, len(self._rows) + self._offset)
 
-        while (end > self.rownumber) and self._nextchunk():
+        while (end > self.rownumber) and self._nextchunk(fetch_all=False):
             result += self._rows[self.rownumber - self._offset:end - self._offset]
             self.rownumber = min(end, len(self._rows) + self._offset)
         return result
@@ -309,13 +311,13 @@ class Cursor(object):
         self.rownumber = len(self._rows) + self._offset
 
         # slide the window over the resultset
-        while self._nextchunk():
+        while self._nextchunk(fetch_all=True):
             result += self._rows
             self.rownumber = len(self._rows) + self._offset
 
         return result
 
-    def _nextchunk(self):
+    def _nextchunk(self, fetch_all: bool):
         self._check_executed()
 
         if self.rownumber >= self.rowcount:
@@ -323,11 +325,18 @@ class Cursor(object):
 
         self._offset += len(self._rows)
 
-        asize = self.arraysize or 100
-        end = min(self.rowcount, self.rownumber + asize)
-        amount = end - self._offset
+        if fetch_all:
+            amount = self.rowcount - self._offset
+        else:
+            amount = self.connection._policy.decide_fetch_amount(
+                self.arraysize,
+                self._adjacent,
+                self._offset,
+                self.rowcount
+            )
+            self._adjacent += 1
 
-        if self._can_bindecode == None:
+        if self._can_bindecode is None:
             self._check_bindecode_possible()
 
         if self._can_bindecode:
@@ -343,7 +352,7 @@ class Cursor(object):
     def _check_bindecode_possible(self):
         self._can_bindecode = False
         decoders = []
-        if not self.connection.mapi.supports_binexport:
+        if not self.connection._policy.use_binary():
             return
         for desc in self.description:
             dec = pythonizebin.get_decoder(desc)
@@ -353,7 +362,6 @@ class Cursor(object):
         # if we get here, all columns have a decoder
         self._can_bindecode = True
         self._bindecoders = decoders
-
 
     def setinputsizes(self, sizes):
         """
@@ -506,13 +514,12 @@ class Cursor(object):
             length_pos = start_pos + 8
             start = struct.unpack_from('@q', block, start_pos)[0]
             length = struct.unpack_from('@q', block, length_pos)[0]
-            slice = block[start:start+length]
+            slice = block[start:start + length]
             decoder = self._bindecoders[i]
             col = decoder.decode(slice)
             cols.append(col)
         rows = list(zip(*cols))
         self._rows = rows
-
 
     def _parse_tuple(self, line):
         """
@@ -550,12 +557,12 @@ class Cursor(object):
         if value > self.rowcount:
             self._exception_handler(IndexError, "value beyond length of resultset")
 
-        self._offset = value
-        end = min(self.rowcount, self.rownumber + self.arraysize)
-        amount = end - self._offset
-        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
-        block = self.connection.command(command)
-        self._store_result(block)
+        self.rownumber = value
+        if value < self._offset or value > self._offset + len(self._rows):
+            self._offset = value
+            self._rows = []
+            self._adjacent = 0
+            self._nextchunk(False)
 
     def _exception_handler(self, exception_class, message):
         """

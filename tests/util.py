@@ -18,18 +18,31 @@ test_password = environ.get('TSTPASSWORD', 'monetdb')
 test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 test_control = environ.get('TSTCONTROL', 'tcp,local')
+test_fetchsize = environ.get('TSTFETCHSIZE')
+test_maxfetchsize = environ.get('TSTMAXFETCHSIZE')
+test_binary = environ.get('TSTBINARY')
 
-test_args = {
+test_mapi_args = {
     'port': test_port,
     'database': test_database,
     'hostname': test_hostname,
     'username': test_username,
     'password': test_password,
 }
+test_args = test_mapi_args.copy()
+if test_fetchsize is not None:
+    test_args['fetchsize'] = int(test_fetchsize)
+if test_maxfetchsize is not None:
+    test_args['maxfetchsize'] = int(test_maxfetchsize)
+if test_binary is not None:
+    test_args['binary'] = int(test_binary)
+
+test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
+test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 
 
 try:
     import_module('lz4.frame')
-    have_lz4 = True
+    test_have_lz4 = True
 except ModuleNotFoundError:
-    have_lz4 = False
+    test_have_lz4 = False

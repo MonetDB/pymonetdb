@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List
 from unittest import TestCase
-from tests.util import test_args
 from pymonetdb.policy import FetchPolicy
 
 

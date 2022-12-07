@@ -9,6 +9,7 @@ import logging
 import platform
 
 from pymonetdb.sql import cursors
+from pymonetdb.policy import FetchPolicy
 from pymonetdb import exceptions
 from pymonetdb import mapi
 
@@ -21,7 +22,9 @@ class Connection:
 
     def __init__(self, database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None, connect_timeout=-1):
+                 host=None, user=None, connect_timeout=-1,
+                 binary=1, fetchsize=None, maxfetchsize=None,
+                 ):
         """ Set up a connection to a MonetDB SQL database.
 
         args:
@@ -35,6 +38,11 @@ class Connection:
             autocommit (bool):  enable/disable auto commit (default: False)
             connect_timeout -- the socket timeout while connecting
                                (default: see python socket module)
+            binary (int):  enable binary result sets when possible if > 0 (default: 1)
+            fetchsize(int): larger values transfer result sets in larger chunks,
+                            also controls cursor.arraysize (default: 100)
+            maxfetchsize(int): upper limit on growth of result set chunk size
+                               (default: 100_000)
 
         MAPI URI:
             tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
@@ -45,9 +53,12 @@ class Connection:
 
         """
 
+        policy = FetchPolicy(fetchsize, maxfetchsize, True if binary is None else binary > 0)
+
         self.autocommit = autocommit
         self.sizeheader = True
-        self.replysize = 0
+        self._policy = policy
+        self.replysize = 100   # server default
 
         # The DB API spec is not specific about this
         if host:
@@ -62,16 +73,20 @@ class Connection:
         # The options start out with member .sent set to False.
         handshake_options = [
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
-            mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
+            mapi.HandshakeOption(2, "reply_size", self.set_replysize, lambda: policy.decide_connect_reply_size()),
             mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
             mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
         ]
+
+        def handshake_options_callback(server_supports_binary: bool):
+            policy.set_server_supports_binary(server_supports_binary)
+            return handshake_options
 
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
-                          handshake_options=handshake_options)
+                          handshake_options=handshake_options_callback)
 
         # self.mapi.connect() has set .sent to True for all items that
         # have already been arranged during the initial challenge/response.
@@ -79,6 +94,8 @@ class Connection:
         for option in handshake_options:
             if not option.sent:
                 option.fallback(option.value)
+
+        self.replysize = policy.decide_connect_reply_size()
 
     def close(self):
         """ Close the connection.

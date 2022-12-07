@@ -15,7 +15,6 @@ class FetchPolicy:
     DEFAULT_VALUE = 100
     DEFAULT_MAXVALUE = 100_000
 
-
     _binary_requested: bool
     _binary_supported: bool
     _fetchsize: int
@@ -27,7 +26,7 @@ class FetchPolicy:
                  binary_parameter: Optional[bool],
                  ):
 
-        self._binary_supported = False # for the time being
+        self._binary_supported = False     # possibly overriden later
         self._binary_requested = binary_parameter if binary_parameter is not None else True
 
         if fetchsize_parameter is not None:

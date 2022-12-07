@@ -167,7 +167,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-        self.handshake_options = handshake_options or []
+        self.handshake_options = handshake_options or (lambda b: [])
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -400,6 +400,14 @@ class Connection(object):
 
         response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
 
+        self.supports_binexport = False
+        if len(challenges) >= 8:
+            part = challenges[7]
+            assert part.startswith('BINARY=')
+            self.supports_binexport = True
+
+        handshake_options = self.handshake_options(self.supports_binexport)
+
         if len(challenges) >= 7:
             response += "FILETRANS:"
             options_level = 0
@@ -410,19 +418,13 @@ class Connection(object):
                     except ValueError:
                         raise OperationalError("invalid sql options level in server challenge: " + part)
             options = []
-            for opt in self.handshake_options:
+            for opt in handshake_options:
                 if opt.level < options_level:
-                    options.append(opt.name + "=" + str(int(opt.value)))
+                    value = opt.value
+                    val = value() if callable(value) else value
+                    options.append(opt.name + "=" + str(int(val)))
                     opt.sent = True
             response += ",".join(options) + ":"
-
-        self.supports_binexport = False
-        if len(challenges) >= 8:
-            part = challenges[7]
-            assert part.startswith('BINARY=')
-            bits = int(part[7:])
-            if bits & 1:
-                self.supports_binexport = True
 
         return response
 
