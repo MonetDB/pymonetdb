@@ -12,7 +12,6 @@ from abc import abstractmethod
 import array
 import json
 from typing import Any, Callable, Dict, List, Optional
-import uuid
 
 from pymonetdb.sql import types
 import pymonetdb.sql.cursors
@@ -66,8 +65,6 @@ class ZeroDelimitedDecoder(BinaryDecoder):
         types.VARCHAR: _decode_utf8,
         types.CLOB: _decode_utf8,
         types.URL: _decode_utf8,
-        types.INET: _decode_utf8,
-        types.UUID: lambda x: uuid.UUID(bytes=x),
         types.JSON: json.loads,
     }
 
