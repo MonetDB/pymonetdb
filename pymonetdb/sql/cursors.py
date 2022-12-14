@@ -7,6 +7,7 @@
 import logging
 from collections import namedtuple
 import struct
+import sys
 from typing import List, Optional, Dict, Tuple
 import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
@@ -135,6 +136,14 @@ class Cursor(object):
         # executed statement modified more than one row, e.g. when
         # using INSERT with .executemany().
         self.lastrowid = None
+
+        # This is used to unpack binary result sets
+        server_endian = self.connection.mapi.server_endian
+        if server_endian == 'little':
+            unpacker = '<q'
+        elif server_endian == 'big':
+            unpacker = '>q'
+        self._unpack_int64 = unpacker
 
     def _check_executed(self):
         if not self._executed:
@@ -508,7 +517,7 @@ class Cursor(object):
         if len(block) < 8:
             self._exception_handler(InterfaceError, "binary response too short")
 
-        toc_pos = struct.unpack_from('@q', block, len(block) - 8)[0]
+        toc_pos = struct.unpack_from(self._unpack_int64, block, len(block) - 8)[0]
         if toc_pos < 0:
             # It actually points to the error message.
             # The message ends at the first \x00.
@@ -523,15 +532,16 @@ class Cursor(object):
         # if we get here toc_pos actually points to the toc.
         ncols = len(self._bindecoders)
         cols = []
+        wrong_endian = self.connection.mapi.server_endian != sys.byteorder
         for i in range(ncols):
             # TODO fix endianness
             start_pos = toc_pos + 16 * i
             length_pos = start_pos + 8
-            start = struct.unpack_from('@q', block, start_pos)[0]
-            length = struct.unpack_from('@q', block, length_pos)[0]
+            start = struct.unpack_from(self._unpack_int64, block, start_pos)[0]
+            length = struct.unpack_from(self._unpack_int64, block, length_pos)[0]
             slice = block[start:start + length]
             decoder = self._bindecoders[i]
-            col = decoder.decode(slice)
+            col = decoder.decode(wrong_endian, slice)
             cols.append(col)
         rows = list(zip(*cols))
         self._rows = rows

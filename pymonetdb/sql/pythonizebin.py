@@ -25,7 +25,7 @@ for code in 'bhilq':
 
 class BinaryDecoder:
     @abstractmethod
-    def decode(self, data: memoryview) -> List[Any]:
+    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
         """Interpret the given bytes as a list of Python objects"""
         pass
 
@@ -47,9 +47,11 @@ class IntegerDecoder(BinaryDecoder):
         self.array_letter = WIDTH_TO_ARRAY_TYPE[width]
         self.null_value = 1 << (description.internal_size - 1)
 
-    def decode(self, data: memoryview) -> List[Any]:
+    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
         arr = array.array(self.array_letter)
         arr.frombytes(data)
+        if wrong_endian:
+            arr.byteswap()
         values = [v if v != self.null_value else None for v in arr]
         return values
 
@@ -73,7 +75,7 @@ class ZeroDelimitedDecoder(BinaryDecoder):
     def __init__(self, description: 'pymonetdb.sql.cursors.Description'):
         self.converter = self.type_codes[description.type_code]
 
-    def decode(self, data: memoryview) -> List[Any]:
+    def decode(self, _wrong_endian, data: memoryview) -> List[Any]:
         null_value = b'\x80'
         # tobytes causes a copy but I don't see how that can be avoided
         parts = data.tobytes().split(b'\x00')
