@@ -505,12 +505,27 @@ class Cursor(object):
 
     def _store_binary_result(self, block: memoryview):
         assert self._bindecoders is not None
+        if len(block) < 8:
+            self._exception_handler(InterfaceError, "binary response too short")
+
+        toc_pos = struct.unpack_from('@q', block, len(block) - 8)[0]
+        if toc_pos < 0:
+            # It actually points to the error message.
+            # The message ends at the first \x00.
+            bmsg = bytes(block[toc_pos:-8])
+            bmsg = bmsg.split(b'\x00', 1)[0]
+            try:
+                msg = str(bmsg, 'utf-8')
+            except UnicodeDecodeError:
+                self._exception_handler(InterfaceError, "invalid utf-8 in error message")
+            self._exception_handler(ProgrammingError, msg)
+
+        # if we get here toc_pos actually points to the toc.
         ncols = len(self._bindecoders)
-        trailer_start = len(block) - 2 * 8 * ncols
         cols = []
         for i in range(ncols):
             # TODO fix endianness
-            start_pos = trailer_start + 16 * i
+            start_pos = toc_pos + 16 * i
             length_pos = start_pos + 8
             start = struct.unpack_from('@q', block, start_pos)[0]
             length = struct.unpack_from('@q', block, length_pos)[0]
