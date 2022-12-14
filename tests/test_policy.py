@@ -1,15 +1,19 @@
-from dataclasses import dataclass
 from typing import List
 from unittest import TestCase
 from pymonetdb.policy import FetchPolicy
 
 
-@dataclass
 class Scenario:
     policy: FetchPolicy
     handshake_reply_size: int
     initial_arraysize: int
     positions: List[int]
+
+    def __init__(self, policy, handshake_reply_size, initial_arraysize, positions):
+        self.policy = policy
+        self.handshake_reply_size = handshake_reply_size
+        self.initial_arraysize = initial_arraysize
+        self.positions = positions
 
 
 def run_scenario(
