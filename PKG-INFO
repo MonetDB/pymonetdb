@@ -27,7 +27,7 @@ Description: .. This Source Code Form is subject to the terms of the Mozilla Pub
         
         This is the new native python client API.  This API is cross-platform,
         and doesn't depend on any monetdb libraries.  It has support for
-        python 2.5+ and is Python DBAPI 2.0 compatible.
+        python 3.6+ and is Python DBAPI 2.0 compatible.
         
         
         Installation
