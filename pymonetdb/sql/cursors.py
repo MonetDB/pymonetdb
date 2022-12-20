@@ -30,7 +30,10 @@ class Cursor(object):
 
     connection: 'pymonetdb.sql.connections.Connection'
     operation: str
+
     arraysize: int
+    """Default value for the size parameter of :func:`~pymonetdb.sql.cursors.Cursor.fetchmany`. """
+
     rowcount: int
     description: Optional[Description]
     _can_bindecode: Optional[bool]

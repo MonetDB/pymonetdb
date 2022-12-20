@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    introduction
+   batchsize
    filetransfers
    examples
    api
