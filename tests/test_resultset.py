@@ -129,7 +129,7 @@ class BaseTestCases(TestCase):
 
     def test_fetchmany(self, n=1000):
         self.do_query(n)
-        for i in range(self.rowcount // 10):
+        for i in range(n):
             self.do_fetchmany(None)
         self.assertAtEnd()
 
@@ -186,6 +186,31 @@ class BaseTestCases(TestCase):
 class TestResultSet(BaseTestCases):
     def connect(self):
         return self.connect_with()
+
+
+class TestResultSetNoBinary(BaseTestCases):
+    def connect(self):
+        self.need_binary()  # otherwise TestResultSet tests the same
+        return self.connect_with(binary=0)
+
+
+class TestResultSetForceBinary(BaseTestCases):
+    def connect(self):
+        # replysize 1 switches to binary protocol soonest,
+        # at the cost of more batches
+        self.need_binary()
+        return self.connect_with(binary=1, replysize=1)
+
+
+class TestResultSetFetchAllBinary(BaseTestCases):
+    def connect(self):
+        self.need_binary()
+        return self.connect_with(binary=1, replysize=-1)
+
+
+class TestResultSetFetchAllNoBinary(BaseTestCases):
+    def connect(self):
+        return self.connect_with(binary=0, replysize=-1)
 
 
 # Make sure the abstract base class doesn't get executed
