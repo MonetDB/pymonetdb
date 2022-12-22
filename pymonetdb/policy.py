@@ -60,7 +60,7 @@ class BatchPolicy:
         return reply_size
 
     def scroll(self):
-        return self.new_query()
+        self.last = 0
 
     def batch_size(self,
                    already_used: int,

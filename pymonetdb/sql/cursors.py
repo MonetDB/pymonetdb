@@ -554,12 +554,17 @@ class Cursor(object):
         if mode == 'relative':
             value += self.rownumber
 
+        if self._offset <= value < self._offset + len(self._rows):
+            self.rownumber = value
+            return
+
         if value > self.rowcount:
             self._exception_handler(IndexError, "value beyond length of resultset")
 
         self.rownumber = value
         self._offset = value
         self._rows = []
+        self._policy.scroll()
 
     def _exception_handler(self, exception_class, message):
         """
