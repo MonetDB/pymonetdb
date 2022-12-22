@@ -5,105 +5,104 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
-import math
-from typing import Optional
+import copy
 
 
-class FetchPolicy:
-    """This class centralizes the decisions about arraysize, reply size, fetch size, etc."""
+class BatchPolicy:
+    """This class centralizes the decisions about result set batch sizes"""
 
-    DEFAULT_VALUE = 100
-    DEFAULT_MAXVALUE = 100_000
+    SMALL_NUMBER = 10
+    DEFAULT_NUMBER = 100
+    BIG_NUMBER = 100_000
 
-    _binary_requested: bool
-    _binary_supported: bool
-    _fetchsize: int
-    _maxfetchsize: int
+    # To be set by the user
+    binary = True
+    replysize = DEFAULT_NUMBER
+    maxprefetch = BIG_NUMBER
 
-    def __init__(self,
-                 fetchsize_parameter: Optional[int],
-                 maxfetchsize_parameter: Optional[int],
-                 binary_parameter: Optional[bool],
-                 ):
+    # Determined during handshake
+    server_supports_binary = False
 
-        self._binary_supported = False     # possibly overriden later
-        self._binary_requested = binary_parameter if binary_parameter is not None else True
+    # per-cursor state
+    last = 0
 
-        if fetchsize_parameter is not None:
-            self._fetchsize = int(fetchsize_parameter)
-        else:
-            self._fetchsize = self.DEFAULT_VALUE
+    def __init__(self):
+        pass
 
-        if maxfetchsize_parameter is not None:
-            maxfetchsize = int(maxfetchsize_parameter)
-        else:
-            maxfetchsize = self.DEFAULT_MAXVALUE
-        self._maxfetchsize = max(maxfetchsize, self._fetchsize)
-
-    def set_server_supports_binary(self, server_supports_binary):
-        self._binary_supported = server_supports_binary
+    def clone(self) -> "BatchPolicy":
+        return copy.copy(self)
 
     def use_binary(self) -> bool:
-        return self._binary_requested and self._binary_supported
+        return self.binary and self.server_supports_binary
 
-    def decide_connect_reply_size(self) -> int:
-        """Decide the reply size to be set at connect time.
-
-        This is sent to the server at connect time.
-        """
-        if self._fetchsize > 0:
-            return self._fetchsize
-        elif self.use_binary():
-            # <= 0 means fetch all data at once but if we have binary
-            # we prefer to do it in binary so we send a small positive value.
-            return math.ceil(self.DEFAULT_VALUE / 10)
+    def _effective_reply_size(self) -> int:
+        if self.use_binary() and self.replysize < 0:
+            # Only include a few rows in the initial reply so the rest can
+            # be fetched using the binary protocol
+            return self.SMALL_NUMBER
         else:
-            # ask server to return all data at once
-            return -1
+            # return replysize even when it's negative
+            return self.replysize
+
+    def handshake_reply_size(self) -> int:
+        return self._effective_reply_size()
 
     def decide_arraysize(self) -> int:
-        """Decide the default arraysize for new cursors."""
-        if self._fetchsize > 0:
-            return self._fetchsize
+        if self.replysize > 0:
+            return self.replysize
         else:
-            return self.DEFAULT_VALUE
+            return self.DEFAULT_NUMBER
 
-    def decide_cursor_reply_size(self, arraysize: int) -> int:
-        """
-        Decide the reply size to use for queries on a specific cursor.
+    def new_query(self) -> int:
+        # reply size computation is the same
+        reply_size = self._effective_reply_size()
+        self.last = reply_size
+        return reply_size
 
-        This is the reply size set just before a new query is sent.
-        """
-        if self._fetchsize > 0 and arraysize > 0:
-            return arraysize
+    def scroll(self):
+        return self.new_query()
+
+    def batch_size(self,
+                   already_used: int,
+                   request_start: int, request_end: int,
+                   result_end: int
+                   ) -> int:
+
+        assert request_start <= request_end <= result_end
+
+        if self.use_binary() and self.replysize < 0:
+            # special case. application wants to retrieve
+            # everything in one go but we kept the initial
+            # reply small because the binary protocol
+            # is more efficient.
+            # now retrieve the rest in one go.
+            return result_end - request_start
+
+        if self.last > 0:
+            size = 2 * self.last
         else:
-            # handles the special cases around binary
-            return self.decide_connect_reply_size()
+            size = self._effective_reply_size()
+        prefetch_end = request_start + size
 
-    def decide_fetch_amount(self,
-                            arraysize: int,
-                            adjacent: int,
-                            current_row: int,
-                            total_rows: int
-                            ) -> int:
-        """Decide how large a block to fetch next
+        # align to fetchmany stride,
+        # exploit that the % operator always returns nonnegative.
+        real_start = request_start - already_used
+        adjustment = (real_start - prefetch_end) % (request_end - real_start)
+        prefetch_end += adjustment
 
-        Parameters:
-        - arraysize: the cursors arraysize
-        - adjacent: see below
-        - current_row: first row to fetch
-        - total_rows: size of result set
+        # apply maxprefetch
+        if self.maxprefetch >= 0:
+            limit = request_end + self.maxprefetch
+            if prefetch_end > limit:
+                prefetch_end = limit
 
-        Adjacent must start at 1.
-        It must be incremented right after every call to this function.
-        When cursor.scroll() is called it must be reset to 0.
-        """
+        # do not fetch beyond the end
+        if prefetch_end > result_end:
+            prefetch_end = result_end
 
-        available = total_rows - current_row
-
-        if self._fetchsize <= 0:
-            return available
-
-        n = self.decide_cursor_reply_size(arraysize) << adjacent
-
-        return min(available, n, self._maxfetchsize)
+        # We have computed how much we would prefetch, but maybe the user
+        # explicitly asked for more than that
+        end = max(prefetch_end, request_end)
+        to_fetch = end - request_start
+        self.last = to_fetch
+        return to_fetch

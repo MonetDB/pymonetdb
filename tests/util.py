@@ -18,8 +18,8 @@ test_password = environ.get('TSTPASSWORD', 'monetdb')
 test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 test_control = environ.get('TSTCONTROL', 'tcp,local')
-test_fetchsize = environ.get('TSTFETCHSIZE')
-test_maxfetchsize = environ.get('TSTMAXFETCHSIZE')
+test_replysize = environ.get('TSTREPLYSIZE')
+test_maxprefetch = environ.get('TSTMAXPREFETCH')
 test_binary = environ.get('TSTBINARY')
 
 test_mapi_args = {
@@ -30,10 +30,10 @@ test_mapi_args = {
     'password': test_password,
 }
 test_args = test_mapi_args.copy()
-if test_fetchsize is not None:
-    test_args['fetchsize'] = int(test_fetchsize)
-if test_maxfetchsize is not None:
-    test_args['maxfetchsize'] = int(test_maxfetchsize)
+if test_replysize is not None:
+    test_args['replysize'] = int(test_replysize)
+if test_maxprefetch is not None:
+    test_args['maxprefetch'] = int(test_maxprefetch)
 if test_binary is not None:
     test_args['binary'] = int(test_binary)
 

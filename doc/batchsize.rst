@@ -19,7 +19,8 @@ Setting name    Defined by      Range                       Default
 The `replysize` and `maxprefetch` settings can be set as attributes of both
 `Connection` and `Cursor`. They can also be passed as parameters in the
 connection url. The `arraysize` setting only exists on `Cursor`.  It defaults to
-`replysize` if that is positive, or 100 otherwise.
+the `replysize` of the connection when the cursor was created if that is
+positive, or 100 otherwise.
 
 
 Batching behavior
@@ -33,7 +34,7 @@ How the rest of the rows are retrieved depends on the way they are accessed.
 `Cursor.fetchone()` and `Cursor.fetchmany()` retrieve the remainder of the rows
 in batches of increasing size. Every batch is twice as large as the previous
 batch until the prefetch limit `maxprefetch` has been reached. This setting
-controls the number of rows that are fetched but are not immediately used.
+controls the maximum number of rows that are fetched but are not immediately used.
 With `Cursor.fetchall()` all rows are retrieved at once.
 
 When `Cursor.fetchmany()` is used, the batch sizes are adjusted to the requested

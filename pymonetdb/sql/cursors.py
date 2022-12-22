@@ -9,6 +9,7 @@ from collections import namedtuple
 import struct
 import sys
 from typing import List, Optional, Dict, Tuple
+from pymonetdb.policy import BatchPolicy
 import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
 from pymonetdb.sql import monetize, pythonize, pythonizebin
@@ -29,6 +30,7 @@ class Cursor(object):
     cursors"""
 
     connection: 'pymonetdb.sql.connections.Connection'
+    _policy: BatchPolicy
     operation: str
 
     arraysize: int
@@ -39,25 +41,26 @@ class Cursor(object):
     _can_bindecode: Optional[bool]
     _bindecoders: Optional[List['pythonizebin.BinaryDecoder']]
     rownumber: int
-    _executed: str
+    _executed: Optional[str]
     _offset: int
     _rows: List[Tuple]
     _must_close_resultset: bool
     _query_id: int
     messages: List[str]
-    lastrowid: int
+    lastrowid: Optional[int]
 
-    def __init__(self, connection):
+    def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
         object on which the cursor was created."""
         self.connection = connection
+        self._policy = connection._policy.clone()
 
         # last executed operation (query)
         self.operation = ""
 
         # This read/write attribute specifies the number of rows to
         # fetch at a time with .fetchmany()
-        self.arraysize = connection._policy.decide_arraysize()
+        self.arraysize = self._policy.decide_arraysize()
 
         # This read-only attribute specifies the number of rows that
         # the last .execute*() produced (for DQL statements like
@@ -185,10 +188,9 @@ class Cursor(object):
         self._close_earlier_resultset()
         self._can_bindecode = None
         self._bindecoders = None
-        self._adjacent = 1
 
         # set the number of rows to fetch
-        desired_replysize = self.connection._policy.decide_cursor_reply_size(self.arraysize)
+        desired_replysize = self._policy.new_query()
         if self.connection.replysize != desired_replysize:
             self.connection.set_replysize(desired_replysize)
 
@@ -251,16 +253,15 @@ class Cursor(object):
         single sequence, or None when no more data is available."""
 
         self._check_executed()
-
         if self._query_id == -1:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
-        if self.rownumber >= self.rowcount:
-            return None
-
-        if self.rownumber >= (self._offset + len(self._rows)):
-            self._nextchunk(fetch_all=False)
+        cache_end = self._offset + len(self._rows)
+        if self.rownumber >= cache_end:
+            if self.rownumber >= self.rowcount:
+                return None
+            self._populate_cache(0, self.rownumber + 1)
 
         result = self._rows[self.rownumber - self._offset]
         self.rownumber += 1
@@ -273,93 +274,64 @@ class Cursor(object):
 
         The number of rows to fetch per call is specified by the
         parameter.  If it is not given, the cursor's arraysize
-        determines the number of rows to be fetched. The method
-        should try to fetch as many rows as indicated by the size
-        parameter. If this is not possible due to the specified
-        number of rows not being available, fewer rows may be
-        returned.
+        determines the number of rows to be fetched.
 
-        An Error (or subclass) exception is raised if the previous
-        call to .execute*() did not produce any result set or no
-        call was issued yet.
-
-        Note there are performance considerations involved with
-        the size parameter.  For optimal performance, it is
-        usually best to use the arraysize attribute.  If the size
-        parameter is used, then it is best for it to retain the
-        same value from one .fetchmany() call to the next."""
-
-        self._check_executed()
-
-        if self.rownumber >= self.rowcount:
-            return []
-
-        end = min(self.rownumber + (size or self.arraysize), self.rowcount)
-        result = self._rows[self.rownumber - self._offset:end - self._offset]
-        self.rownumber = min(end, len(self._rows) + self._offset)
-
-        while (end > self.rownumber) and self._nextchunk(fetch_all=False):
-            result += self._rows[self.rownumber - self._offset:end - self._offset]
-            self.rownumber = min(end, len(self._rows) + self._offset)
-        return result
-
-    def fetchall(self):
-        """Fetch all (remaining) rows of a query result, returning
-        them as a sequence of sequences (e.g. a list of tuples).
-        Note that the cursor's arraysize attribute can affect the
-        performance of this operation.
-
-        An Error (or subclass) exception is raised if the previous
+        A :class:`~pymonetdb.ProgrammingError` is raised if the previous
         call to .execute*() did not produce any result set or no
         call was issued yet."""
 
         self._check_executed()
-
         if self._query_id == -1:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
-        result = self._rows[self.rownumber - self._offset:]
-        self.rownumber = len(self._rows) + self._offset
+        if size is None:
+            size = self.arraysize
 
-        # slide the window over the resultset
-        while self._nextchunk(fetch_all=True):
-            result += self._rows
-            self.rownumber = len(self._rows) + self._offset
+        cache_end = self._offset + len(self._rows)
+        requested_end = min(self.rownumber + size, self.rowcount)
+
+        if requested_end <= cache_end:
+            result = self._rows[self.rownumber - self._offset:requested_end - self._offset]
+            self.rownumber = requested_end
+        else:
+            result = self._rows[self.rownumber - self._offset:cache_end - self._offset]
+            self.rownumber = cache_end
+            self._populate_cache(len(result), requested_end)
+            result += self._rows[self.rownumber - self._offset:requested_end - self._offset]
+            self.rownumber = requested_end
 
         return result
 
-    def _nextchunk(self, fetch_all: bool):
-        self._check_executed()
+    def fetchall(self):
+        """Fetch all remaining rows of a query result, returning
+        them as a sequence of sequences (e.g. a list of tuples).
 
-        if self.rownumber >= self.rowcount:
-            return False
+        A :class:`~pymonetdb.ProgrammingError` is raised if the previous
+        call to .execute*() did not produce any result set or no
+        call was issued yet."""
 
-        self._offset += len(self._rows)
+        return self.fetchmany(self.rowcount)
 
-        if fetch_all:
-            amount = self.rowcount - self._offset
-        else:
-            amount = self.connection._policy.decide_fetch_amount(
-                self.arraysize,
-                self._adjacent,
-                self._offset,
-                self.rowcount
-            )
-            self._adjacent += 1
+    def _populate_cache(self, already_used, requested_end):
+        del self._rows[:]
+        self._offset = self.rownumber
+
+        rows_to_fetch = self._policy.batch_size(
+            already_used,
+            self.rownumber, requested_end,
+            self.rowcount)
 
         if self._can_bindecode is None:
             self._check_bindecode_possible()
-
         if self._can_bindecode:
-            command = 'Xexportbin %s %s %s' % (self._query_id, self._offset, amount)
+            command = 'Xexportbin %s %s %s' % (self._query_id, self.rownumber, rows_to_fetch)
             binary_block = self.connection.binary_command(command)
             self._store_binary_result(binary_block)
         else:
-            command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
+            command = 'Xexport %s %s %s' % (self._query_id, self.rownumber, rows_to_fetch)
             block = self.connection.command(command)
             self._store_result(block)
-        return True
 
     def _check_bindecode_possible(self):
         self._can_bindecode = False
@@ -586,11 +558,8 @@ class Cursor(object):
             self._exception_handler(IndexError, "value beyond length of resultset")
 
         self.rownumber = value
-        if value < self._offset or value > self._offset + len(self._rows):
-            self._offset = value
-            self._rows = []
-            self._adjacent = 0
-            self._nextchunk(False)
+        self._offset = value
+        self._rows = 0
 
     def _exception_handler(self, exception_class, message):
         """
