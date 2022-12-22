@@ -559,7 +559,7 @@ class Cursor(object):
 
         self.rownumber = value
         self._offset = value
-        self._rows = 0
+        self._rows = []
 
     def _exception_handler(self, exception_class, message):
         """
