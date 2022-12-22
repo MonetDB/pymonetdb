@@ -7,7 +7,10 @@
 
 from typing import List, Optional
 from unittest import TestCase
+from urllib.parse import parse_qsl, urlencode, urlparse
+import pymonetdb
 from pymonetdb.policy import BatchPolicy
+from tests.util import test_args, test_url
 
 
 def run_scenario(rowcount: int,
@@ -333,3 +336,119 @@ class TestBatchPolicy(TestCase):
         pol = master.clone()
         self.assertEqual(100, pol.decide_arraysize())
 
+
+class TestPolicySetting(TestCase):
+    _server_has_binary: Optional[bool]
+    _conns: List[pymonetdb.Connection]
+
+    def setUp(self):
+        self._conns = []
+
+    def tearDown(self):
+        for conn in self._conns:
+            try:
+                conn.close()
+            except pymonetdb.exceptions.Error:
+                pass
+        self._conns = []
+
+    def _connect(self, **kw_args):
+        try:
+            args = dict()
+            args.update(test_args)
+            for key in ['replysize', 'maxprefetch', 'binary']:
+                if key in args:
+                    del args[key]
+            args.update(kw_args)
+            conn = pymonetdb.connect(**args)
+            self._conns.append(conn)
+            return conn
+        except AttributeError:
+            self.fail("No connect method found in pymonetdb module")
+
+    def check_more(self, conn: pymonetdb.Connection):
+        self.assertEqual(conn.binary > 0, conn._policy.binary)
+        self.assertEqual(conn.replysize, conn._policy.replysize)
+        self.assertEqual(conn.maxprefetch, conn._policy.maxprefetch)
+
+        cursor = conn.cursor()
+
+        self.assertEqual(cursor.binary > 0, conn.binary)
+        self.assertEqual(cursor.replysize, conn.replysize)
+        self.assertEqual(cursor.maxprefetch, conn.maxprefetch)
+        if cursor.replysize < 0:
+            self.assertEqual(100, cursor.arraysize)
+        else:
+            self.assertEqual(cursor.replysize, cursor.arraysize)
+
+        self.assertEqual(cursor.binary > 0, cursor._policy.binary)
+        self.assertEqual(cursor.replysize, cursor._policy.replysize)
+        self.assertEqual(cursor.maxprefetch, cursor._policy.maxprefetch)
+
+    def test_defaults(self):
+        conn = self._connect()
+        self.assertEqual(True, conn._policy.binary)   # by default we WANT binary
+        self.assertEqual(100, conn._policy.replysize)
+        self.assertEqual(100_000, conn._policy.maxprefetch)
+
+        self.check_more(conn)
+
+    def test_constructor_parameters1(self):
+        conn = self._connect(replysize=99, maxprefetch=333, binary=0)
+        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(99, conn._policy.replysize)
+        self.assertEqual(333, conn._policy.maxprefetch)
+
+        self.check_more(conn)
+
+    def test_constructor_parameters2(self):
+        conn = self._connect(replysize=-1, maxprefetch=-1, binary=1)
+        self.assertEqual(True, conn._policy.binary)
+        self.assertEqual(-1, conn._policy.replysize)
+        self.assertEqual(-1, conn._policy.maxprefetch)
+
+        self.check_more(conn)
+
+    def test_conn_attr_updates(self):
+        conn = self._connect()
+        conn.replysize = 99
+        conn.maxprefetch = 333
+        conn.binary = 0
+        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(99, conn._policy.replysize)
+        self.assertEqual(333, conn._policy.maxprefetch)
+
+        self.check_more(conn)
+
+    def test_cursor_attr_updates(self):
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.replysize = 99
+        cursor.maxprefetch = 333
+        cursor.binary = 0
+        self.assertEqual(False, cursor._policy.binary)
+        self.assertEqual(99, cursor._policy.replysize)
+        self.assertEqual(333, cursor._policy.maxprefetch)
+
+    def update_url(self, replysize, maxprefetch, binary) -> str:
+        u = urlparse(test_url)
+        opts = dict(parse_qsl(u.query))
+        opts['replysize'] = replysize
+        opts['maxprefetch'] = maxprefetch
+        opts['binary'] = binary
+        u = u._replace(query=urlencode(opts))
+        return u.geturl()
+
+    def test_url_parameters1(self):
+        updated_url = self.update_url(replysize='99', maxprefetch='444', binary='1')
+        conn = pymonetdb.connect(updated_url)
+        self.assertEqual(True, conn._policy.binary)
+        self.assertEqual(99, conn._policy.replysize)
+        self.assertEqual(444, conn._policy.maxprefetch)
+
+    def test_url_parameters2(self):
+        updated_url = self.update_url(replysize='999', maxprefetch='44', binary='0')
+        conn = pymonetdb.connect(updated_url)
+        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(999, conn._policy.replysize)
+        self.assertEqual(44, conn._policy.maxprefetch)

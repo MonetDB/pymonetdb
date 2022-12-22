@@ -9,6 +9,7 @@ Module containing shared utilities only used for testing MonetDB
 
 from importlib import import_module
 from os import environ
+from urllib.parse import ParseResult, urlencode
 
 test_port = int(environ.get('MAPIPORT', 50000))
 test_database = environ.get('TSTDB', 'demo')
@@ -40,6 +41,31 @@ if test_binary is not None:
 test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 
+
+# construct the corresponding mapi url
+if ':' in test_database:
+    test_url = test_database
+else:
+    assert ':' not in test_password
+    assert ':' not in test_username
+    assert '@' not in test_password
+    assert '@' not in test_username
+    query = dict()
+    if test_replysize is not None:
+        query['replysize'] = test_replysize
+    if test_maxprefetch is not None:
+        query['maxprefetch'] = test_maxprefetch
+    if test_binary is not None:
+        query['binary'] = test_binary
+
+    test_url = ParseResult(
+        scheme="mapi:monetdb",
+        netloc=f"{test_username}:{test_password}@{test_hostname}:{test_port}",
+        path=f"/{test_database}",
+        params="",
+        query=urlencode(query),
+        fragment=""
+    ).geturl()
 
 try:
     import_module('lz4.frame')

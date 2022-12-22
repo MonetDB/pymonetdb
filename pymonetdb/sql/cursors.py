@@ -191,8 +191,8 @@ class Cursor(object):
 
         # set the number of rows to fetch
         desired_replysize = self._policy.new_query()
-        if self.connection.replysize != desired_replysize:
-            self.connection.set_replysize(desired_replysize)
+        if self.connection._current_replysize != desired_replysize:
+            self.connection._change_replysize(desired_replysize)
 
         if operation == self.operation:
             # same operation, DBAPI mentioned something about reuse
@@ -568,3 +568,27 @@ class Cursor(object):
         """
         self.messages.append((exception_class, message))
         raise exception_class(message)
+
+    def get_replysize(self) -> int:
+        return self._policy.replysize
+
+    def set_replysize(self, replysize: int):
+        self._policy.replysize = replysize
+
+    replysize = property(get_replysize, set_replysize)
+
+    def get_maxprefetch(self) -> int:
+        return self._policy.maxprefetch
+
+    def set_maxprefetch(self, maxprefetch: int):
+        self._policy.maxprefetch = maxprefetch
+
+    maxprefetch = property(get_maxprefetch, set_maxprefetch)
+
+    def get_binary(self) -> int:
+        return 1 if self._policy.binary else 0
+
+    def set_binary(self, binary: int):
+        self._policy.binary = binary > 0
+
+    binary = property(get_binary, set_binary)

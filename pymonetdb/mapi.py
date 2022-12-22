@@ -14,8 +14,8 @@ import struct
 import hashlib
 import os
 import typing
-from typing import Optional, Tuple
-from urllib.parse import urlparse, parse_qs
+from typing import Dict, Optional, Tuple
+from urllib.parse import parse_qsl, urlparse
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -115,11 +115,13 @@ class Connection(object):
         unix_socket is used if hostname is not defined.
         """
 
+        url_options = {}
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
                 raise DatabaseError("colon not allowed in database name, except as part of "
                                     "mapi:monetdb://<hostname>[:<port>]/<database> URI")
             parsed = urlparse(database[5:])
+            url_options = dict(parse_qsl(parsed.query))
             # parse basic settings
             if parsed.hostname or parsed.port:
                 # connect over tcp
@@ -138,15 +140,11 @@ class Connection(object):
                 username = parsed.username or username
                 password = parsed.password or password
                 database = ''  # must be set in uri parameter
-            # parse uri parameters
-            if parsed.query:
-                parms = parse_qs(parsed.query)
-                if 'database' in parms:
-                    if database == '':
-                        database = parms['database'][-1]
-                    else:
-                        raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
-                # Future work: parse other parameters such as reply_size.
+            if 'database' in url_options:
+                if database == '':
+                    database = url_options['database']
+                else:
+                    raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
 
         if hostname and hostname[:1] == '/' and not unix_socket:
             unix_socket = f'{hostname}/.s.monetdb.{port}'
@@ -167,7 +165,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-        self.handshake_options = handshake_options or (lambda b: [])
+        self.handshake_options = handshake_options or (lambda b, opts: [])
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -204,17 +202,17 @@ class Connection(object):
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
-            self._login(password=password)
+            self._login(password=password, url_options=url_options)
 
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, password: str, iteration=0):
+    def _login(self, password: str, url_options, iteration=0):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
         challenge = self._getblock()
-        response = self._challenge_response(challenge, password)
+        response = self._challenge_response(challenge, password, url_options)
         self._putblock(response)
         prompt = self._getblock().strip()
 
@@ -237,7 +235,7 @@ class Connection(object):
             if redirect[1] == "merovingian":
                 logger.debug("restarting authentication")
                 if iteration <= 10:
-                    self._login(iteration=iteration + 1, password=password)
+                    self._login(iteration=iteration + 1, password=password, url_options={})
                 else:
                     raise OperationalError("maximal number of redirects "
                                            "reached (10)")
@@ -356,7 +354,7 @@ class Connection(object):
 
         return view
 
-    def _challenge_response(self, challenge: str, password: str):  # noqa: C901
+    def _challenge_response(self, challenge: str, password: str, url_options: Dict[str, str]):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
@@ -406,7 +404,7 @@ class Connection(object):
             assert part.startswith('BINARY=')
             self.supports_binexport = True
 
-        handshake_options = self.handshake_options(self.supports_binexport)
+        handshake_options = self.handshake_options(self.supports_binexport, url_options)
 
         if len(challenges) >= 7:
             response += "FILETRANS:"

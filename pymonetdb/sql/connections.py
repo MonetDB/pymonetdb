@@ -7,6 +7,7 @@
 from datetime import datetime, timedelta, timezone
 import logging
 import platform
+from typing import Dict
 
 from pymonetdb.sql import cursors
 from pymonetdb.policy import BatchPolicy
@@ -20,7 +21,8 @@ class Connection:
     """A MonetDB SQL database connection"""
     default_cursor = cursors.Cursor
 
-    def __init__(self, database, hostname=None, port=50000, username="monetdb",
+    def __init__(self,   # noqa C901
+                 database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
                  host=None, user=None, connect_timeout=-1,
                  binary=1, replysize=None, maxprefetch=None,
@@ -63,7 +65,7 @@ class Connection:
         self.autocommit = autocommit
         self.sizeheader = True
         self._policy = policy
-        self.replysize = 100   # server default, will be updated after handshake
+        self._current_replysize = 100   # server default, will be updated after handshake
 
         # The DB API spec is not specific about this
         if host:
@@ -78,13 +80,21 @@ class Connection:
         # The options start out with member .sent set to False.
         handshake_options = [
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
-            mapi.HandshakeOption(2, "reply_size", self.set_replysize, lambda: policy.handshake_reply_size()),
+            mapi.HandshakeOption(2, "reply_size", self._change_replysize, lambda: policy.handshake_reply_size()),
             mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
             mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
         ]
 
-        def handshake_options_callback(server_supports_binary: bool):
+        def handshake_options_callback(server_supports_binary: bool, url_options: Dict[str, str]):
             policy.server_supports_binary = server_supports_binary
+            if 'binary' in url_options:
+                val = url_options['binary']
+                val = dict(true='1', on='1', false='0', off='0').get(val, val)
+                policy.binary = int(val) > 0
+            if 'replysize' in url_options:
+                policy.replysize = int(url_options['replysize'])
+            if 'maxprefetch' in url_options:
+                policy.maxprefetch = int(url_options['maxprefetch'])
             return handshake_options
 
         self.mapi = mapi.Connection()
@@ -100,7 +110,7 @@ class Connection:
             if not option.sent:
                 option.fallback(option.value)
 
-        self.replysize = policy.handshake_reply_size()
+        self._current_replysize = policy.handshake_reply_size()
 
     def close(self):
         """ Close the connection.
@@ -135,9 +145,9 @@ class Connection:
         self.command("Xsizeheader %s" % int(sizeheader))
         self.sizeheader = sizeheader
 
-    def set_replysize(self, replysize):
+    def _change_replysize(self, replysize):
         self.command("Xreply_size %s" % int(replysize))
-        self.replysize = replysize
+        self._current_replysize = replysize
 
     def set_timezone(self, seconds_east_of_utc):
         hours = int(seconds_east_of_utc / 3600)
@@ -163,6 +173,30 @@ class Connection:
         Must be an instance of class pymonetdb.Downloader or None
         """
         self.mapi.set_downloader(downloader)
+
+    def get_replysize(self) -> int:
+        return self._policy.replysize
+
+    def set_replysize(self, replysize: int):
+        self._policy.replysize = replysize
+
+    replysize = property(get_replysize, set_replysize)
+
+    def get_maxprefetch(self) -> int:
+        return self._policy.maxprefetch
+
+    def set_maxprefetch(self, maxprefetch: int):
+        self._policy.maxprefetch = maxprefetch
+
+    maxprefetch = property(get_maxprefetch, set_maxprefetch)
+
+    def get_binary(self) -> int:
+        return 1 if self._policy.binary else 0
+
+    def set_binary(self, binary: int):
+        self._policy.binary = binary > 0
+
+    binary = property(get_binary, set_binary)
 
     def commit(self):
         """
