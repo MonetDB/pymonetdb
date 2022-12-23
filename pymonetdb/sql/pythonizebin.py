@@ -31,28 +31,26 @@ class BinaryDecoder:
 
 
 class IntegerDecoder(BinaryDecoder):
-    type_codes = {
-        types.TINYINT: 8,
-        types.SMALLINT: 16,
-        types.INT: 32,
-        types.BIGINT: 64,
-        types.HUGEINT: 128,
-    }
-
     array_letter: str
     null_value: int
+    mapper: Optional[Callable[[int], Any]]
 
-    def __init__(self, description: 'pymonetdb.sql.cursors.Description'):
-        width = self.type_codes[description.type_code]
+    def __init__(self, width: int, description: 'pymonetdb.sql.cursors.Description', mapper: Optional[Callable[[int], Any]]=None):
+        self.mapper = mapper
         self.array_letter = WIDTH_TO_ARRAY_TYPE[width]
-        self.null_value = 1 << (description.internal_size - 1)
-
+        self.null_value = -(1 << (width - 1)
+)
     def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
         arr = array.array(self.array_letter)
         arr.frombytes(data)
         if wrong_endian:
             arr.byteswap()
-        values = [v if v != self.null_value else None for v in arr]
+        if self.mapper:
+            m = self.mapper
+            values = [v if v != self.null_value else None for v in arr]
+            values = [m(v) if v != self.null_value else None for v in arr]
+        else:
+            values = [v if v != self.null_value else None for v in arr]
         return values
 
 
@@ -61,19 +59,10 @@ def _decode_utf8(x: bytes) -> str:
 
 
 class ZeroDelimitedDecoder(BinaryDecoder):
-    type_codes: Dict[str, Callable[[bytes], Any]]
-    type_codes = {
-        types.CHAR: _decode_utf8,
-        types.VARCHAR: _decode_utf8,
-        types.CLOB: _decode_utf8,
-        types.URL: _decode_utf8,
-        types.JSON: json.loads,
-    }
-
     converter: Callable[[bytes], Any]
 
-    def __init__(self, description: 'pymonetdb.sql.cursors.Description'):
-        self.converter = self.type_codes[description.type_code]
+    def __init__(self, converter: Callable[[bytes], Any], description: 'pymonetdb.sql.cursors.Description'):
+        self.converter = converter
 
     def decode(self, _wrong_endian, data: memoryview) -> List[Any]:
         null_value = b'\x80'
@@ -87,9 +76,65 @@ class ZeroDelimitedDecoder(BinaryDecoder):
 
 def get_decoder(description: 'pymonetdb.sql.cursors.Description') -> Optional[BinaryDecoder]:
     type_code = description.type_code
-    if type_code in IntegerDecoder.type_codes:
-        return IntegerDecoder(description)
-    elif type_code in ZeroDelimitedDecoder.type_codes:
-        return ZeroDelimitedDecoder(description)
-    else:
-        return None
+    decoder = mapping.get(type_code)(description)
+    return decoder
+
+
+mapping = {
+    types.TINYINT: lambda descr: IntegerDecoder(8, descr),
+    types.SMALLINT: lambda descr: IntegerDecoder(16, descr),
+    types.INT: lambda descr: IntegerDecoder(32, descr),
+    types.BIGINT: lambda descr: IntegerDecoder(64, descr),
+    types.HUGEINT: lambda descr: IntegerDecoder(128, descr),
+
+    types.BOOLEAN: lambda descr: IntegerDecoder(8, descr, bool),
+
+    types.CHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
+    types.VARCHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
+    types.CLOB: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
+    types.URL: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
+    types.JSON: lambda descr: ZeroDelimitedDecoder(json.loads, descr),
+
+    # types.DECIMAL: Decimal,
+
+
+
+    # types.REAL: float,
+    # types.FLOAT: float,
+    # types.DOUBLE: float,
+
+
+
+    # types.DATE: py_date,
+    # types.TIME: py_time,
+    # types.TIMESTAMP: py_timestamp,
+    # types.TIMETZ: py_timetz,
+    # types.TIMESTAMPTZ: py_timestamptz,
+
+    # types.MONTH_INTERVAL: int,
+    # types.SEC_INTERVAL: py_sec_interval,
+    # types.DAY_INTERVAL: py_day_interval,
+
+
+    # types.INET: str,
+    # types.UUID: uuid.UUID,
+    # types.XML: str,
+
+    # Not supported in COPY BINARY or the binary protocol
+    # types.BLOB: py_bytes,
+    # types.GEOMETRY: strip,
+    # types.GEOMETRYA: strip,
+    # types.MBR: strip,
+    # types.OID: oid,
+
+    # These are mentioned in pythonize.py but s far as I know the server never
+    # produces them
+    #
+    # types.SERIAL: int,
+    # types.SHORTINT: int,
+    # types.MEDIUMINT: int,
+    # types.LONGINT: int,
+    # types.WRD: int,
+
+
+}

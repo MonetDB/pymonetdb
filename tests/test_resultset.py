@@ -14,10 +14,19 @@ import pymonetdb
 from tests.util import test_args
 
 QUERY = """\
-SELECT
-    value AS int_col,
-    'v' || value AS text_col
-FROM sys.generate_series(0, CAST(%d AS INT))
+WITH resultset AS (
+    SELECT
+        value AS int_col,
+        'v' || value AS text_col,
+        (value %% 2 = 0) AS bool_col,
+        42 AS dummy
+    FROM sys.generate_series(0, %d - 1)
+),
+t AS (SELECT 42 AS dummy UNION SELECT 43)
+--
+SELECT * FROM
+    resultset RIGHT OUTER JOIN t
+    ON resultset.dummy = t.dummy;
 """
 
 
@@ -77,16 +86,20 @@ class BaseTestCases(TestCase):
         cursor.execute(QUERY % n)
         self.assertEqual(n, cursor.rowcount)
 
-    def verifyField(self, n, row, col, expected):
-        value = row[col]
+    def verifyField(self, n, row, colno, expected):
+        # special case: last row consists of NULLs
+        if n == self.rowcount - 1:
+            expected = None
+        value = row[colno]
         if value == expected:
             return
-        descr = self.cursor.description[col]
-        raise self.failureException(f"At row {n}: expected field {col} '{descr.name}' to be {expected!r}, not {value!r}")
+        descr = self.cursor.description[colno]
+        raise self.failureException(f"At row {n}: expected field {colno} '{descr.name}' to be {expected!r}, not {value!r}")
 
     def verifyRow(self, n, row):
         self.verifyField(n, row, 0, n)
         self.verifyField(n, row, 1, f"v{n}")
+        self.verifyField(n, row, 2, (n % 2) == 0)
 
     def verifyBinary(self):
         if not self.have_binary():
