@@ -8,7 +8,7 @@
 
 from abc import abstractmethod
 from random import Random
-from typing import Optional
+from typing import Optional, Tuple
 from unittest import SkipTest, TestCase
 import pymonetdb
 from tests.util import test_args
@@ -28,11 +28,14 @@ class BaseTestCases(TestCase):
     cur: int = 0
     rowcount: int = 0
 
-    def need_binary(self):
+    def have_binary(self):
         if self._server_has_binary is None:
-            conn = self.connect_with()
+            conn = self.connect()
             self._server_has_binary = conn.mapi.supports_binexport
-        if not self._server_has_binary:
+        return self._server_has_binary
+
+    def test_needs_binary(self):
+        if not self.have_binary():
             raise SkipTest("need server with support for binary")
 
     def setUp(self):
@@ -49,7 +52,7 @@ class BaseTestCases(TestCase):
     def tearDown(self):
         pass
 
-    def connect_with(self, **kw_args) -> pymonetdb.Connection:
+    def connect(self, **kw_args) -> pymonetdb.Connection:
         try:
             args = dict()
             args.update(test_args)
@@ -60,8 +63,8 @@ class BaseTestCases(TestCase):
         return conn
 
     @abstractmethod
-    def connect(self) -> pymonetdb.Connection:
-        pass
+    def do_connect(self) -> Tuple[pymonetdb.Connection, Optional[int]]:
+        assert False
 
     def assertAtEnd(self):
         self.assertEqual(self.rowcount, self.cur, f"expected to be at end ({self.rowcount} rows), not {self.cur}")
@@ -69,7 +72,7 @@ class BaseTestCases(TestCase):
     def do_query(self, n):
         self.rowcount = n
         if self.conn is None:
-            self.conn = self.connect()
+            self.conn, self.expect_binary_after = self.do_connect()
         self.cursor = cursor = self.conn.cursor()
         cursor.execute(QUERY % n)
         self.assertEqual(n, cursor.rowcount)
@@ -85,6 +88,17 @@ class BaseTestCases(TestCase):
         self.verifyField(n, row, 0, n)
         self.verifyField(n, row, 1, f"v{n}")
 
+    def verifyBinary(self):
+        if not self.have_binary():
+            return
+        if self.expect_binary_after is None:
+            return
+        if self.cur <= self.expect_binary_after:
+            return
+        self.assertIsNotNone(
+            self.cursor._can_bindecode,
+            f"Expected binary result sets to be used after row {self.expect_binary_after}, am at {self.cur}")
+
     def do_fetchone(self):
         row = self.cursor.fetchone()
         if self.cur < self.rowcount:
@@ -93,6 +107,7 @@ class BaseTestCases(TestCase):
             self.cur += 1
         else:
             self.assertIsNone(row)
+        self.verifyBinary()
 
     def do_fetchmany(self, n):
         rows = self.cursor.fetchmany(n)
@@ -102,6 +117,7 @@ class BaseTestCases(TestCase):
         for i, row in enumerate(rows):
             self.verifyRow(self.cur + i, row)
         self.cur += len(rows)
+        self.verifyBinary()
 
     def do_fetchall(self):
         rows = self.cursor.fetchall()
@@ -110,6 +126,7 @@ class BaseTestCases(TestCase):
         for i, row in enumerate(rows):
             self.verifyRow(self.cur + i, row)
         self.cur += len(rows)
+        self.verifyBinary()
         self.assertAtEnd()
 
     def do_scroll(self, n, mode):
@@ -184,33 +201,52 @@ class BaseTestCases(TestCase):
 
 
 class TestResultSet(BaseTestCases):
-    def connect(self):
-        return self.connect_with()
+    def do_connect(self):
+        # no special connect parameters
+        conn = self.connect()
+        # if binary is enabled we expect to see it after row 100
+        binary_after = 100
+        return (conn, binary_after)
 
 
 class TestResultSetNoBinary(BaseTestCases):
-    def connect(self):
-        self.need_binary()  # otherwise TestResultSet tests the same
-        return self.connect_with(binary=0)
+    def do_connect(self):
+        self.test_needs_binary()  # test is not interesting if server does not support binary anyway
+        conn = self.connect(binary=0)
+        binary_after = None
+        # we do not expect to see any binary
+        return (conn, binary_after)
 
 
 class TestResultSetForceBinary(BaseTestCases):
-    def connect(self):
-        # replysize 1 switches to binary protocol soonest,
-        # at the cost of more batches
-        self.need_binary()
-        return self.connect_with(binary=1, replysize=1)
+    def do_connect(self):
+        self.test_needs_binary()
+        # replysize 1 switches to binary protocol soonest, at the cost of more batches.
+        conn = self.connect(binary=1, replysize=1)
+        binary_after = 1
+        return (conn, binary_after)
 
 
 class TestResultSetFetchAllBinary(BaseTestCases):
-    def connect(self):
-        self.need_binary()
-        return self.connect_with(binary=1, replysize=-1)
+    def do_connect(self):
+        self.test_needs_binary()
+        conn = self.connect(binary=1, replysize=-1)
+        binary_after = 10
+        return (conn, binary_after)
 
 
 class TestResultSetFetchAllNoBinary(BaseTestCases):
-    def connect(self):
-        return self.connect_with(binary=0, replysize=-1)
+    def do_connect(self):
+        conn = self.connect(binary=0, replysize=-1)
+        binary_after = None
+        return (conn, binary_after)
+
+
+class TestResultSetNoPrefetch(BaseTestCases):
+    def do_connect(self):
+        conn = self.connect(maxprefetch=0)
+        binary_after = 100
+        return (conn, binary_after)
 
 
 # Make sure the abstract base class doesn't get executed
