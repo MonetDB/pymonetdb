@@ -8,19 +8,17 @@
 
 from abc import abstractmethod
 from random import Random
-from typing import Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
 import pymonetdb
 from tests.util import test_args
 
-QUERY = """\
+QUERY_TEMPLATE = """\
 WITH resultset AS (
     SELECT
-        value AS int_col,
-        'v' || value AS text_col,
-        (value %% 2 = 0) AS bool_col,
+        %(exprs)s,
         42 AS dummy
-    FROM sys.generate_series(0, %d - 1)
+    FROM sys.generate_series(0, %(count)s - 1)
 ),
 t AS (SELECT 42 AS dummy UNION SELECT 43)
 --
@@ -29,6 +27,16 @@ SELECT * FROM
     ON resultset.dummy = t.dummy;
 """
 
+TEST_COLUMNS = dict(
+    int_col=("CAST(value AS int)", lambda n: n),
+    tinyint_col=("CAST(value % 128 AS tinyint)", lambda n: n % 128),
+    smallint_col=("CAST(value AS smallint)", lambda n: n),
+    bigint_col=("CAST(value AS bigint)", lambda n: n),
+    # hugeint_col=("CAST(value AS hugeint)", lambda n: n),    text_col=("'v' || value", lambda n: f"v{n}"),
+    text_col=("'v' || value", lambda n: f"v{n}"),
+    bool_col=("(value % 2 = 0)", lambda n: (n % 2) == 0),
+)
+
 
 class BaseTestCases(TestCase):
     _server_has_binary: Optional[bool] = None
@@ -36,6 +44,8 @@ class BaseTestCases(TestCase):
     cursor: Optional[pymonetdb.sql.cursors.Cursor] = None
     cur: int = 0
     rowcount: int = 0
+    verifiers: List[Tuple[str, Callable[[int], Any]]] = []
+    colnames: List[str] = []
 
     def have_binary(self):
         if self._server_has_binary is None:
@@ -43,7 +53,7 @@ class BaseTestCases(TestCase):
             self._server_has_binary = conn.mapi.supports_binexport
         return self._server_has_binary
 
-    def test_needs_binary(self):
+    def skip_unless_binary(self):
         if not self.have_binary():
             raise SkipTest("need server with support for binary")
 
@@ -78,28 +88,51 @@ class BaseTestCases(TestCase):
     def assertAtEnd(self):
         self.assertEqual(self.rowcount, self.cur, f"expected to be at end ({self.rowcount} rows), not {self.cur}")
 
-    def do_query(self, n):
-        self.rowcount = n
+    def do_query(self, n, cols=('int_col',), column_descriptions=TEST_COLUMNS):
+        exprs = []
+        verifiers = []
+        colnames = []
+        for col in cols:
+            expr, verifier = column_descriptions[col]
+            exprs.append(f"{expr} AS {col}")
+            verifiers.append(verifier)
+            colnames.append(col)
+        query = QUERY_TEMPLATE % dict(
+            exprs=",\n        ".join(exprs),
+            count=n
+        )
+
         if self.conn is None:
             self.conn, self.expect_binary_after = self.do_connect()
+            assert self.cursor is None
         self.cursor = cursor = self.conn.cursor()
-        cursor.execute(QUERY % n)
+        cursor.execute(query)
+
         self.assertEqual(n, cursor.rowcount)
 
-    def verifyField(self, n, row, colno, expected):
-        # special case: last row consists of NULLs
-        if n == self.rowcount - 1:
-            expected = None
-        value = row[colno]
-        if value == expected:
-            return
-        descr = self.cursor.description[colno]
-        raise self.failureException(f"At row {n}: expected field {colno} '{descr.name}' to be {expected!r}, not {value!r}")
+        self.rowcount = n
+        self.colnames = colnames
+        self.verifiers = verifiers
 
     def verifyRow(self, n, row):
-        self.verifyField(n, row, 0, n)
-        self.verifyField(n, row, 1, f"v{n}")
-        self.verifyField(n, row, 2, (n % 2) == 0)
+        # two dummy columns because of the outer join
+        self.assertEqual(len(row) - 2, len(self.verifiers))
+
+        if n == self.rowcount - 1:
+            expected = len(self.verifiers) * (None,)
+        else:
+            expected = tuple(verifier(n) for verifier in self.verifiers)
+
+        found = row[:len(self.verifiers)]
+        if found == expected:
+            return
+
+        for i in range(len(self.verifiers)):
+            if found[i] == expected[i]:
+                continue
+            self.assertEqual(expected[i], found[i], f"Mismatch at row {n}, col {i} '{self.colnames[i]}'")
+
+        self.assertEqual(expected, found, f"Mismatch at row {n}")
 
     def verifyBinary(self):
         if not self.have_binary():
@@ -212,6 +245,19 @@ class BaseTestCases(TestCase):
                 self.do_scroll(x - self.cur, 'relative')
             self.do_fetchmany(y - x)
 
+    def test_data_types(self):
+        self.do_query(250, TEST_COLUMNS.keys())
+        self.do_fetchall()
+        # no self.verifyBinary()
+
+    def test_binary_data_types(self):
+        self.skip_unless_binary()
+        blacklist = set()
+        cols = [k for k in TEST_COLUMNS.keys() if k not in blacklist]
+        self.do_query(250, cols)
+        self.do_fetchall()
+        self.verifyBinary()
+
 
 class TestResultSet(BaseTestCases):
     def do_connect(self):
@@ -224,7 +270,7 @@ class TestResultSet(BaseTestCases):
 
 class TestResultSetNoBinary(BaseTestCases):
     def do_connect(self):
-        self.test_needs_binary()  # test is not interesting if server does not support binary anyway
+        self.skip_unless_binary()  # test is not interesting if server does not support binary anyway
         conn = self.connect(binary=0)
         binary_after = None
         # we do not expect to see any binary
@@ -233,7 +279,7 @@ class TestResultSetNoBinary(BaseTestCases):
 
 class TestResultSetForceBinary(BaseTestCases):
     def do_connect(self):
-        self.test_needs_binary()
+        self.skip_unless_binary()
         # replysize 1 switches to binary protocol soonest, at the cost of more batches.
         conn = self.connect(binary=1, replysize=1)
         binary_after = 1
@@ -242,7 +288,7 @@ class TestResultSetForceBinary(BaseTestCases):
 
 class TestResultSetFetchAllBinary(BaseTestCases):
     def do_connect(self):
-        self.test_needs_binary()
+        self.skip_unless_binary()
         conn = self.connect(binary=1, replysize=-1)
         binary_after = 10
         return (conn, binary_after)
