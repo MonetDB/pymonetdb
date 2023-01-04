@@ -5,6 +5,8 @@ When a query produces a large result set, pymonetdb will often not retrieve the
 full result set at once. Instead it will fetch it in batches. The default
 behavior for the batch size is to start fairly small and increase rapidly but if
 necessary this can be configured by the application.
+In the table below you can see the settings that control the behavior
+of batched transfers.
 
 ==============  ==============  ==========================  ======================
 Setting name    Defined by      Range                       Default
@@ -68,8 +70,8 @@ running on the same host, the server will also need at least that amount of
 memory.
 
 Generally it does not make sense to make `replysize` larger than the default.
-Because of prefetching the batch sizes quickly become large anyway, and with
-newer versions of MonetDB and pymonetdb it has advantages to keep the size of
+The batch sizes grow quickly anyway, and with
+newer versions of MonetDB and pymonetdb it is better to keep the size of
 the initial response fairly small. This is because starting from version
 VERSION, MonetDB supports a binary result set protocol which is much more
 efficient to parse. However, this protocol cannot be used in the first response,
@@ -83,14 +85,14 @@ Arraysize
 ---------
 
 The batching behavior of pymonetdb is mostly governed by `replysize` and
-`maxprefetch` but the Python DBAPI also specifies `arraysize`. The relationship
-between these three is as follows:
+`maxprefetch` but the Python DBAPI also specifies the setting `arraysize`_.
+The relationship between these three is as follows:
 
 1. The `replysize` and `maxprefetch` settings are specific to pymonetdb,
    `arraysize` comes from the Python DBAPI.
 
 2. The DBAPI only uses `arraysize` as the default value for `fetchmany()`, and
-   says that it *may* influence the efficiency of `fetchall()`. It does not use
+   says that it *may* influence the efficiency of `fetchall()`. It does not mention
    `arraysize` anywhere else.
 
 3. In pymonetdb, the batching behavior is only influenced by `arraysize` if
@@ -107,3 +109,4 @@ In general all this means that `arraysize` needs no tweaking.
 
 .. _python-oracledb: https://python-oracledb.readthedocs.io/en/latest/api_manual/cursor.html#Cursor.arraysize
 
+.. _arraysize: https://peps.python.org/pep-0249/#arraysize
