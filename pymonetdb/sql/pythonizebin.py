@@ -11,7 +11,8 @@ functions for converting binary result sets to Python objects
 from abc import abstractmethod
 import array
 import json
-from typing import Any, Callable, Dict, List, Optional
+import sys
+from typing import Any, Callable, List, Optional
 
 from pymonetdb.sql import types
 import pymonetdb.sql.cursors
@@ -35,11 +36,14 @@ class IntegerDecoder(BinaryDecoder):
     null_value: int
     mapper: Optional[Callable[[int], Any]]
 
-    def __init__(self, width: int, description: 'pymonetdb.sql.cursors.Description', mapper: Optional[Callable[[int], Any]]=None):
+    def __init__(self,
+                 width: int,
+                 description: 'pymonetdb.sql.cursors.Description',
+                 mapper: Optional[Callable[[int], Any]] = None):
         self.mapper = mapper
         self.array_letter = WIDTH_TO_ARRAY_TYPE[width]
-        self.null_value = -(1 << (width - 1)
-)
+        self.null_value = -(1 << (width - 1))
+
     def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
         arr = array.array(self.array_letter)
         arr.frombytes(data)
@@ -52,6 +56,39 @@ class IntegerDecoder(BinaryDecoder):
         else:
             values = [v if v != self.null_value else None for v in arr]
         return values
+
+
+class HugeIntDecoder(BinaryDecoder):
+    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+        # we want to know if the incoming data is big or little endian but we have
+        # to reconstruct that from 'wrong_endian'
+        if wrong_endian:
+            big_endian = sys.byteorder == 'little'
+        else:
+            big_endian = sys.byteorder == 'big'
+        # we cannot directly decode 128 bits but we can decode 32 bits
+        letter = WIDTH_TO_ARRAY_TYPE[64].upper()
+        arr = array.array(letter)
+        arr.frombytes(data)
+        if wrong_endian:
+            arr.byteswap()
+        # maybe some day we can come up with something faster
+        result: List[Optional[int]] = []
+        high1 = 1 << 64
+        null_value = 1 << 127
+        wrap = 1 << 128
+        (hi_idx, lo_idx) = (0, 1) if big_endian else (1, 0)
+        for i in range(0, len(arr), 2):
+            hi = arr[i + hi_idx]
+            lo = arr[i + lo_idx]
+            n = high1 * hi + lo
+            if n == null_value:
+                result.append(None)
+            elif n >= null_value:
+                result.append(n - wrap)
+            else:
+                result.append(n)
+        return result
 
 
 def _decode_utf8(x: bytes) -> str:
@@ -76,7 +113,10 @@ class ZeroDelimitedDecoder(BinaryDecoder):
 
 def get_decoder(description: 'pymonetdb.sql.cursors.Description') -> Optional[BinaryDecoder]:
     type_code = description.type_code
-    decoder = mapping.get(type_code)(description)
+    mapper = mapping.get(type_code)
+    if not mapper:
+        return None
+    decoder = mapper(description)
     return decoder
 
 
@@ -85,7 +125,7 @@ mapping = {
     types.SMALLINT: lambda descr: IntegerDecoder(16, descr),
     types.INT: lambda descr: IntegerDecoder(32, descr),
     types.BIGINT: lambda descr: IntegerDecoder(64, descr),
-    types.HUGEINT: lambda descr: IntegerDecoder(128, descr),
+    types.HUGEINT: lambda descr: HugeIntDecoder(),
 
     types.BOOLEAN: lambda descr: IntegerDecoder(8, descr, bool),
 

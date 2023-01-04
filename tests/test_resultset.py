@@ -40,6 +40,7 @@ TEST_COLUMNS = dict(
 
 class BaseTestCases(TestCase):
     _server_has_binary: Optional[bool] = None
+    _server_has_huge: Optional[bool] = None
     conn: Optional[pymonetdb.Connection] = None
     cursor: Optional[pymonetdb.sql.cursors.Cursor] = None
     cur: int = 0
@@ -47,15 +48,32 @@ class BaseTestCases(TestCase):
     verifiers: List[Tuple[str, Callable[[int], Any]]] = []
     colnames: List[str] = []
 
+    def probe_server(self):
+        if self._server_has_binary is not None:
+            return
+        conn = self.connect()
+        self._server_has_binary = conn.mapi.supports_binexport
+        cursor = conn.cursor()
+        cursor.execute("SELECT sqlname FROM sys.types WHERE sqlname = 'hugeint'")
+        self._server_has_huge = cursor.rowcount > 0
+        cursor.close()
+        conn.close()
+
     def have_binary(self):
-        if self._server_has_binary is None:
-            conn = self.connect()
-            self._server_has_binary = conn.mapi.supports_binexport
+        self.probe_server()
         return self._server_has_binary
 
-    def skip_unless_binary(self):
+    def have_huge(self):
+        self.probe_server()
+        return self._server_has_huge
+
+    def skip_unless_have_binary(self):
         if not self.have_binary():
             raise SkipTest("need server with support for binary")
+
+    def skip_unless_have_huge(self):
+        if not self.have_huge():
+            raise SkipTest("need server with support for hugeint")
 
     def setUp(self):
         self.cur = 0
@@ -88,6 +106,13 @@ class BaseTestCases(TestCase):
     def assertAtEnd(self):
         self.assertEqual(self.rowcount, self.cur, f"expected to be at end ({self.rowcount} rows), not {self.cur}")
 
+    def execute_query(self, query):
+        if self.conn is None:
+            self.conn, self.expect_binary_after = self.do_connect()
+            assert self.cursor is None
+        self.cursor = self.conn.cursor()
+        return self.cursor.execute(query)
+
     def do_query(self, n, cols=('int_col',), column_descriptions=TEST_COLUMNS):
         exprs = []
         verifiers = []
@@ -102,13 +127,9 @@ class BaseTestCases(TestCase):
             count=n
         )
 
-        if self.conn is None:
-            self.conn, self.expect_binary_after = self.do_connect()
-            assert self.cursor is None
-        self.cursor = cursor = self.conn.cursor()
-        cursor.execute(query)
+        self.execute_query(query)
 
-        self.assertEqual(n, cursor.rowcount)
+        self.assertEqual(n, self.cursor.rowcount)
 
         self.rowcount = n
         self.colnames = colnames
@@ -245,13 +266,27 @@ class BaseTestCases(TestCase):
                 self.do_scroll(x - self.cur, 'relative')
             self.do_fetchmany(y - x)
 
+    def test_huge(self):
+        self.skip_unless_have_huge()
+        max_value = (1 << 127) - 1
+        min_value = - max_value
+        columns = dict(
+            up_from_0=("CAST(value AS hugeint)", lambda n: n),
+            down_from_0=("-CAST(value AS hugeint)", lambda n: -n),
+            up_from_min=(f"{min_value} + CAST(value AS hugeint)", lambda n: min_value + n),
+            down_from_max=(f"{max_value} - CAST(value AS hugeint)", lambda n: max_value - n),
+        )
+        self.do_query(5, columns.keys(), columns)
+        self.do_fetchall()
+        self.verifyBinary()
+
     def test_data_types(self):
         self.do_query(250, TEST_COLUMNS.keys())
         self.do_fetchall()
         # no self.verifyBinary()
 
     def test_binary_data_types(self):
-        self.skip_unless_binary()
+        self.skip_unless_have_binary()
         blacklist = set()
         cols = [k for k in TEST_COLUMNS.keys() if k not in blacklist]
         self.do_query(250, cols)
@@ -270,7 +305,7 @@ class TestResultSet(BaseTestCases):
 
 class TestResultSetNoBinary(BaseTestCases):
     def do_connect(self):
-        self.skip_unless_binary()  # test is not interesting if server does not support binary anyway
+        self.skip_unless_have_binary()  # test is not interesting if server does not support binary anyway
         conn = self.connect(binary=0)
         binary_after = None
         # we do not expect to see any binary
@@ -279,7 +314,7 @@ class TestResultSetNoBinary(BaseTestCases):
 
 class TestResultSetForceBinary(BaseTestCases):
     def do_connect(self):
-        self.skip_unless_binary()
+        self.skip_unless_have_binary()
         # replysize 1 switches to binary protocol soonest, at the cost of more batches.
         conn = self.connect(binary=1, replysize=1)
         binary_after = 1
@@ -288,7 +323,7 @@ class TestResultSetForceBinary(BaseTestCases):
 
 class TestResultSetFetchAllBinary(BaseTestCases):
     def do_connect(self):
-        self.skip_unless_binary()
+        self.skip_unless_have_binary()
         conn = self.connect(binary=1, replysize=-1)
         binary_after = 10
         return (conn, binary_after)
