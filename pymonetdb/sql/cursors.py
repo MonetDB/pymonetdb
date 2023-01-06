@@ -7,7 +7,6 @@
 import logging
 from collections import namedtuple
 import struct
-import sys
 from typing import List, Optional, Dict, Tuple
 from pymonetdb.policy import BatchPolicy
 import pymonetdb.sql.connections
@@ -507,7 +506,6 @@ class Cursor(object):
         # if we get here toc_pos actually points to the toc.
         ncols = len(self._bindecoders)
         cols = []
-        wrong_endian = self.connection.mapi.server_endian != sys.byteorder
         for i in range(ncols):
             # TODO fix endianness
             start_pos = toc_pos + 16 * i
@@ -516,7 +514,7 @@ class Cursor(object):
             length = struct.unpack_from(self._unpack_int64, block, length_pos)[0]
             slice = block[start:start + length]
             decoder = self._bindecoders[i]
-            col = decoder.decode(wrong_endian, slice)
+            col = decoder.decode(self.connection.mapi.server_endian, slice)
             cols.append(col)
         rows = list(zip(*cols))
         self._rows = rows

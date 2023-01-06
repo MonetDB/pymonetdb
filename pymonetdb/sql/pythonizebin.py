@@ -38,7 +38,7 @@ assert FLOAT_WIDTH_TO_ARRAY_TYPE[64] == 'd'
 
 class BinaryDecoder:
     @abstractmethod
-    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
         """Interpret the given bytes as a list of Python objects"""
         pass
 
@@ -55,10 +55,10 @@ class IntegerDecoder(BinaryDecoder):
         self.array_letter = INT_WIDTH_TO_ARRAY_TYPE[width]
         self.null_value = -(1 << (width - 1))
 
-    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
         arr = array.array(self.array_letter)
         arr.frombytes(data)
-        if wrong_endian:
+        if server_endian != sys.byteorder:
             arr.byteswap()
         if self.mapper:
             m = self.mapper
@@ -75,25 +75,21 @@ class HugeIntDecoder(BinaryDecoder):
     def __init__(self, mapper: Optional[Callable[[int], Any]] = None):
         self.mapper = mapper
 
-    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
         # we want to know if the incoming data is big or little endian but we have
         # to reconstruct that from 'wrong_endian'
-        if wrong_endian:
-            big_endian = sys.byteorder == 'little'
-        else:
-            big_endian = sys.byteorder == 'big'
         # we cannot directly decode 128 bits but we can decode 32 bits
         letter = INT_WIDTH_TO_ARRAY_TYPE[64].upper()
         arr = array.array(letter)
         arr.frombytes(data)
-        if wrong_endian:
+        if server_endian != sys.byteorder:
             arr.byteswap()
         # maybe some day we can come up with something faster
         result: List[Optional[int]] = []
         high1 = 1 << 64
         null_value = 1 << 127
         wrap = 1 << 128
-        (hi_idx, lo_idx) = (0, 1) if big_endian else (1, 0)
+        (hi_idx, lo_idx) = (0, 1) if server_endian == 'big' else (1, 0)
         if self.mapper is None:
             for i in range(0, len(arr), 2):
                 hi = arr[i + hi_idx]
@@ -126,10 +122,10 @@ class FloatDecoder(BinaryDecoder):
     def __init__(self, width: int):
         self.array_letter = FLOAT_WIDTH_TO_ARRAY_TYPE[width]
 
-    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
         arr = array.array(self.array_letter)
         arr.frombytes(data)
-        if wrong_endian:
+        if server_endian != sys.byteorder:
             arr.byteswap()
         values = [v if not isnan(v) else None for v in arr]
         return values
