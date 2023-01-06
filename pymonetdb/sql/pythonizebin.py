@@ -155,16 +155,20 @@ class ZeroDelimitedDecoder(BinaryDecoder):
         return values
 
 
-def get_decoder(description: 'pymonetdb.sql.cursors.Description') -> Optional[BinaryDecoder]:
+def get_decoder(cursor: 'pymonetdb.sql.cursors.Cursor', colno: int) -> Optional[BinaryDecoder]:
+    assert cursor.description
+    description = cursor.description[colno]
     type_code = description.type_code
     mapper = mapping.get(type_code)
     if not mapper:
         return None
-    decoder = mapper(description)
+    decoder = mapper(cursor, colno)
     return decoder
 
 
-def make_decimal_decoder(description: 'pymonetdb.sql.cursors.Description') -> BinaryDecoder:
+def make_decimal_decoder(cursor: 'pymonetdb.sql.cursors.Cursor', colno: int) -> BinaryDecoder:
+    assert cursor.description
+    description: 'pymonetdb.sql.cursors.Description' = cursor.description[colno]
     scale = 10 ** description.scale
     precision = description.precision
 
@@ -191,25 +195,25 @@ def make_decimal_decoder(description: 'pymonetdb.sql.cursors.Description') -> Bi
 
 
 mapping = {
-    types.TINYINT: lambda descr: IntegerDecoder(8),
-    types.SMALLINT: lambda descr: IntegerDecoder(16),
-    types.INT: lambda descr: IntegerDecoder(32),
-    types.BIGINT: lambda descr: IntegerDecoder(64),
-    types.HUGEINT: lambda descr: HugeIntDecoder(),
+    types.TINYINT: lambda cursor, colno: IntegerDecoder(8),
+    types.SMALLINT: lambda cursor, colno: IntegerDecoder(16),
+    types.INT: lambda cursor, colno: IntegerDecoder(32),
+    types.BIGINT: lambda cursor, colno: IntegerDecoder(64),
+    types.HUGEINT: lambda cursor, colno: HugeIntDecoder(),
 
-    types.BOOLEAN: lambda descr: IntegerDecoder(8, mapper=bool),
+    types.BOOLEAN: lambda cursor, colno: IntegerDecoder(8, mapper=bool),
 
-    types.CHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
-    types.VARCHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
-    types.CLOB: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
-    types.URL: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
-    types.JSON: lambda descr: ZeroDelimitedDecoder(json.loads),
+    types.CHAR: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
+    types.VARCHAR: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
+    types.CLOB: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
+    types.URL: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
+    types.JSON: lambda cursor, colno: ZeroDelimitedDecoder(json.loads),
 
     types.DECIMAL: make_decimal_decoder,
 
-    types.REAL: lambda descr: FloatDecoder(32),
-    types.FLOAT: lambda descr: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
-    types.DOUBLE: lambda descr: FloatDecoder(64),
+    types.REAL: lambda cursor, colno: FloatDecoder(32),
+    types.FLOAT: lambda cursor, colno: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
+    types.DOUBLE: lambda cursor, colno: FloatDecoder(64),
 
     # types.DATE: py_date,
     # types.TIME: py_time,

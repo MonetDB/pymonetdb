@@ -338,8 +338,8 @@ class Cursor(object):
         decoders = []
         if not self.connection._policy.use_binary():
             return
-        for desc in self.description:
-            dec = pythonizebin.get_decoder(desc)
+        for i in range(len(self.description)):
+            dec = pythonizebin.get_decoder(self, i)
             if not dec:
                 return
             decoders.append(dec)
