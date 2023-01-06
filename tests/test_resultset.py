@@ -7,6 +7,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 from abc import abstractmethod
+import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 from typing import Any, Callable, List, Optional, Tuple
@@ -71,7 +72,7 @@ class BaseTestCases(TestCase):
     def probe_server(self):
         if self._server_has_binary is not None:
             return
-        conn = self.connect()
+        conn = self.connect_with_args()
         self._server_has_binary = conn.mapi.supports_binexport
         cursor = conn.cursor()
         cursor.execute("SELECT sqlname FROM sys.types WHERE sqlname = 'hugeint'")
@@ -98,7 +99,9 @@ class BaseTestCases(TestCase):
     def setUp(self):
         self.cur = 0
         self.rowcount = 0
-        self.cursor = None
+        self.close_connection()
+
+    def close_connection(self):
         if self.cursor:
             self.cursor.close()
             self.cursor = None
@@ -109,7 +112,7 @@ class BaseTestCases(TestCase):
     def tearDown(self):
         pass
 
-    def connect(self, **kw_args) -> pymonetdb.Connection:
+    def connect_with_args(self, **kw_args) -> pymonetdb.Connection:
         try:
             args = dict()
             args.update(test_args)
@@ -120,18 +123,17 @@ class BaseTestCases(TestCase):
         return conn
 
     @abstractmethod
-    def do_connect(self) -> Tuple[pymonetdb.Connection, Optional[int]]:
+    def setup_connection(self) -> Tuple[pymonetdb.Connection, Optional[int]]:
         assert False
 
     def assertAtEnd(self):
         self.assertEqual(self.rowcount, self.cur, f"expected to be at end ({self.rowcount} rows), not {self.cur}")
 
-    def execute_query(self, query):
+    def do_connect(self):
         if self.conn is None:
-            self.conn, self.expect_binary_after = self.do_connect()
             assert self.cursor is None
-        self.cursor = self.conn.cursor()
-        return self.cursor.execute(query)
+            self.conn, self.expect_binary_after = self.setup_connection()
+            self.cursor = self.conn.cursor()
 
     def do_query(self, n, cols=('int_col',)):
         if isinstance(cols, dict):
@@ -153,7 +155,8 @@ class BaseTestCases(TestCase):
             count=n
         )
 
-        self.execute_query(query)
+        self.do_connect()
+        self.cursor.execute(query)
 
         self.assertEqual(n, self.cursor.rowcount)
 
@@ -338,52 +341,137 @@ class BaseTestCases(TestCase):
         self.do_fetchall()
         self.verifyBinary()
 
+    def test_time_temporal(self):
+        self.do_connect()
+        minutes_east = 60 + 30  # easily recognizable
+        self.conn.set_timezone(60 * minutes_east)
+        self.conn.set_autocommit(False)
+
+        our_timezone = datetime.timezone(datetime.timedelta(hours=1, minutes=30))
+
+        self.cursor.execute("DROP TABLE IF EXISTS foo")
+        self.cursor.execute("CREATE TABLE foo(name TEXT, tsz TIMESTAMPTZ, tsn TIMESTAMP)")
+        interesting_times = [
+            ('dummy', "NULL"),
+
+            ('null', "NULL"),
+            # MonetDB will normalize the following two into the exact same thing
+            ('apollo13_utc', "TIMESTAMPTZ '1970-04-17 18:07:41+00:00'"),
+            ('apollo13_pacific', "TIMESTAMPTZ '1970-04-17 10:07:41-08:00'"),
+        ]
+        insert_statement = (
+            "INSERT INTO foo(name, tsz) VALUES "
+            + ", ".join(f"('{name}', {expr})" for name, expr in interesting_times)
+        )
+        self.cursor.execute(insert_statement)
+        self.cursor.execute("UPDATE foo set tsn = tsz")
+
+        tsn = dict()
+        tsz = dict()
+        self.cursor.execute("SELECT name, tsz, tsn FROM foo")
+        rows = self.cursor.fetchall()
+
+        # update cur manually because it is set by do_fetchall but not
+        # by cursor.fetchall
+        self.cur = self.cursor.rowcount
+
+        self.cursor.execute("ROLLBACK")
+
+        for row in rows:
+            name = row[0]
+            # make REALLY REALLY sure the indices match the order in the SELECT clause!
+            tsz[name] = row[1]
+            tsn[name] = row[2]
+
+        self.assertIsNone(tsn['null'])
+        self.assertIsNone(tsz['null'])
+
+        # TSZ:
+
+        # apollo13_utc was given as 18:07+00:00,
+        # stored as 18:07 UTC,
+        # rendered on the wire as 19:37+01:30
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = tsz['apollo13_utc']
+        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
+        self.assertEqual(our_timezone, x.tzinfo)
+
+        # apollo13_pacific was given as 10:07:41-08:00,
+        # stored as 18:07 UTC,
+        # rendered on the wire as 19:37+01:30
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = tsz['apollo13_pacific']
+        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
+        self.assertEqual(our_timezone, x.tzinfo)
+
+        # TSN:
+
+        # apollo13_utc was originally given as 18:07+00:00,
+        # stored in tsz as 18:07 UTC,
+        # then stored in tsn as 18:07,
+        # rendered on the wire as 18:07
+        # converted to a DateTime of 18:07 without timezone
+        x = tsn['apollo13_utc']
+        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_utc was originally given as 10:07:41-08:00,
+        # stored in tsz as 18:07 UTC,
+        # then stored in tsn as 18:07,
+        # rendered on the wire as 18:07
+        # converted to a DateTime of 18:07 without timezone
+        x = tsn['apollo13_pacific']
+        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        self.assertGreater(self.cur, 0)
+
 
 class TestResultSet(BaseTestCases):
-    def do_connect(self):
+    def setup_connection(self):
         # no special connect parameters
-        conn = self.connect()
+        conn = self.connect_with_args()
         # if binary is enabled we expect to see it after row 100
         binary_after = 100
         return (conn, binary_after)
 
 
 class TestResultSetNoBinary(BaseTestCases):
-    def do_connect(self):
+    def setup_connection(self):
         self.skip_unless_have_binary()  # test is not interesting if server does not support binary anyway
-        conn = self.connect(binary=0)
+        conn = self.connect_with_args(binary=0)
         binary_after = None
         # we do not expect to see any binary
         return (conn, binary_after)
 
 
 class TestResultSetForceBinary(BaseTestCases):
-    def do_connect(self):
+    def setup_connection(self):
         self.skip_unless_have_binary()
         # replysize 1 switches to binary protocol soonest, at the cost of more batches.
-        conn = self.connect(binary=1, replysize=1)
+        conn = self.connect_with_args(binary=1, replysize=1)
         binary_after = 1
         return (conn, binary_after)
 
 
 class TestResultSetFetchAllBinary(BaseTestCases):
-    def do_connect(self):
+    def setup_connection(self):
         self.skip_unless_have_binary()
-        conn = self.connect(binary=1, replysize=-1)
+        conn = self.connect_with_args(binary=1, replysize=-1)
         binary_after = 10
         return (conn, binary_after)
 
 
 class TestResultSetFetchAllNoBinary(BaseTestCases):
-    def do_connect(self):
-        conn = self.connect(binary=0, replysize=-1)
+    def setup_connection(self):
+        conn = self.connect_with_args(binary=0, replysize=-1)
         binary_after = None
         return (conn, binary_after)
 
 
 class TestResultSetNoPrefetch(BaseTestCases):
-    def do_connect(self):
-        conn = self.connect(maxprefetch=0)
+    def setup_connection(self):
+        conn = self.connect_with_args(maxprefetch=0)
         binary_after = 100
         return (conn, binary_after)
 
