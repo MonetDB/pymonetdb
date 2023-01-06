@@ -12,6 +12,7 @@ from abc import abstractmethod
 import array
 from decimal import Decimal
 import json
+from math import isnan
 import sys
 from typing import Any, Callable, List, Optional
 
@@ -19,10 +20,20 @@ from pymonetdb.sql import types
 import pymonetdb.sql.cursors
 
 
-WIDTH_TO_ARRAY_TYPE = {}
+INT_WIDTH_TO_ARRAY_TYPE = {}
 for code in 'bhilq':
     bit_width = 8 * array.array(code).itemsize
-    WIDTH_TO_ARRAY_TYPE[bit_width] = code
+    INT_WIDTH_TO_ARRAY_TYPE[bit_width] = code
+
+FLOAT_WIDTH_TO_ARRAY_TYPE = {}
+for code in 'fd':
+    bit_width = 8 * array.array(code).itemsize
+    FLOAT_WIDTH_TO_ARRAY_TYPE[bit_width] = code
+
+# very unlikely but if we ever encounter a Python with highly unstandard
+# float sizes we want to know
+assert FLOAT_WIDTH_TO_ARRAY_TYPE[32] == 'f'
+assert FLOAT_WIDTH_TO_ARRAY_TYPE[64] == 'd'
 
 
 class BinaryDecoder:
@@ -41,7 +52,7 @@ class IntegerDecoder(BinaryDecoder):
                  width: int,
                  mapper: Optional[Callable[[int], Any]] = None):
         self.mapper = mapper
-        self.array_letter = WIDTH_TO_ARRAY_TYPE[width]
+        self.array_letter = INT_WIDTH_TO_ARRAY_TYPE[width]
         self.null_value = -(1 << (width - 1))
 
     def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
@@ -72,7 +83,7 @@ class HugeIntDecoder(BinaryDecoder):
         else:
             big_endian = sys.byteorder == 'big'
         # we cannot directly decode 128 bits but we can decode 32 bits
-        letter = WIDTH_TO_ARRAY_TYPE[64].upper()
+        letter = INT_WIDTH_TO_ARRAY_TYPE[64].upper()
         arr = array.array(letter)
         arr.frombytes(data)
         if wrong_endian:
@@ -107,6 +118,21 @@ class HugeIntDecoder(BinaryDecoder):
                 else:
                     result.append(mapper(n))
         return result
+
+
+class FloatDecoder(BinaryDecoder):
+    array_letter: str
+
+    def __init__(self, width: int):
+        self.array_letter = FLOAT_WIDTH_TO_ARRAY_TYPE[width]
+
+    def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
+        arr = array.array(self.array_letter)
+        arr.frombytes(data)
+        if wrong_endian:
+            arr.byteswap()
+        values = [v if not isnan(v) else None for v in arr]
+        return values
 
 
 def _decode_utf8(x: bytes) -> str:
@@ -181,13 +207,9 @@ mapping = {
 
     types.DECIMAL: make_decimal_decoder,
 
-
-
-    # types.REAL: float,
-    # types.FLOAT: float,
-    # types.DOUBLE: float,
-
-
+    types.REAL: lambda descr: FloatDecoder(32),
+    types.FLOAT: lambda descr: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
+    types.DOUBLE: lambda descr: FloatDecoder(64),
 
     # types.DATE: py_date,
     # types.TIME: py_time,

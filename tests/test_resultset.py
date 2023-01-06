@@ -50,6 +50,11 @@ TEST_COLUMNS = dict(
     text_col=("'v' || value", lambda n: f"v{n}"),
     bool_col=("(value % 2 = 0)", lambda n: (n % 2) == 0),
     decimal_col=decimal_column(5, 2),
+    real_col=("CAST(value AS REAL) / 2", lambda x: x / 2),
+    float_col=("CAST(value AS FLOAT) / 2", lambda x: x / 2),
+    double_col=("CAST(value AS DOUBLE) / 2", lambda x: x / 2),
+    f32_col=("CAST(value AS float(24)) / 2", lambda x: x / 2),
+    f53_col=("CAST(value AS float(53)) / 2", lambda x: x / 2),
 )
 
 
