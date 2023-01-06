@@ -10,6 +10,7 @@ functions for converting binary result sets to Python objects
 
 from abc import abstractmethod
 import array
+from decimal import Decimal
 import json
 import sys
 from typing import Any, Callable, List, Optional
@@ -58,6 +59,11 @@ class IntegerDecoder(BinaryDecoder):
 
 
 class HugeIntDecoder(BinaryDecoder):
+    mapper: Optional[Callable[[int], Any]]
+
+    def __init__(self, mapper: Optional[Callable[[int], Any]] = None):
+        self.mapper = mapper
+
     def decode(self, wrong_endian: bool, data: memoryview) -> List[Any]:
         # we want to know if the incoming data is big or little endian but we have
         # to reconstruct that from 'wrong_endian'
@@ -77,16 +83,29 @@ class HugeIntDecoder(BinaryDecoder):
         null_value = 1 << 127
         wrap = 1 << 128
         (hi_idx, lo_idx) = (0, 1) if big_endian else (1, 0)
-        for i in range(0, len(arr), 2):
-            hi = arr[i + hi_idx]
-            lo = arr[i + lo_idx]
-            n = high1 * hi + lo
-            if n == null_value:
-                result.append(None)
-            elif n >= null_value:
-                result.append(n - wrap)
-            else:
-                result.append(n)
+        if self.mapper is None:
+            for i in range(0, len(arr), 2):
+                hi = arr[i + hi_idx]
+                lo = arr[i + lo_idx]
+                n = high1 * hi + lo
+                if n == null_value:
+                    result.append(None)
+                elif n >= null_value:
+                    result.append(n - wrap)
+                else:
+                    result.append(n)
+        else:
+            mapper = self.mapper
+            for i in range(0, len(arr), 2):
+                hi = arr[i + hi_idx]
+                lo = arr[i + lo_idx]
+                n = high1 * hi + lo
+                if n == null_value:
+                    result.append(None)
+                elif n >= null_value:
+                    result.append(mapper(n - wrap))
+                else:
+                    result.append(mapper(n))
         return result
 
 
@@ -119,6 +138,32 @@ def get_decoder(description: 'pymonetdb.sql.cursors.Description') -> Optional[Bi
     return decoder
 
 
+def make_decimal_decoder(description: 'pymonetdb.sql.cursors.Description') -> BinaryDecoder:
+    scale = 10 ** description.scale
+    precision = description.precision
+
+    def mapper(n):
+        return Decimal(n) / scale
+
+    if precision <= 2:
+        bit_width = 8
+    elif precision <= 4:
+        bit_width = 16
+    elif precision <= 9:
+        bit_width = 32
+    elif precision <= 18:
+        bit_width = 64
+    elif precision <= 38:
+        # IntegerDecoder doesn't support 128
+        return HugeIntDecoder(mapper=mapper)
+        bit_width = 128
+    else:
+        # as far as we know MonetDB only supports up to 38
+        assert precision <= 38
+
+    return IntegerDecoder(bit_width, mapper=mapper)
+
+
 mapping = {
     types.TINYINT: lambda descr: IntegerDecoder(8),
     types.SMALLINT: lambda descr: IntegerDecoder(16),
@@ -134,7 +179,7 @@ mapping = {
     types.URL: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
     types.JSON: lambda descr: ZeroDelimitedDecoder(json.loads),
 
-    # types.DECIMAL: Decimal,
+    types.DECIMAL: make_decimal_decoder,
 
 
 
@@ -166,7 +211,7 @@ mapping = {
     # types.MBR: strip,
     # types.OID: oid,
 
-    # These are mentioned in pythonize.py but s far as I know the server never
+    # These are mentioned in pythonize.py but as far as I know the server never
     # produces them
     #
     # types.SERIAL: int,

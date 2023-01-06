@@ -7,6 +7,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 from abc import abstractmethod
+from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
@@ -27,6 +28,19 @@ SELECT * FROM
     ON resultset.dummy = t.dummy;
 """
 
+
+def decimal_column(p, s):
+    dec = f"DECIMAL({p}, {s})"
+    expr = f"CAST(CAST(value AS {dec}) * 1.5 AS {dec})"
+    # MonetDB rounds (N + 0.5) away from zero
+    quantum = Decimal('10') ** (-s)
+
+    def verifier(n):
+        return (Decimal(n) * 3 / 2).quantize(quantum, rounding=ROUND_HALF_UP)
+
+    return (expr, verifier)
+
+
 TEST_COLUMNS = dict(
     int_col=("CAST(value AS int)", lambda n: n),
     tinyint_col=("CAST(value % 128 AS tinyint)", lambda n: n % 128),
@@ -35,6 +49,7 @@ TEST_COLUMNS = dict(
     # hugeint_col=("CAST(value AS hugeint)", lambda n: n),    text_col=("'v' || value", lambda n: f"v{n}"),
     text_col=("'v' || value", lambda n: f"v{n}"),
     bool_col=("(value % 2 = 0)", lambda n: (n % 2) == 0),
+    decimal_col=decimal_column(5, 2),
 )
 
 
@@ -298,6 +313,23 @@ class BaseTestCases(TestCase):
         blacklist = set()
         cols = [k for k in TEST_COLUMNS.keys() if k not in blacklist]
         self.do_query(250, cols)
+        self.do_fetchall()
+        self.verifyBinary()
+
+    def test_decimal_types(self):
+        cases = set()
+        for p in range(1, 39):
+            cases.add((p, 0))
+            cases.add((p, min(3, p - 1)))
+
+        test_columns = dict()
+        for p, s in sorted(cases):
+            name = f"dec_{p}_{s}"
+            maker = decimal_column(p, s)
+            test_columns[name] = maker
+
+        # only get 6 rows because 1.5 * n must fit in DECIMAL(1,0)
+        self.do_query(6, test_columns)
         self.do_fetchall()
         self.verifyBinary()
 
