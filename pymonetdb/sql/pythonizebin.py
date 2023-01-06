@@ -38,7 +38,6 @@ class IntegerDecoder(BinaryDecoder):
 
     def __init__(self,
                  width: int,
-                 description: 'pymonetdb.sql.cursors.Description',
                  mapper: Optional[Callable[[int], Any]] = None):
         self.mapper = mapper
         self.array_letter = WIDTH_TO_ARRAY_TYPE[width]
@@ -98,7 +97,7 @@ def _decode_utf8(x: bytes) -> str:
 class ZeroDelimitedDecoder(BinaryDecoder):
     converter: Callable[[bytes], Any]
 
-    def __init__(self, converter: Callable[[bytes], Any], description: 'pymonetdb.sql.cursors.Description'):
+    def __init__(self, converter: Callable[[bytes], Any]):
         self.converter = converter
 
     def decode(self, _wrong_endian, data: memoryview) -> List[Any]:
@@ -121,19 +120,19 @@ def get_decoder(description: 'pymonetdb.sql.cursors.Description') -> Optional[Bi
 
 
 mapping = {
-    types.TINYINT: lambda descr: IntegerDecoder(8, descr),
-    types.SMALLINT: lambda descr: IntegerDecoder(16, descr),
-    types.INT: lambda descr: IntegerDecoder(32, descr),
-    types.BIGINT: lambda descr: IntegerDecoder(64, descr),
+    types.TINYINT: lambda descr: IntegerDecoder(8),
+    types.SMALLINT: lambda descr: IntegerDecoder(16),
+    types.INT: lambda descr: IntegerDecoder(32),
+    types.BIGINT: lambda descr: IntegerDecoder(64),
     types.HUGEINT: lambda descr: HugeIntDecoder(),
 
-    types.BOOLEAN: lambda descr: IntegerDecoder(8, descr, bool),
+    types.BOOLEAN: lambda descr: IntegerDecoder(8, mapper=bool),
 
-    types.CHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
-    types.VARCHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
-    types.CLOB: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
-    types.URL: lambda descr: ZeroDelimitedDecoder(_decode_utf8, descr),
-    types.JSON: lambda descr: ZeroDelimitedDecoder(json.loads, descr),
+    types.CHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
+    types.VARCHAR: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
+    types.CLOB: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
+    types.URL: lambda descr: ZeroDelimitedDecoder(_decode_utf8),
+    types.JSON: lambda descr: ZeroDelimitedDecoder(json.loads),
 
     # types.DECIMAL: Decimal,
 

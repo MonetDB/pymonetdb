@@ -113,12 +113,18 @@ class BaseTestCases(TestCase):
         self.cursor = self.conn.cursor()
         return self.cursor.execute(query)
 
-    def do_query(self, n, cols=('int_col',), column_descriptions=TEST_COLUMNS):
+    def do_query(self, n, cols=('int_col',)):
+        if isinstance(cols, dict):
+            test_columns = cols
+        else:
+            test_columns = dict()
+            for col in cols:
+                test_columns[col] = TEST_COLUMNS[col]
+
         exprs = []
         verifiers = []
         colnames = []
-        for col in cols:
-            expr, verifier = column_descriptions[col]
+        for col, (expr, verifier) in test_columns.items():
             exprs.append(f"{expr} AS {col}")
             verifiers.append(verifier)
             colnames.append(col)
@@ -162,7 +168,9 @@ class BaseTestCases(TestCase):
             return
         if self.cur <= self.expect_binary_after:
             return
-        self.assertIsNotNone(
+        # with this many rows, binary should have been used
+        self.assertEqual(
+            True,
             self.cursor._can_bindecode,
             f"Expected binary result sets to be used after row {self.expect_binary_after}, am at {self.cur}")
 
@@ -276,12 +284,12 @@ class BaseTestCases(TestCase):
             up_from_min=(f"{min_value} + CAST(value AS hugeint)", lambda n: min_value + n),
             down_from_max=(f"{max_value} - CAST(value AS hugeint)", lambda n: max_value - n),
         )
-        self.do_query(5, columns.keys(), columns)
+        self.do_query(5, columns)
         self.do_fetchall()
         self.verifyBinary()
 
     def test_data_types(self):
-        self.do_query(250, TEST_COLUMNS.keys())
+        self.do_query(250, TEST_COLUMNS)
         self.do_fetchall()
         # no self.verifyBinary()
 
