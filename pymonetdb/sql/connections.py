@@ -65,7 +65,8 @@ class Connection:
         self.autocommit = autocommit
         self.sizeheader = True
         self._policy = policy
-        self._current_replysize = 100   # server default, will be updated after handshake
+        self._current_replysize = 100     # server default, will be updated after handshake
+        self._current_timezone_seconds_east = 0   # server default, will be updated
 
         # The DB API spec is not specific about this
         if host:
@@ -78,11 +79,12 @@ class Connection:
 
         # Level numbers taken from mapi.h.
         # The options start out with member .sent set to False.
+        handshake_timezone_offset = _local_timezone_offset_seconds()
         handshake_options = [
             mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
             mapi.HandshakeOption(2, "reply_size", self._change_replysize, lambda: policy.handshake_reply_size()),
             mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
-            mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
+            mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
         ]
 
         def handshake_options_callback(server_supports_binary: bool, url_options: Dict[str, str]):
@@ -111,6 +113,7 @@ class Connection:
                 option.fallback(option.value)
 
         self._current_replysize = policy.handshake_reply_size()
+        self._current_timezone_seconds_east = handshake_timezone_offset
 
     def close(self):
         """ Close the connection.
@@ -157,6 +160,7 @@ class Connection:
         c = self.cursor()
         c.execute(cmd)
         c.close()
+        self._current_timezone_seconds_east = seconds_east_of_utc
 
     def set_uploader(self, uploader):
         """

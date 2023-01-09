@@ -110,7 +110,8 @@ class BaseTestCases(TestCase):
             self.conn = None
 
     def tearDown(self):
-        pass
+        if self.cursor:
+            self.cursor.execute("ROLLBACK")
 
     def connect_with_args(self, **kw_args) -> pymonetdb.Connection:
         try:
@@ -195,7 +196,7 @@ class BaseTestCases(TestCase):
         self.assertEqual(
             True,
             self.cursor._can_bindecode,
-            f"Expected binary result sets to be used after row {self.expect_binary_after}, am at {self.cur}")
+            "Expected binary result sets to be used")
 
     def do_fetchone(self):
         row = self.cursor.fetchone()
@@ -350,7 +351,16 @@ class BaseTestCases(TestCase):
         our_timezone = datetime.timezone(datetime.timedelta(hours=1, minutes=30))
 
         self.cursor.execute("DROP TABLE IF EXISTS foo")
-        self.cursor.execute("CREATE TABLE foo(name TEXT, tsz TIMESTAMPTZ, tsn TIMESTAMP)")
+        cols = [
+            "name TEXT",
+            "tsz TIMESTAMPTZ",
+            "tsn TIMESTAMP",
+            "d DATE",
+            "tz TIMETZ",
+            "tn TIME",
+        ]
+        create_statement = f"CREATE TABLE foo ({(', '.join(cols))})"
+        self.cursor.execute(create_statement)
         interesting_times = [
             ('dummy', "NULL"),
 
@@ -364,24 +374,28 @@ class BaseTestCases(TestCase):
             + ", ".join(f"('{name}', {expr})" for name, expr in interesting_times)
         )
         self.cursor.execute(insert_statement)
-        self.cursor.execute("UPDATE foo set tsn = tsz")
+        self.cursor.execute("UPDATE foo set tsn = tsz, d = tsz, tz = tsz, tn = tsz")
 
-        tsn = dict()
         tsz = dict()
-        self.cursor.execute("SELECT name, tsz, tsn FROM foo")
+        tsn = dict()
+        d = dict()
+        tz = dict()
+        tn = dict()
+        self.cursor.execute("SELECT name, tsz, tsn, d, tz, tn FROM foo")
         rows = self.cursor.fetchall()
 
         # update cur manually because it is set by do_fetchall but not
         # by cursor.fetchall
         self.cur = self.cursor.rowcount
 
-        self.cursor.execute("ROLLBACK")
-
         for row in rows:
             name = row[0]
             # make REALLY REALLY sure the indices match the order in the SELECT clause!
             tsz[name] = row[1]
             tsn[name] = row[2]
+            d[name] = row[3]
+            tz[name] = row[4]
+            tn[name] = row[5]
 
         self.assertIsNone(tsn['null'])
         self.assertIsNone(tsz['null'])
@@ -424,7 +438,61 @@ class BaseTestCases(TestCase):
         self.assertEqual('1970-04-17T18:07:41', x.isoformat())
         self.assertIsNone(x.tzinfo)
 
-        self.assertGreater(self.cur, 0)
+        # D
+
+        # apollo13_utc was originally given as 1970-04-17 18:07+00:00,
+        # then stored in d as as 1970-04-17,
+        # rendered on the wire as 1970-04-17
+        # converted to a DateTime of 18:07 without timezone
+        x = d['apollo13_utc']
+        self.assertEqual('1970-04-17', x.isoformat())
+
+        # apollo13_utc was originally given as 1970-04-17 10:07:41-08:00,
+        # then stored in d as as 1970-04-17,
+        # rendered on the wire as 1970-04-17
+        # converted to a DateTime of 18:07 without timezone
+        x = d['apollo13_pacific']
+        self.assertEqual('1970-04-17', x.isoformat())
+
+        # TZ:
+
+        # apollo13_utc was given as 18:07+00:00,
+        # stored as 18:07 UTC,
+        # rendered on the wire as 19:37+01:30
+        # converted to a Time of 19:37 in the +01:30 time zone
+        x = tz['apollo13_utc']
+        self.assertEqual('19:37:41+01:30', x.isoformat())
+        self.assertEqual(our_timezone, x.tzinfo)
+
+        # apollo13_pacific was given as 10:07:41-08:00,
+        # stored as 18:07 UTC,
+        # rendered on the wire as 19:37+01:30
+        # converted to a Time of 19:37 in the +01:30 time zone
+        x = tz['apollo13_pacific']
+        self.assertEqual('19:37:41+01:30', x.isoformat())
+        self.assertEqual(our_timezone, x.tzinfo)
+
+        # TN:
+
+        # apollo13_utc was originally given as 18:07+00:00,
+        # stored in tsz as 18:07 UTC,
+        # then stored in tn as 18:07,
+        # rendered on the wire as 18:07
+        # converted to a Time of 18:07 without timezone
+        x = tn['apollo13_utc']
+        self.assertEqual('18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_utc was originally given as 10:07:41-08:00,
+        # stored in tsz as 18:07 UTC,
+        # then stored in tsn as 18:07,
+        # rendered on the wire as 18:07
+        # converted to a Time of 18:07 without timezone
+        x = tn['apollo13_pacific']
+        self.assertEqual('18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        self.verifyBinary()
 
 
 class TestResultSet(BaseTestCases):

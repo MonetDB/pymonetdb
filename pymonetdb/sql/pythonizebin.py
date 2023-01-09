@@ -10,6 +10,7 @@ functions for converting binary result sets to Python objects
 
 from abc import abstractmethod
 import array
+from datetime import date, datetime, time, timezone, timedelta
 from decimal import Decimal
 import json
 from math import isnan
@@ -151,6 +152,98 @@ class ZeroDelimitedDecoder(BinaryDecoder):
         return values
 
 
+class TimestampDecoder(BinaryDecoder):
+    seconds_east: Optional[int]
+
+    def __init__(self, seconds_east: Optional[int]):
+        self.seconds_east = seconds_east
+
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
+        if self.seconds_east is None:
+            utczone = None
+            ourzone = None
+        else:
+            utczone = timezone.utc
+            ourzone = timezone(timedelta(seconds=self.seconds_east))
+        # this is going to be dreadfully slow
+        result = []
+
+        for i in range(0, len(data), 12):
+            rec = data[i:i + 12]
+            micros = int.from_bytes(rec[0:4], server_endian, signed=False)   # type: ignore
+            second = int(rec[4])
+            minute = int(rec[5])
+            hour = int(rec[6])
+            # byte 7 is padding
+            day = int(rec[8])
+            month = int(rec[9])
+            year = int.from_bytes(rec[10:12], server_endian, signed=True)   # type: ignore
+            if micros < 1e6:
+                ts = datetime(year, month, day, hour, minute, second, micros, tzinfo=utczone)
+                if ourzone:
+                    ts = ts.astimezone(ourzone)
+            else:
+                ts = None
+            result.append(ts)
+
+        return result
+
+
+class TimeDecoder(BinaryDecoder):
+    seconds_east: Optional[int]
+
+    def __init__(self, seconds_east: Optional[int]):
+        self.seconds_east = seconds_east
+
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
+        if self.seconds_east is None:
+            ourzone = None
+            delta = 0
+        else:
+            ourzone = timezone(timedelta(seconds=self.seconds_east))
+            delta = int(timedelta(seconds=self.seconds_east).total_seconds())
+        # this is going to be dreadfully slow
+        result = []
+
+        for i in range(0, len(data), 8):
+            rec = data[i:i + 12]
+            micros = int.from_bytes(rec[0:4], server_endian, signed=False)   # type: ignore
+            second = int(rec[4])
+            minute = int(rec[5])
+            hour = int(rec[6])
+            # byte 7 is padding
+            if micros < 1e6:
+                if delta:
+                    adjusted = (3600 * hour + 60 * minute + second + delta) % 86400
+                    hour = adjusted // 3600
+                    minute = (adjusted // 60) % 60
+                    second = adjusted % 60
+                t = time(hour, minute, second, micros, tzinfo=ourzone)
+            else:
+                t = None
+            result.append(t)
+
+        return result
+
+
+class DateDecoder(BinaryDecoder):
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
+        result = []
+
+        for i in range(0, len(data), 4):
+            rec = data[i:i + 4]
+            day = int(rec[0])
+            month = int(rec[1])
+            year = int.from_bytes(rec[2:4], server_endian, signed=True)   # type: ignore
+            if month <= 12:
+                d = date(year, month, day)
+            else:
+                d = None
+            result.append(d)
+
+        return result
+
+
 def get_decoder(cursor: 'pymonetdb.sql.cursors.Cursor', colno: int) -> Optional[BinaryDecoder]:
     assert cursor.description
     description = cursor.description[colno]
@@ -211,11 +304,11 @@ mapping = {
     types.FLOAT: lambda cursor, colno: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
     types.DOUBLE: lambda cursor, colno: FloatDecoder(64),
 
-    # types.DATE: py_date,
-    # types.TIME: py_time,
-    # types.TIMESTAMP: py_timestamp,
-    # types.TIMETZ: py_timetz,
-    # types.TIMESTAMPTZ: py_timestamptz,
+    types.TIMESTAMP: lambda cursor, colno: TimestampDecoder(None),
+    types.TIMESTAMPTZ: lambda cursor, colno: TimestampDecoder(cursor.connection._current_timezone_seconds_east),
+    types.DATE: lambda cursor, colno: DateDecoder(),
+    types.TIME: lambda cursor, colno: TimeDecoder(None),
+    types.TIMETZ: lambda cursor, colno: TimeDecoder(cursor.connection._current_timezone_seconds_east),
 
     # types.MONTH_INTERVAL: int,
     # types.SEC_INTERVAL: py_sec_interval,
