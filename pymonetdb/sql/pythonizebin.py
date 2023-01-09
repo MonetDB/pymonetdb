@@ -16,6 +16,7 @@ import json
 from math import isnan
 import sys
 from typing import Any, Callable, List, Optional
+from uuid import UUID
 
 from pymonetdb.sql import types
 import pymonetdb.sql.cursors
@@ -130,6 +131,18 @@ class FloatDecoder(BinaryDecoder):
             arr.byteswap()
         values = [v if not isnan(v) else None for v in arr]
         return values
+
+
+class UuidDecoder(BinaryDecoder):
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
+        result = []
+        null_value = UUID(bytes=16 * b'\x00')
+        for i in range(0, len(data), 16):
+            u: Optional[UUID] = UUID(bytes=bytes(data[i:i + 16]))
+            if u == null_value:
+                u = None
+            result.append(u)
+        return result
 
 
 def _decode_utf8(x: bytes) -> str:
@@ -290,19 +303,21 @@ mapping = {
     types.BIGINT: lambda cursor, colno: IntegerDecoder(64),
     types.HUGEINT: lambda cursor, colno: HugeIntDecoder(),
 
+    types.REAL: lambda cursor, colno: FloatDecoder(32),
+    types.FLOAT: lambda cursor, colno: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
+    types.DOUBLE: lambda cursor, colno: FloatDecoder(64),
+
     types.BOOLEAN: lambda cursor, colno: IntegerDecoder(8, mapper=bool),
+
+    types.UUID: lambda cursor, colno: UuidDecoder(),
+
+    types.DECIMAL: make_decimal_decoder,
 
     types.CHAR: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
     types.VARCHAR: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
     types.CLOB: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
     types.URL: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
     types.JSON: lambda cursor, colno: ZeroDelimitedDecoder(json.loads),
-
-    types.DECIMAL: make_decimal_decoder,
-
-    types.REAL: lambda cursor, colno: FloatDecoder(32),
-    types.FLOAT: lambda cursor, colno: FloatDecoder(64),  # MonetDB defines FLOAT to be 64 bits
-    types.DOUBLE: lambda cursor, colno: FloatDecoder(64),
 
     types.TIMESTAMP: lambda cursor, colno: TimestampDecoder(None),
     types.TIMESTAMPTZ: lambda cursor, colno: TimestampDecoder(cursor.connection._current_timezone_seconds_east),
@@ -315,16 +330,15 @@ mapping = {
     # types.DAY_INTERVAL: py_day_interval,
 
 
-    # types.INET: str,
-    # types.UUID: uuid.UUID,
-    # types.XML: str,
 
     # Not supported in COPY BINARY or the binary protocol
     # types.BLOB: py_bytes,
     # types.GEOMETRY: strip,
     # types.GEOMETRYA: strip,
+    # types.INET: str,
     # types.MBR: strip,
     # types.OID: oid,
+    # types.XML: str,
 
     # These are mentioned in pythonize.py but as far as I know the server never
     # produces them

@@ -12,6 +12,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
+from uuid import UUID
 import pymonetdb
 from tests.util import test_args
 
@@ -42,6 +43,9 @@ def decimal_column(p, s):
     return (expr, verifier)
 
 
+test_uuid = UUID('{12345678-1234-5678-1234-567812345678}')
+
+
 TEST_COLUMNS = dict(
     int_col=("CAST(value AS int)", lambda n: n),
     tinyint_col=("CAST(value % 128 AS tinyint)", lambda n: n % 128),
@@ -56,6 +60,8 @@ TEST_COLUMNS = dict(
     double_col=("CAST(value AS DOUBLE) / 2", lambda x: x / 2),
     f32_col=("CAST(value AS float(24)) / 2", lambda x: x / 2),
     f53_col=("CAST(value AS float(53)) / 2", lambda x: x / 2),
+    # not a very dynamic example:
+    uuid_col=("CAST('12345678-1234-5678-1234-567812345678' AS UUID)", lambda x: test_uuid)
 )
 
 
