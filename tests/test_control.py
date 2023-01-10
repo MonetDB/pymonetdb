@@ -7,7 +7,7 @@
 import unittest
 from pymonetdb.control import Control
 from pymonetdb.exceptions import OperationalError
-from tests.util import test_hostname, test_port, test_passphrase, test_full
+from tests.util import test_hostname, test_port, test_passphrase, test_full, test_control
 
 database_prefix = 'controltest_'
 database_name = database_prefix + 'other'
@@ -32,6 +32,8 @@ class TestControl(unittest.TestCase):
 
     def setUpControl(self):
         # use tcp
+        if 'tcp' not in (test_control or '').split(','):
+            raise unittest.SkipTest("Skipping 'tcp' Control test")
         return Control(hostname=test_hostname, port=test_port, passphrase=test_passphrase)
 
     def setUp(self):
@@ -144,4 +146,6 @@ class TestControl(unittest.TestCase):
 class TestLocalControl(TestControl):
     def setUpControl(self):
         # use unix domain socket
+        if 'local' not in (test_control or '').split(','):
+            raise unittest.SkipTest("Skipping 'local' Control test")
         return Control(port=test_port, passphrase=test_passphrase)

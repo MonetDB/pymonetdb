@@ -17,6 +17,7 @@ test_username = environ.get('TSTUSERNAME', 'monetdb')
 test_password = environ.get('TSTPASSWORD', 'monetdb')
 test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
+test_control = environ.get('TSTCONTROL', 'tcp,local')
 
 test_args = {
     'port': test_port,
