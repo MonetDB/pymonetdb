@@ -1,4 +1,5 @@
 import os
+import unittest
 from pymonetdb.exceptions import DatabaseError
 from socket import gethostbyname
 from unittest import TestCase
@@ -15,13 +16,8 @@ class TestMapiUri(TestCase):
         self.username = test_args['username']
         self.password = test_args['password']
 
-    def attempt_connect(self, uri, username=None, password=None):
-        args = dict(database=uri)
-        if username:
-            args['username'] = username
-        if password:
-            args['password'] = password
-        connection = connect(autocommit=False, **args)
+    def attempt_connect(self, uri, **kwargs):
+        connection = connect(uri, **kwargs)
         cursor = connection.cursor()
         q = "select tag from sys.queue()"
         cursor.execute(q)
@@ -29,13 +25,17 @@ class TestMapiUri(TestCase):
 
     def test_no_uri(self):
         # test setUp and attempt_connect themselves
-        self.attempt_connect(self.database, username=self.username, password=self.password)
+        self.attempt_connect(self.database, port=self.port, hostname=self.hostname,
+                             username=self.username, password=self.password)
 
     def test_full_mapi_uri(self):
         self.attempt_connect(f"mapi:monetdb://{self.hostname}:{self.port}/{self.database}",
                              username=self.username, password=self.password)
 
     def test_without_port(self):
+        if self.port != 50000:
+            raise unittest.SkipTest("test_without_port only makes sense on the default port")
+
         self.attempt_connect(f"mapi:monetdb://{self.hostname}/{self.database}",
                              username=self.username, password=self.password)
 
@@ -55,21 +55,21 @@ class TestMapiUri(TestCase):
             # gethostbyname only resolves ipv4
             ip = gethostbyname(self.hostname)
         except Exception:
-            # can't test, return success
-            return
+            raise unittest.SkipTest(f"host '{self.hostname}' doesn't resolve to an ipv4 address")
+
         self.attempt_connect(f"mapi:monetdb://{ip}:{self.port}/{self.database}",
                              username=self.username, password=self.password)
 
     def test_unix_domain_socket(self):
         sock_path = "/tmp/.s.monetdb.%i" % self.port
         if not os.path.exists(sock_path):
-            return
+            raise unittest.SkipTest("Unix domain socket does not exist")
         uri = f"mapi:monetdb://{sock_path}?database={self.database}"
         self.attempt_connect(uri, username=self.username, password=self.password)
 
     def test_unix_domain_socket_username(self):
         sock_path = "/tmp/.s.monetdb.%i" % self.port
         if not os.path.exists(sock_path):
-            return
+            raise unittest.SkipTest("Unix domain socket does not exist")
         uri = f"mapi:monetdb://{self.username}:{self.password}@{sock_path}?database={self.database}"
         self.attempt_connect(uri, username="not" + self.username, password="not" + self.password)
