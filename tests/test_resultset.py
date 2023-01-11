@@ -333,7 +333,8 @@ class BaseTestCases(TestCase):
 
     def test_decimal_types(self):
         cases = set()
-        for p in range(1, 39):
+        widest = 39 if self.have_huge() else 18
+        for p in range(1, widest):
             cases.add((p, 0))
             cases.add((p, min(3, p - 1)))
 
