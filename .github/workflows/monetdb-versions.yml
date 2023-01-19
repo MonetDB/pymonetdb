@@ -1,7 +1,7 @@
 name: Test against various MonetDB versions
 on:
   push:
-    branches: [ master, testimprovements ]
+    branches: [ master ]
   pull_request:
 
 jobs:

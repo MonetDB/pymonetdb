@@ -3,7 +3,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+
 jobs:
   runtests:
     runs-on: windows-2019
