@@ -14,9 +14,11 @@ from datetime import date, datetime, time, timezone, timedelta
 from decimal import Decimal
 import json
 from math import isnan
+import struct
 import sys
 from typing import Any, Callable, List, Optional
 from uuid import UUID
+from pymonetdb.exceptions import InternalError
 
 from pymonetdb.sql import types
 import pymonetdb.sql.cursors
@@ -257,6 +259,31 @@ class DateDecoder(BinaryDecoder):
         return result
 
 
+class BlobDecoder(BinaryDecoder):
+    def decode(self, server_endian: str, data: memoryview) -> List[Any]:
+        result: List[Optional[bytes]] = []
+        pos = 0
+
+        assert server_endian in ['big', 'little']
+        struct_letter = '>q' if server_endian == 'big' else '<q'
+
+        length = len(data)
+        while pos < length:
+            if 8 > length - pos:
+                raise InternalError(f"incomplete blob header after {len(result)} blobs")
+            header = struct.unpack(struct_letter, data[pos:pos + 8])[0]
+            pos += 8
+            if header >= 0:
+                if header > length - pos:
+                    raise InternalError(f"incomplete blob after {len(result)} blobs")
+                result.append(bytes(data[pos:pos + header]))
+                pos += header
+            else:
+                result.append(None)
+
+        return result
+
+
 def get_decoder(cursor: 'pymonetdb.sql.cursors.Cursor', colno: int) -> Optional[BinaryDecoder]:
     assert cursor.description
     description = cursor.description[colno]
@@ -319,6 +346,8 @@ mapping = {
     types.URL: lambda cursor, colno: ZeroDelimitedDecoder(_decode_utf8),
     types.JSON: lambda cursor, colno: ZeroDelimitedDecoder(json.loads),
 
+    types.BLOB: lambda cursor, colno: BlobDecoder(),
+
     types.TIMESTAMP: lambda cursor, colno: TimestampDecoder(None),
     types.TIMESTAMPTZ: lambda cursor, colno: TimestampDecoder(cursor.connection._current_timezone_seconds_east),
     types.DATE: lambda cursor, colno: DateDecoder(),
@@ -329,10 +358,7 @@ mapping = {
     # types.SEC_INTERVAL: py_sec_interval,
     # types.DAY_INTERVAL: py_day_interval,
 
-
-
     # Not supported in COPY BINARY or the binary protocol
-    # types.BLOB: py_bytes,
     # types.GEOMETRY: strip,
     # types.GEOMETRYA: strip,
     # types.INET: str,

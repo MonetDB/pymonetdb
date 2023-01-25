@@ -44,6 +44,11 @@ def decimal_column(p, s):
 
 
 test_uuid = UUID('{12345678-1234-5678-1234-567812345678}')
+test_blobs = {
+    0: b'MONETDB',
+    1: b'',
+    2: None,
+}
 
 
 TEST_COLUMNS = dict(
@@ -60,6 +65,9 @@ TEST_COLUMNS = dict(
     double_col=("CAST(value AS DOUBLE) / 2", lambda x: x / 2),
     f32_col=("CAST(value AS float(24)) / 2", lambda x: x / 2),
     f53_col=("CAST(value AS float(53)) / 2", lambda x: x / 2),
+    blob_col=(
+        "CAST((CASE WHEN value % 3 = 0 THEN '4d4f4e45544442' WHEN value % 3 = 1 THEN '' ELSE NULL END) AS BLOB)",
+        lambda x: test_blobs[x % 3]),
     # not a very dynamic example:
     uuid_col=("CAST('12345678-1234-5678-1234-567812345678' AS UUID)", lambda x: test_uuid)
 )
