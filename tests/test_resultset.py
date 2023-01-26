@@ -207,10 +207,7 @@ class BaseTestCases(TestCase):
         if self.cur <= self.expect_binary_after:
             return
         # with this many rows, binary should have been used
-        self.assertEqual(
-            True,
-            self.cursor._can_bindecode,
-            "Expected binary result sets to be used")
+        self.assertTrue(self.cursor.used_binary_protocol(), "Expected binary result sets to be used")
 
     def do_fetchone(self):
         row = self.cursor.fetchone()

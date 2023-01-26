@@ -595,3 +595,15 @@ class Cursor(object):
         self._policy.binary = binary > 0
 
     binary = property(get_binary, set_binary)
+
+    def used_binary_protocol(self) -> bool:
+        """Pymonetdb-specific. Return True if the last fetch{one,many,all}
+        for the current statement made use of the binary protocol.
+
+        Primarily used for testing.
+
+        Note that the binary protocol is never used for the first few rows
+        of a result set. Exactly when it kicks in depends on the
+        `replysize` setting.
+        """
+        return self._can_bindecode is True  # True as opposed to False or None
