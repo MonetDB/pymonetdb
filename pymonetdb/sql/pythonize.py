@@ -104,7 +104,7 @@ def py_sec_interval(data: str) -> timedelta:
     """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
     which resembles a stringified decimal.
     """
-    return timedelta(seconds=int(Decimal(data)))
+    return timedelta(milliseconds=int(1_000 * Decimal(data)))
 
 
 def py_day_interval(data: str) -> int:
