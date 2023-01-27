@@ -51,6 +51,12 @@ test_blobs = {
 }
 
 
+def seconds_timedelta_helper(value, multiplier):
+    t = Decimal(multiplier) * value
+    millis = int(1000 * t)
+    return datetime.timedelta(milliseconds=millis)
+
+
 TEST_COLUMNS = dict(
     int_col=("CAST(value AS int)", lambda n: n),
     tinyint_col=("CAST(value % 128 AS tinyint)", lambda n: n % 128),
@@ -68,9 +74,17 @@ TEST_COLUMNS = dict(
     blob_col=(
         "CAST((CASE WHEN value % 3 = 0 THEN '4d4f4e45544442' WHEN value % 3 = 1 THEN '' ELSE NULL END) AS BLOB)",
         lambda x: test_blobs[x % 3]),
+    months_col=("CAST(CAST(value AS TEXT) AS INTERVAL MONTH)", lambda x: x),
+    days_col=("CAST(CAST(value AS TEXT) AS INTERVAL DAY) * 1.007", lambda x: int(x * Decimal('1.007'))),
+    seconds_col=("CAST(CAST(value AS TEXT) AS INTERVAL SECOND) * 1.007", lambda x: seconds_timedelta_helper(x, '1.007')),
     # not a very dynamic example:
     uuid_col=("CAST('12345678-1234-5678-1234-567812345678' AS UUID)", lambda x: test_uuid)
 )
+
+# Some versions of MonetDB have a bug where the output is wrong if more than one
+# of the following is present in the result set at the same time.
+# We'll test them separately
+BLACKLIST = set(['months_col', 'days_col', 'seconds_col'])
 
 
 class BaseTestCases(TestCase):
@@ -324,15 +338,13 @@ class BaseTestCases(TestCase):
         self.verifyBinary()
 
     def test_data_types(self):
-        self.do_query(250, TEST_COLUMNS)
+        self.do_query(250, TEST_COLUMNS.keys() - BLACKLIST)
         self.do_fetchall()
         # no self.verifyBinary()
 
     def test_binary_data_types(self):
         self.skip_unless_have_binary()
-        blacklist = set()
-        cols = [k for k in TEST_COLUMNS.keys() if k not in blacklist]
-        self.do_query(250, cols)
+        self.do_query(250, TEST_COLUMNS.keys() - BLACKLIST)
         self.do_fetchall()
         self.verifyBinary()
 
@@ -504,6 +516,21 @@ class BaseTestCases(TestCase):
         self.assertEqual('18:07:41', x.isoformat())
         self.assertIsNone(x.tzinfo)
 
+        self.verifyBinary()
+
+    def test_interval_second(self):
+        self.do_query(250, ['seconds_col'])
+        self.do_fetchall()
+        self.verifyBinary()
+
+    def test_interval_day(self):
+        self.do_query(250, ['days_col'])
+        self.do_fetchall()
+        self.verifyBinary()
+
+    def test_interval_month(self):
+        self.do_query(250, ['months_col'])
+        self.do_fetchall()
         self.verifyBinary()
 
 

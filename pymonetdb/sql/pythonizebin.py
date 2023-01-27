@@ -354,9 +354,9 @@ mapping = {
     types.TIME: lambda cursor, colno: TimeDecoder(None),
     types.TIMETZ: lambda cursor, colno: TimeDecoder(cursor.connection._current_timezone_seconds_east),
 
-    # types.MONTH_INTERVAL: int,
-    # types.SEC_INTERVAL: py_sec_interval,
-    # types.DAY_INTERVAL: py_day_interval,
+    types.MONTH_INTERVAL: lambda cursor, colno: IntegerDecoder(32),
+    types.SEC_INTERVAL: lambda cursor, colno: IntegerDecoder(64, mapper=lambda x: timedelta(milliseconds=x)),
+    types.DAY_INTERVAL: lambda cursor, colno: IntegerDecoder(64, mapper=lambda x: timedelta(milliseconds=x).days),
 
     # Not supported in COPY BINARY or the binary protocol
     # types.GEOMETRY: strip,
