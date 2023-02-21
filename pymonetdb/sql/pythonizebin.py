@@ -66,7 +66,6 @@ class IntegerDecoder(BinaryDecoder):
             arr.byteswap()
         if self.mapper:
             m = self.mapper
-            values = [v if v != self.null_value else None for v in arr]
             values = [m(v) if v != self.null_value else None for v in arr]
         else:
             values = [v if v != self.null_value else None for v in arr]
