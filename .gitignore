@@ -10,6 +10,7 @@ doc/_build/
 .eggs/
 .venv*/
 venv/
+testvenv/
 .mypy_cache/
 manylinux2010/*.whl
 .idea/
