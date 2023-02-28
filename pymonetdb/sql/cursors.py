@@ -78,8 +78,8 @@ class Cursor(object):
         # the resultset
         self._rows = []
 
-        # whether the current result set must be closed explicitly
-        self._must_close_resultset = False
+        # ids of result sets that must eventually be closed on the server
+        self._resultsets_to_close = []
 
         # used to identify a query during server contact.
         # Only select queries have query ID
@@ -115,11 +115,11 @@ class Cursor(object):
         if not self._executed:
             self._exception_handler(ProgrammingError, "do a execute() first")
 
-    def _close_earlier_resultset(self):
-        if self._must_close_resultset:
-            self._must_close_resultset = False
-            command = 'Xclose %s' % self._query_id
+    def _close_earlier_resultsets(self):
+        for rs in self._resultsets_to_close:
+            command = 'Xclose %s' % rs
             self.connection.command(command)
+        del self._resultsets_to_close[:]
 
     def close(self):
         """ Close the cursor now (rather than whenever __del__ is
@@ -128,7 +128,7 @@ class Cursor(object):
         if any operation is attempted with the cursor."""
 
         try:
-            self._close_earlier_resultset()
+            self._close_earlier_resultsets()
         except Error:
             pass
         self.connection = None
@@ -145,7 +145,7 @@ class Cursor(object):
         # clear message history
         self.messages = []
 
-        self._close_earlier_resultset()
+        self._close_earlier_resultsets()
 
         # set the number of rows to fetch
         if self.arraysize != self.connection.replysize:
@@ -177,7 +177,6 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        self._must_close_resultset = self._rows and self.rowcount > len(self._rows)
         return self.rowcount
 
     def executemany(self, operation, seq_of_parameters):
@@ -352,7 +351,9 @@ class Cursor(object):
 
                 columns = int(columns)  # number of columns in result
                 self.rowcount = int(rowcount)  # total number of rows
-                # tuples = int(tuples)     # number of rows in this set
+                tuples = int(tuples)     # number of rows in this set
+                if tuples < self.rowcount:
+                    self._resultsets_to_close.append(self._query_id)
                 self._rows = []
 
                 # set up fields for description
