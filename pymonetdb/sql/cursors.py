@@ -346,7 +346,7 @@ class Cursor(object):
                 logger.info(line[1:])
                 self.messages.append((Warning, line[1:]))
 
-            elif line.startswith(mapi.MSG_QTABLE):
+            elif line.startswith(mapi.MSG_QTABLE) or line.startswith(mapi.MSG_QPREPARE):
                 self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
 
                 columns = int(columns)  # number of columns in result
@@ -368,7 +368,10 @@ class Cursor(object):
                 # typesizes = [(0, 0)] * columns
 
                 self._offset = 0
-                self.lastrowid = None
+                if line.startswith(mapi.MSG_QPREPARE):
+                    self.lastrowid = int(self._query_id)
+                else:
+                    self.lastrowid = None
 
             elif line.startswith(mapi.MSG_HEADER):
                 (data, identity) = line[1:].split("#")
@@ -401,7 +404,6 @@ class Cursor(object):
                                                    precision[i], scale[i], null_ok[i]))
                 self.description = description
                 self._offset = 0
-                self.lastrowid = None
 
             elif line.startswith(mapi.MSG_TUPLE):
                 values = self._parse_tuple(line)
