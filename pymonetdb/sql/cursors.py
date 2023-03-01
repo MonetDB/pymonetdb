@@ -383,39 +383,18 @@ class Cursor(object):
         null_ok = False
         type_ = []
 
+        msg_tuple = mapi.MSG_TUPLE
+        assert len(msg_tuple) == 1
+        msg_header = mapi.MSG_HEADER
+        assert len(msg_header) == 1
+
         for line in block.split("\n"):
-            if line.startswith(mapi.MSG_INFO):
-                logger.info(line[1:])
-                self.messages.append((Warning, line[1:]))
+            first = line[:1]
 
-            elif line.startswith(mapi.MSG_QTABLE) or line.startswith(mapi.MSG_QPREPARE):
-                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
+            if first == msg_tuple:
+                self._rows.append(self._parse_tuple(line))
 
-                columns = int(columns)  # number of columns in result
-                self.rowcount = int(rowcount)  # total number of rows
-                tuples = int(tuples)     # number of rows in this set
-                if tuples < self.rowcount:
-                    self._resultsets_to_close.append(self._query_id)
-                self._rows = []
-
-                # set up fields for description
-                # table_name = [None] * columns
-                column_name = [None] * columns
-                type_ = [None] * columns
-                display_size = [None] * columns
-                internal_size = [None] * columns
-                precision = [None] * columns
-                scale = [None] * columns
-                null_ok = [None] * columns
-                # typesizes = [(0, 0)] * columns
-
-                self._offset = 0
-                if line.startswith(mapi.MSG_QPREPARE):
-                    self.lastrowid = int(self._query_id)
-                else:
-                    self.lastrowid = None
-
-            elif line.startswith(mapi.MSG_HEADER):
+            elif first == msg_header:
                 (data, identity) = line[1:].split("#")
                 values = [x.strip() for x in data.split(",")]
                 identity = identity.strip()
@@ -447,9 +426,36 @@ class Cursor(object):
                 self.description = description
                 self._offset = 0
 
-            elif line.startswith(mapi.MSG_TUPLE):
-                values = self._parse_tuple(line)
-                self._rows.append(values)
+            elif line.startswith(mapi.MSG_INFO):
+                logger.info(line[1:])
+                self.messages.append((Warning, line[1:]))
+
+            elif line.startswith(mapi.MSG_QTABLE) or line.startswith(mapi.MSG_QPREPARE):
+                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
+
+                columns = int(columns)  # number of columns in result
+                self.rowcount = int(rowcount)  # total number of rows
+                tuples = int(tuples)     # number of rows in this set
+                if tuples < self.rowcount:
+                    self._resultsets_to_close.append(self._query_id)
+                self._rows = []
+
+                # set up fields for description
+                # table_name = [None] * columns
+                column_name = [None] * columns
+                type_ = [None] * columns
+                display_size = [None] * columns
+                internal_size = [None] * columns
+                precision = [None] * columns
+                scale = [None] * columns
+                null_ok = [None] * columns
+                # typesizes = [(0, 0)] * columns
+
+                self._offset = 0
+                if line.startswith(mapi.MSG_QPREPARE):
+                    self.lastrowid = int(self._query_id)
+                else:
+                    self.lastrowid = None
 
             elif line.startswith(mapi.MSG_TUPLE_NOSLICE):
                 self._rows.append((line[1:],))
