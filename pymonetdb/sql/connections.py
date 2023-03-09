@@ -56,7 +56,7 @@ class Connection:
         """
 
         policy = BatchPolicy()
-        policy.binary = True if binary is None else binary > 0
+        policy.binary_level = binary
         if replysize is not None:
             policy.replysize = replysize
         if maxprefetch is not None:
@@ -87,12 +87,12 @@ class Connection:
             mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
         ]
 
-        def handshake_options_callback(server_supports_binary: bool, url_options: Dict[str, str]):
-            policy.server_supports_binary = server_supports_binary
+        def handshake_options_callback(server_binexport_level: int, url_options: Dict[str, str]):
+            policy.server_binexport_level = server_binexport_level
             if 'binary' in url_options:
                 val = url_options['binary']
                 val = dict(true='1', on='1', false='0', off='0').get(val, val)
-                policy.binary = int(val) > 0
+                policy.binary_level = int(val)
             if 'replysize' in url_options:
                 policy.replysize = int(url_options['replysize'])
             if 'maxprefetch' in url_options:
@@ -195,10 +195,10 @@ class Connection:
     maxprefetch = property(get_maxprefetch, set_maxprefetch)
 
     def get_binary(self) -> int:
-        return 1 if self._policy.binary else 0
+        return 1 if self._policy.binary_level else 0
 
     def set_binary(self, binary: int):
-        self._policy.binary = binary > 0
+        self._policy.binary_level = binary > 0
 
     binary = property(get_binary, set_binary)
 

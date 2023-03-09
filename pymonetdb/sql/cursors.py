@@ -597,10 +597,10 @@ class Cursor(object):
     maxprefetch = property(get_maxprefetch, set_maxprefetch)
 
     def get_binary(self) -> int:
-        return 1 if self._policy.binary else 0
+        return self._policy.binary_level
 
-    def set_binary(self, binary: int):
-        self._policy.binary = binary > 0
+    def set_binary(self, level: int):
+        self._policy.binary_level = level
 
     binary = property(get_binary, set_binary)
 

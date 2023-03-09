@@ -16,12 +16,12 @@ class BatchPolicy:
     BIG_NUMBER = 100_000
 
     # To be set by the user
-    binary = True
+    binary_level = 1
     replysize = DEFAULT_NUMBER
     maxprefetch = BIG_NUMBER
 
     # Determined during handshake
-    server_supports_binary = False
+    server_binexport_level = 0
 
     # per-cursor state
     last = 0
@@ -33,7 +33,7 @@ class BatchPolicy:
         return copy.copy(self)
 
     def use_binary(self) -> bool:
-        return self.binary and self.server_supports_binary
+        return self.binary_level > 0 and self.server_binexport_level > 0
 
     def _effective_reply_size(self) -> int:
         if self.use_binary() and self.replysize < 0:

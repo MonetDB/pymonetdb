@@ -14,7 +14,7 @@ from tests.util import test_args, test_url
 
 
 def run_scenario(rowcount: int,
-                 server_supports_binary: bool,
+                 server_binexport_level: int,
                  pattern: List[int],
                  binary: Optional[bool] = None,
                  replysize: Optional[int] = None,
@@ -24,12 +24,12 @@ def run_scenario(rowcount: int,
     # simulate connect
     policy = BatchPolicy()
     if binary is not None:
-        policy.binary = binary
+        policy.binary_level = binary
     if replysize is not None:
         policy.replysize = replysize
     if maxprefetch is not None:
         policy.maxprefetch = maxprefetch
-    policy.server_supports_binary = server_supports_binary
+    policy.server_binexport_level = server_binexport_level
 
     handshake_reply_size = policy.handshake_reply_size()
 
@@ -134,13 +134,13 @@ class TestBatchPolicy(TestCase):
                  maxprefetch: Optional[int] = None,
                  ):
         without_binary = run_scenario(
-            rowcount, False, pattern,
+            rowcount, 0, pattern,
             binary=binary, replysize=replysize, maxprefetch=maxprefetch)
         with_binary = run_scenario(
-            rowcount, True, pattern,
+            rowcount, 1, pattern,
             binary=binary, replysize=replysize, maxprefetch=maxprefetch)
         with_binary_but_disabled = run_scenario(
-            rowcount, True, pattern,
+            rowcount, 1, pattern,
             binary=False, replysize=replysize, maxprefetch=maxprefetch)
 
         try:
@@ -301,14 +301,14 @@ class TestBatchPolicy(TestCase):
 
     def test_unlimited_replysize_no_binary(self):
         # everything comes in the initial response
-        scen = run_scenario(1000, False, 10 * [100], replysize=-1)
+        scen = run_scenario(1000, 0, 10 * [100], replysize=-1)
         self.assertEqual(-1, scen.handshake_reply_size)
         self.assertEqual(100, scen.array_size)
         self.assertEqual(-1, scen.query_reply_size)
         self.assertEqual([(0, 1000)], scen.intervals)
 
         # same if binary is possible but disabled
-        scen = run_scenario(1000, True, 10 * [100], replysize=-1, binary=False)
+        scen = run_scenario(1000, 1, 10 * [100], replysize=-1, binary=False)
         self.assertEqual(-1, scen.handshake_reply_size)
         self.assertEqual(100, scen.array_size)
         self.assertEqual(-1, scen.query_reply_size)
@@ -318,7 +318,7 @@ class TestBatchPolicy(TestCase):
         # we set replysize to -1 but it still sends 10 to the server
         # to keep the initial response small and retrieve
         # rest using the binary protocol
-        scen = run_scenario(1000, True, 10 * [100], replysize=-1)
+        scen = run_scenario(1000, 1, 10 * [100], replysize=-1)
         self.assertEqual(10, scen.handshake_reply_size)
         self.assertEqual(100, scen.array_size)
         self.assertEqual(10, scen.query_reply_size)
@@ -367,7 +367,7 @@ class TestPolicySetting(TestCase):
             self.fail("No connect method found in pymonetdb module")
 
     def check_more(self, conn: pymonetdb.Connection):
-        self.assertEqual(conn.binary > 0, conn._policy.binary)
+        self.assertEqual(conn.binary > 0, conn._policy.binary_level)
         self.assertEqual(conn.replysize, conn._policy.replysize)
         self.assertEqual(conn.maxprefetch, conn._policy.maxprefetch)
 
@@ -381,13 +381,13 @@ class TestPolicySetting(TestCase):
         else:
             self.assertEqual(cursor.replysize, cursor.arraysize)
 
-        self.assertEqual(cursor.binary > 0, cursor._policy.binary)
+        self.assertEqual(cursor.binary > 0, cursor._policy.binary_level)
         self.assertEqual(cursor.replysize, cursor._policy.replysize)
         self.assertEqual(cursor.maxprefetch, cursor._policy.maxprefetch)
 
     def test_defaults(self):
         conn = self._connect()
-        self.assertEqual(True, conn._policy.binary)   # by default we WANT binary
+        self.assertEqual(1, conn._policy.binary_level)   # by default we WANT binary
         self.assertEqual(100, conn._policy.replysize)
         self.assertEqual(100_000, conn._policy.maxprefetch)
 
@@ -395,7 +395,7 @@ class TestPolicySetting(TestCase):
 
     def test_constructor_parameters1(self):
         conn = self._connect(replysize=99, maxprefetch=333, binary=0)
-        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(0, conn._policy.binary_level)
         self.assertEqual(99, conn._policy.replysize)
         self.assertEqual(333, conn._policy.maxprefetch)
 
@@ -403,7 +403,7 @@ class TestPolicySetting(TestCase):
 
     def test_constructor_parameters2(self):
         conn = self._connect(replysize=-1, maxprefetch=-1, binary=1)
-        self.assertEqual(True, conn._policy.binary)
+        self.assertEqual(1, conn._policy.binary_level)
         self.assertEqual(-1, conn._policy.replysize)
         self.assertEqual(-1, conn._policy.maxprefetch)
 
@@ -414,7 +414,7 @@ class TestPolicySetting(TestCase):
         conn.replysize = 99
         conn.maxprefetch = 333
         conn.binary = 0
-        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(0, conn._policy.binary_level)
         self.assertEqual(99, conn._policy.replysize)
         self.assertEqual(333, conn._policy.maxprefetch)
 
@@ -426,7 +426,7 @@ class TestPolicySetting(TestCase):
         cursor.replysize = 99
         cursor.maxprefetch = 333
         cursor.binary = 0
-        self.assertEqual(False, cursor._policy.binary)
+        self.assertEqual(0, cursor._policy.binary_level)
         self.assertEqual(99, cursor._policy.replysize)
         self.assertEqual(333, cursor._policy.maxprefetch)
 
@@ -442,13 +442,13 @@ class TestPolicySetting(TestCase):
     def test_url_parameters1(self):
         updated_url = self.update_url(replysize='99', maxprefetch='444', binary='1')
         conn = pymonetdb.connect(updated_url)
-        self.assertEqual(True, conn._policy.binary)
+        self.assertEqual(1, conn._policy.binary_level)
         self.assertEqual(99, conn._policy.replysize)
         self.assertEqual(444, conn._policy.maxprefetch)
 
     def test_url_parameters2(self):
         updated_url = self.update_url(replysize='999', maxprefetch='44', binary='0')
         conn = pymonetdb.connect(updated_url)
-        self.assertEqual(False, conn._policy.binary)
+        self.assertEqual(0, conn._policy.binary_level)
         self.assertEqual(999, conn._policy.replysize)
         self.assertEqual(44, conn._policy.maxprefetch)

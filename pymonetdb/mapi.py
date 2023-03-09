@@ -398,13 +398,13 @@ class Connection(object):
 
         response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
 
-        self.supports_binexport = False
+        self.binexport_level = 0
         if len(challenges) >= 8:
             part = challenges[7]
             assert part.startswith('BINARY=')
-            self.supports_binexport = True
+            self.binexport_level = int(part[7:])
 
-        handshake_options = self.handshake_options(self.supports_binexport, url_options)
+        handshake_options = self.handshake_options(self.binexport_level, url_options)
 
         if len(challenges) >= 7:
             response += "FILETRANS:"

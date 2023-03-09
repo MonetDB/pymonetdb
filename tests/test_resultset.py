@@ -88,7 +88,7 @@ BLACKLIST = set(['months_col', 'days_col', 'seconds_col'])
 
 
 class BaseTestCases(TestCase):
-    _server_has_binary: Optional[bool] = None
+    _server_binexport_level: Optional[int] = None
     _server_has_huge: Optional[bool] = None
     conn: Optional[pymonetdb.Connection] = None
     cursor: Optional[pymonetdb.sql.cursors.Cursor] = None
@@ -98,19 +98,19 @@ class BaseTestCases(TestCase):
     colnames: List[str] = []
 
     def probe_server(self):
-        if self._server_has_binary is not None:
+        if self._server_binexport_level is not None:
             return
         conn = self.connect_with_args()
-        self._server_has_binary = conn.mapi.supports_binexport
+        self._server_binexport_level = conn.mapi.binexport_level
         cursor = conn.cursor()
         cursor.execute("SELECT sqlname FROM sys.types WHERE sqlname = 'hugeint'")
         self._server_has_huge = cursor.rowcount > 0
         cursor.close()
         conn.close()
 
-    def have_binary(self):
+    def have_binary(self, at_least=1):
         self.probe_server()
-        return self._server_has_binary
+        return self._server_binexport_level >= at_least
 
     def have_huge(self):
         self.probe_server()
