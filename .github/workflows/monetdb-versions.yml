@@ -15,7 +15,6 @@ jobs:
           - "monetdb/dev-builds:Jan2022"
           - "monetdb/dev-builds:Sep2022"
           - "monetdb/dev-builds:default"
-          - "monetdb/dev-builds:binresultset_manylinux"
     env:
       TSTHOSTNAME: "monetdb"
       TSTDB: "monetdb"
