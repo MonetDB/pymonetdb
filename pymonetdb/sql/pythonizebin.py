@@ -64,11 +64,12 @@ class IntegerDecoder(BinaryDecoder):
         arr.frombytes(data)
         if server_endian != sys.byteorder:
             arr.byteswap()
+        null_value = self.null_value
         if self.mapper:
             m = self.mapper
-            values = [m(v) if v != self.null_value else None for v in arr]
+            values = [ None if v == null_value else m(v) for v in arr ]
         else:
-            values = [v if v != self.null_value else None for v in arr]
+            values = [ None if v == null_value else v for v in arr ]
         return values
 
 
@@ -130,7 +131,7 @@ class FloatDecoder(BinaryDecoder):
         arr.frombytes(data)
         if server_endian != sys.byteorder:
             arr.byteswap()
-        values = [v if not isnan(v) else None for v in arr]
+        values = [None if isnan(v) else v for v in arr]
         return values
 
 
@@ -162,7 +163,7 @@ class ZeroDelimitedDecoder(BinaryDecoder):
         parts = data.tobytes().split(b'\x00')
         parts.pop()  # empty tail element caused by trailing \x00
         conv = self.converter
-        values = [conv(v) if v != null_value else None for v in parts]
+        values = [None if v == null_value else conv(v) for v in parts]
         return values
 
 
