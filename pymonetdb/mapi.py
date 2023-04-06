@@ -211,7 +211,7 @@ class Connection(object):
         for opt in self.remaining_handshake_options:
             opt.fallback(opt.value)
 
-    def _login(self, password: str, url_options, iteration=0):
+    def _login(self, password: str, url_options: Dict[str, str], iteration=0):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
