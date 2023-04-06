@@ -14,7 +14,7 @@ import struct
 import hashlib
 import os
 import typing
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlparse
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
@@ -101,7 +101,8 @@ class Connection(object):
         self.username = ""
         self.database = ""
         self.language = ""
-        self.handshake_options = None
+        self.handshake_options_callback = None
+        self.remaining_handshake_options = []
         self.connect_timeout = socket.getdefaulttimeout()
         self.uploader = None
         self.downloader = None
@@ -109,7 +110,7 @@ class Connection(object):
 
     def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
                 hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
-                handshake_options=None):
+                handshake_options_callback: Callable[[bool], List['HandshakeOption']] = lambda x: []):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
@@ -165,7 +166,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-        self.handshake_options = handshake_options or (lambda b, opts: [])
+        self.handshake_options_callback = handshake_options_callback
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -206,6 +207,9 @@ class Connection(object):
 
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
+
+        for opt in self.remaining_handshake_options:
+            opt.fallback(opt.value)
 
     def _login(self, password: str, url_options, iteration=0):
         """ Reads challenge from line, generate response and check if
@@ -404,7 +408,7 @@ class Connection(object):
             assert part.startswith('BINARY=')
             self.binexport_level = int(part[7:])
 
-        handshake_options = self.handshake_options(self.binexport_level, url_options)
+        handshake_options = self.handshake_options_callback(self.binexport_level)
 
         if len(challenges) >= 7:
             response += "FILETRANS:"
@@ -418,11 +422,11 @@ class Connection(object):
             options = []
             for opt in handshake_options:
                 if opt.level < options_level:
-                    value = opt.value
-                    val = value() if callable(value) else value
-                    options.append(opt.name + "=" + str(int(val)))
+                    options.append(opt.name + "=" + str(int(opt.value)))
                     opt.sent = True
             response += ",".join(options) + ":"
+
+        self.remaining_handshake_options = [opt for opt in handshake_options if not opt.sent]
 
         return response
 
@@ -605,3 +609,14 @@ class HandshakeOption:
         self.value = value
         self.fallback = fallback
         self.sent = False
+
+
+def mapi_url_options(possible_mapi_url: str) -> Dict[str, str]:
+    """Try to parse the argument as a MAPI URL and return a Dict of url options
+
+    Return empty dict if it's not a MAPI URL.
+    """
+    if not possible_mapi_url.startswith('mapi:monetdb:'):
+        return {}
+    url = possible_mapi_url[5:]
+    return dict(parse_qsl(urlparse(url).query))

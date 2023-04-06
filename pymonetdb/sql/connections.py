@@ -7,7 +7,7 @@
 from datetime import datetime, timedelta, timezone
 import logging
 import platform
-from typing import Dict
+from typing import List
 
 from pymonetdb.sql import cursors
 from pymonetdb.policy import BatchPolicy
@@ -55,6 +55,12 @@ class Connection:
 
         """
 
+        # Aliases for host=hostname, user=username, the DB API spec is not specific about this
+        if host:
+            hostname = host
+        if user:
+            username = user
+
         policy = BatchPolicy()
         policy.binary_level = binary
         if replysize is not None:
@@ -62,55 +68,42 @@ class Connection:
         if maxprefetch is not None:
             policy.maxprefetch = maxprefetch
 
+        url_options = mapi.mapi_url_options(database)
+        if 'binary' in url_options:
+            val = url_options['binary']
+            val = dict(true='1', on='1', false='0', off='0').get(val, val)
+            policy.binary_level = int(val)
+        if 'replysize' in url_options:
+            policy.replysize = int(url_options['replysize'])
+        if 'maxprefetch' in url_options:
+            policy.maxprefetch = int(url_options['maxprefetch'])
+
         self.autocommit = autocommit
         self.sizeheader = True
         self._policy = policy
         self._current_replysize = 100     # server default, will be updated after handshake
         self._current_timezone_seconds_east = 0   # server default, will be updated
 
-        # The DB API spec is not specific about this
-        if host:
-            hostname = host
-        if user:
-            username = user
-
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
-        # Level numbers taken from mapi.h.
-        # The options start out with member .sent set to False.
         handshake_timezone_offset = _local_timezone_offset_seconds()
-        handshake_options = [
-            mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
-            mapi.HandshakeOption(2, "reply_size", self._change_replysize, lambda: policy.handshake_reply_size()),
-            mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
-            mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
-        ]
 
-        def handshake_options_callback(server_binexport_level: int, url_options: Dict[str, str]):
+        def handshake_options_callback(server_binexport_level: int) -> List[mapi.HandshakeOption]:
             policy.server_binexport_level = server_binexport_level
-            if 'binary' in url_options:
-                val = url_options['binary']
-                val = dict(true='1', on='1', false='0', off='0').get(val, val)
-                policy.binary_level = int(val)
-            if 'replysize' in url_options:
-                policy.replysize = int(url_options['replysize'])
-            if 'maxprefetch' in url_options:
-                policy.maxprefetch = int(url_options['maxprefetch'])
-            return handshake_options
+            return [
+                # Level numbers taken from mapi.h.
+                mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
+                mapi.HandshakeOption(2, "reply_size", self._change_replysize, policy.handshake_reply_size()),
+                mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
+                mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
+            ]
 
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
-                          handshake_options=handshake_options_callback)
-
-        # self.mapi.connect() has set .sent to True for all items that
-        # have already been arranged during the initial challenge/response.
-        # Now take care of the rest.
-        for option in handshake_options:
-            if not option.sent:
-                option.fallback(option.value)
+                          handshake_options_callback=handshake_options_callback)
 
         self._current_replysize = policy.handshake_reply_size()
         self._current_timezone_seconds_east = handshake_timezone_offset
