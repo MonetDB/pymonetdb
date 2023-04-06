@@ -67,9 +67,9 @@ class IntegerDecoder(BinaryDecoder):
         null_value = self.null_value
         if self.mapper:
             m = self.mapper
-            values = [ None if v == null_value else m(v) for v in arr ]
+            values = [None if v == null_value else m(v) for v in arr]
         else:
-            values = [ None if v == null_value else v for v in arr ]
+            values = [None if v == null_value else v for v in arr]
         return values
 
 
