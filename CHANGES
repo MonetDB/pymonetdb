@@ -1,3 +1,16 @@
+# 1.6.4
+
+changes since 1.6.3
+
+* Correctly handle result of PREPARE statement, leave id of the prepared statement in Cursor.rowid for use in subsequent EXEC statement.
+
+* Fix COPY ON CLIENT bug with filenames that contain spaces.
+
+* Fix bug where not all server side result sets were closed if multiple statements were passed to one Cursor.execute() call, leading to a resource leak until the connection was closed.
+
+* Rename Cursor.nextset(), the Python DB API reserves that name for something else.
+
+
 # 1.6.3
 
 changes since 1.6.2
