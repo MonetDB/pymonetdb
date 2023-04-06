@@ -80,9 +80,7 @@ class HugeIntDecoder(BinaryDecoder):
         self.mapper = mapper
 
     def decode(self, server_endian: str, data: memoryview) -> List[Any]:
-        # we want to know if the incoming data is big or little endian but we have
-        # to reconstruct that from 'wrong_endian'
-        # we cannot directly decode 128 bits but we can decode 32 bits
+        # we cannot directly decode 128 bits but we can decode 64 bits
         letter = INT_WIDTH_TO_ARRAY_TYPE[64].upper()
         arr = array.array(letter)
         arr.frombytes(data)

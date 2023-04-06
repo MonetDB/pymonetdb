@@ -56,10 +56,18 @@ class BatchPolicy:
     def new_query(self) -> int:
         # reply size computation is the same
         reply_size = self._effective_reply_size()
+        # Note how we set self.last to reply_size rather than to 0 as we do
+        # in .scroll().
+        # This is because we the initial reply will already have happened
+        # by the time we look at it.
         self.last = reply_size
         return reply_size
 
     def scroll(self):
+        # Note how we set self.last to reply_size rather than to 0 as we do
+        # in .scroll().
+        # This is because scrolling does not cause a fetch, it just disposes
+        # the currently cached rows.
         self.last = 0
 
     def batch_size(self,
