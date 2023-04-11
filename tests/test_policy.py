@@ -389,7 +389,7 @@ class TestPolicySetting(TestCase):
         conn = self._connect()
         self.assertEqual(1, conn._policy.binary_level)   # by default we WANT binary
         self.assertEqual(100, conn._policy.replysize)
-        self.assertEqual(100_000, conn._policy.maxprefetch)
+        self.assertEqual(2_500, conn._policy.maxprefetch)
 
         self.check_more(conn)
 

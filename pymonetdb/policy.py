@@ -13,7 +13,7 @@ class BatchPolicy:
 
     SMALL_NUMBER = 10
     DEFAULT_NUMBER = 100
-    BIG_NUMBER = 100_000
+    BIG_NUMBER = 2_500
 
     # To be set by the user
     binary_level = 1

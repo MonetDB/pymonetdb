@@ -12,7 +12,7 @@ of large transfers.
 Setting name    Defined by      Range                       Default
 ==============  ==============  ==========================  ======================
 `replysize`     pymonetdb       positive integer or -1 [*]  100
-`maxprefetch`   pymonetdb       positive integer or -1 [*]  10000
+`maxprefetch`   pymonetdb       positive integer or -1 [*]  2500
 `arraysize`     DBAPI 2.0       positive integer            `Connection.replysize`
 ==============  ==============  ==========================  ======================
 
@@ -78,10 +78,7 @@ increase without bound.
 If you expect the size of the individual rows to be huge, it may be a
 good idea to set both `replysize` and `maxprefetch` to small values, for
 example, 10 and 20, respectively, or even 1 and 0. These small batch sizes limit
-the memory each batch consumes.
-
-If you are going to use `Cursor.fetchall()` exclusively, it may be beneficial to
-set replysize to -1 so that all data is returned from the server immediately. As a
+the memory each batch consumes. As a
 quick rule of thumb for the memory requirements, assume that pymonetdb may need
 up to three times the size of the result set. Also, remember that if MonetDB is
 running on the same host, the server will also need at least that amount of
