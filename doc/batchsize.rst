@@ -70,6 +70,10 @@ Tweaking the behavior
 
 Usually, the batching behavior does not need to be tweaked.
 
+If you have the choice, using `Cursor.fetchmany()` seems to be a few percent
+more efficient than `Cursor.fetchall()`, while `Cursor.fetchone()` tends to be
+10-15% slower.
+
 To reduce the amount of prefetching, set `maxprefetch` to a lower value or even
 to 0. Value 0 disables prefetch entirely, only ever fetching the rows needed right
 now. Setting it to -1 has the opposite effect: it allows the prefetch size to
