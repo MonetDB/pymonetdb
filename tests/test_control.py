@@ -43,22 +43,13 @@ class TestControl(unittest.TestCase):
         do_without_fail(lambda: self.control.destroy(database_name))
         self.control.create(database_name)
 
-    def _cleanup(self, old, new):
-        do_without_fail(lambda: self.control.destroy(old))
-        do_without_fail(lambda: self.control.destroy(new))
-        self.control.create(old)
-        self.control.rename(old, new)
-        statuses = self.control.status()
-        self.assertTrue(new in [status["name"] for status in statuses])
-        do_without_fail(lambda: self.control.destroy(new))
-        return statuses
-
     def tearDown(self):
         do_without_fail(lambda: self.control.stop(database_name))
         do_without_fail(lambda: self.control.destroy(database_name))
 
     def test_create(self):
         create_name = database_prefix + "create"
+        do_without_fail(lambda: self.control.stop(create_name))
         do_without_fail(lambda: self.control.destroy(create_name))
         self.control.create(create_name)
         self.assertRaises(OperationalError, self.control.create, create_name)
@@ -66,6 +57,8 @@ class TestControl(unittest.TestCase):
 
     def test_destroy(self):
         destroy_name = database_prefix + "destroy"
+        do_without_fail(lambda: self.control.stop(destroy_name))
+        do_without_fail(lambda: self.control.destroy(destroy_name))
         self.control.create(destroy_name)
         self.control.destroy(destroy_name)
         self.assertRaises(OperationalError, self.control.destroy, destroy_name)
@@ -92,9 +85,16 @@ class TestControl(unittest.TestCase):
     def test_statuses(self):
         status1 = database_prefix + "status1"
         status2 = database_prefix + "status2"
-        statuses = self._cleanup(status1, status2)
-        self.assertTrue(status2 in [status["name"] for status in statuses])
+        do_without_fail(lambda: self.control.stop(status1))
         do_without_fail(lambda: self.control.destroy(status1))
+        do_without_fail(lambda: self.control.stop(status2))
+        do_without_fail(lambda: self.control.destroy(status2))
+        self.control.create(status1)
+        self.control.rename(status1, status2)
+        statuses = self.control.status()
+        self.assertFalse(status1 in [status["name"] for status in statuses])
+        self.assertTrue(status2 in [status["name"] for status in statuses])
+        self.assertRaises(OperationalError, self.control.destroy, status1)
         do_without_fail(lambda: self.control.destroy(status2))
 
     def test_start(self):
@@ -131,8 +131,17 @@ class TestControl(unittest.TestCase):
     def test_rename(self):
         old = database_prefix + "old"
         new = database_prefix + "new"
-        self._cleanup(old, new)
+        do_without_fail(lambda: self.control.stop(old))
+        do_without_fail(lambda: self.control.destroy(old))
+        do_without_fail(lambda: self.control.stop(new))
         do_without_fail(lambda: self.control.destroy(new))
+        self.control.create(old)
+        self.control.rename(old, new)
+        statuses = self.control.status()
+        self.assertTrue(new in [status["name"] for status in statuses])
+        self.assertFalse(old in [status["name"] for status in statuses])
+        do_without_fail(lambda: self.control.destroy(new))
+        self.assertRaises(OperationalError, self.control.destroy, old)
 
     def test_defaults(self):
         defaults = self.control.defaults()
