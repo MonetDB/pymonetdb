@@ -53,7 +53,7 @@ class TestControl(unittest.TestCase):
         do_without_fail(lambda: self.control.destroy(new))
         return statuses
 
-    def tear_down(self):
+    def tearDown(self):
         do_without_fail(lambda: self.control.stop(database_name))
         do_without_fail(lambda: self.control.destroy(database_name))
 
