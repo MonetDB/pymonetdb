@@ -38,10 +38,6 @@ if test_maxprefetch is not None:
 if test_binary is not None:
     test_args['binary'] = int(test_binary)
 
-test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
-test_full = environ.get('TSTFULL', 'false').lower() == 'true'
-
-
 # construct the corresponding mapi url
 if ':' in test_database:
     test_url = test_database
