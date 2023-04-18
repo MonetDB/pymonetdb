@@ -38,75 +38,74 @@ class TestControl(unittest.TestCase):
 
     def setUp(self):
         self.control = self.setUpControl()
-
-        do_without_fail(lambda: self.control.stop(database_name))
-        do_without_fail(lambda: self.control.destroy(database_name))
+        self.ensure_destroyed(database_name)
         self.control.create(database_name)
 
-    def _cleanup(self, old, new):
-        do_without_fail(lambda: self.control.destroy(old))
-        do_without_fail(lambda: self.control.destroy(new))
-        self.control.create(old)
-        self.control.rename(old, new)
-        statuses = self.control.status()
-        self.assertTrue(new in [status["name"] for status in statuses])
-        do_without_fail(lambda: self.control.destroy(new))
-        return statuses
-
     def tearDown(self):
+        self.ensure_destroyed(database_name)
+
+    def ensure_destroyed(self, database_name):
         do_without_fail(lambda: self.control.stop(database_name))
         do_without_fail(lambda: self.control.destroy(database_name))
 
     def test_create(self):
         create_name = database_prefix + "create"
-        do_without_fail(lambda: self.control.destroy(create_name))
+        self.ensure_destroyed(create_name)
         self.control.create(create_name)
         self.assertRaises(OperationalError, self.control.create, create_name)
-        do_without_fail(lambda: self.control.destroy(create_name))
+        self.ensure_destroyed(create_name)
 
     def test_destroy(self):
         destroy_name = database_prefix + "destroy"
+        self.ensure_destroyed(destroy_name)
         self.control.create(destroy_name)
         self.control.destroy(destroy_name)
         self.assertRaises(OperationalError, self.control.destroy, destroy_name)
 
     def test_lock(self):
         do_without_fail(lambda: self.control.release(database_name))
+        self.assertEqual(self.control.status(database_name)['locked'], False)
         self.control.lock(database_name)
+        self.assertEqual(self.control.status(database_name)['locked'], True)
         with self.assertRaises(OperationalError):
             self.control.lock(database_name)
         self.control.release(database_name)
+        self.assertEqual(self.control.status(database_name)['locked'], False)
 
     def test_release(self):
         do_without_fail(lambda: self.control.release(database_name))
+        self.assertEqual(self.control.status(database_name)['locked'], False)
         do_without_fail(lambda: self.control.lock(database_name))
+        self.assertEqual(self.control.status(database_name)['locked'], True)
         self.assertTrue(self.control.release(database_name))
+        self.assertEqual(self.control.status(database_name)['locked'], False)
         self.assertRaises(OperationalError, self.control.release, database_name)
 
-    @unittest.skipUnless(test_full, "full test disabled")
     def test_status(self):
         status = self.control.status(database_name)
         self.assertEqual(status["name"], database_name)
 
-    @unittest.skipUnless(test_full, "full test disabled")
     def test_statuses(self):
         status1 = database_prefix + "status1"
         status2 = database_prefix + "status2"
-        statuses = self._cleanup(status1, status2)
+        self.ensure_destroyed(status1)
+        self.ensure_destroyed(status2)
+        self.control.create(status1)
+        self.control.rename(status1, status2)
+        statuses = self.control.status()
+        self.assertFalse(status1 in [status["name"] for status in statuses])
         self.assertTrue(status2 in [status["name"] for status in statuses])
-        do_without_fail(lambda: self.control.destroy(status1))
+        self.assertRaises(OperationalError, self.control.destroy, status1)
         do_without_fail(lambda: self.control.destroy(status2))
 
     def test_start(self):
         do_without_fail(lambda: self.control.stop(database_name))
         self.assertTrue(self.control.start(database_name))
 
-    @unittest.skipUnless(test_full, "full test disabled")
     def test_stop(self):
-        do_without_fail(lambda: self.control.start(database_name))
-        self.assertTrue(self.control.stop(database_name))
+        self.ensure_destroyed(database_name)
+        self.assertNotIn(database_name, [st['name'] for st in self.control.status()])
 
-    @unittest.skipUnless(test_full, "full test disabled")
     def test_kill(self):
         do_without_fail(lambda: self.control.start(database_name))
         self.assertTrue(self.control.kill(database_name))
@@ -131,8 +130,15 @@ class TestControl(unittest.TestCase):
     def test_rename(self):
         old = database_prefix + "old"
         new = database_prefix + "new"
-        self._cleanup(old, new)
-        do_without_fail(lambda: self.control.destroy(new))
+        self.ensure_destroyed(old)
+        self.ensure_destroyed(new)
+        self.control.create(old)
+        self.control.rename(old, new)
+        names = [st['name'] for st in self.control.status()]
+        self.assertIn(new, names)
+        self.assertNotIn(old, names)
+        self.ensure_destroyed(new)
+        self.assertRaises(OperationalError, self.control.destroy, old)
 
     def test_defaults(self):
         defaults = self.control.defaults()
