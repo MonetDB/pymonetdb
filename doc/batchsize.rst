@@ -50,13 +50,11 @@ reach a multiple of 40.
 New result set format
 ---------------------
 
-Starting at the next major release after Sep2022[*], MonetDB will support a new,
+Version Jun2023 of MonetDB introduces a new,
 binary result set format that is much more efficient to parse. This format
 cannot be used in the initial transfer of `replysize` rows but it makes the
 subsequent batches much more efficient. By default, pymonetdb will automatically
 use it when possible unless configured otherwise using the ‘binary’ setting.
-
-[*] At the time of writing, the name of that release has not yet been determined.
 
 Note that with the reply size set to -1, all data would be transferred in the
 initial response so the binary protocol could be used. As a special case, when
