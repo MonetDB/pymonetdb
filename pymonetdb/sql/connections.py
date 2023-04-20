@@ -108,7 +108,7 @@ class Connection:
         """
         try:
             self.close()
-        except exceptions.Error as e:
+        except exceptions.Error:
             pass
         # Propagate any errors
         return False

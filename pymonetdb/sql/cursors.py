@@ -143,7 +143,7 @@ class Cursor(object):
         """
         try:
             self.close()
-        except Error as e:
+        except Error:
             pass
         # Propagate any errors
         return False
