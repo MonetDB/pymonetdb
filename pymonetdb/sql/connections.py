@@ -126,6 +126,21 @@ class Connection:
         else:
             raise exceptions.Error("already closed")
 
+    def __enter__(self):
+        """This method is invoked when this Connection is used in a with-statement.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """This method is invoked when this Connection is used in a with-statement.
+        """
+        try:
+            self.close()
+        except exceptions.Error:
+            pass
+        # Propagate any errors
+        return False
+
     def set_autocommit(self, autocommit):
         """
         Set auto commit on or off. 'autocommit' must be a boolean
