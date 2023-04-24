@@ -49,7 +49,6 @@ class TestContextManager(TestCase):
             # check connection is closed
             self.assertIsNone(x.mapi)
 
-
     def test_connection_closes_when_sql_error(self):
         x = self.connect()
         y = x.cursor()
@@ -57,6 +56,9 @@ class TestContextManager(TestCase):
         self.assertIsNotNone(y.connection)
         with self.assertRaisesRegex(OperationalError, expected_regex="Unexpected symbol"):
             with x as conn:
+                # suppress warning about unused 'conn'
+                if conn:
+                    pass
                 with y as cursor:
                     cursor.execute("SELECT 42zzz")   # This fails
                     self.fail("the statement above should have raised an exception")
@@ -71,9 +73,15 @@ class TestContextManager(TestCase):
         self.assertIsNotNone(y.connection)
         with self.assertRaises(ZeroDivisionError):
             with x as conn:
+                # suppress warning about unused 'conn'
+                if conn:
+                    pass
                 with y as cursor:
+                    # suppress warning about unused 'conn' and 'cursor'
+                    if conn or cursor:
+                        pass
                     # create a ZeroDivisionError without static analyzers noticing it
-                    one = len([cursor])
+                    one = 1
                     zero = 0
                     one / zero
                     self.fail("the statement above should have raised an exception")
