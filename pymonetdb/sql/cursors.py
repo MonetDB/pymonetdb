@@ -133,6 +133,21 @@ class Cursor(object):
             pass
         self.connection = None
 
+    def __enter__(self):
+        """This method is invoked when this Cursor is used in a with-statement.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """This method is invoked when this Cursor is used in a with-statement.
+        """
+        try:
+            self.close()
+        except Error:
+            pass
+        # Propagate any errors
+        return False
+
     def execute(self, operation: str, parameters: Optional[Dict] = None):
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
