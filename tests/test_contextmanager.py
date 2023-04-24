@@ -11,6 +11,7 @@ This is the python implementation of the mapi protocol.
 from unittest import TestCase
 
 import pymonetdb
+from pymonetdb.exceptions import OperationalError
 from tests.util import test_args
 
 
@@ -21,6 +22,11 @@ class TestContextManager(TestCase):
 
     def test_context_manager(self):
         """Test using a Connection in a with-clause"""
+
+        # This is just a quick example of how connections and cursors
+        # would typically be used as a context manager.
+        # More detailed test cases are given below.
+
         with self.connect() as conn, conn.cursor() as c:
             c.execute("SELECT 42")
             self.assertEqual(c.fetchone()[0], 42)
@@ -43,48 +49,34 @@ class TestContextManager(TestCase):
             # check connection is closed
             self.assertIsNone(x.mapi)
 
+
     def test_connection_closes_when_sql_error(self):
-        try:
-            x = self.connect()
-            self.assertIsNotNone(x.mapi)
-            try:
-                with x as conn:
-                    y = conn.cursor()
-                    self.assertIsNotNone(y.connection)
-                    try:
-                        with y as c:
-                            c.execute("SELECT 42x")   # This fails
-                            self.assertEqual(c.fetchone()[0], 42)
-                    finally:
-                        # check cursor is closed
-                        self.assertIsNone(y.connection)
-            finally:
-                # check connection is closed
-                self.assertIsNone(x.mapi)
-        except pymonetdb.exceptions.OperationalError as e:
-            if "Unexpected symbol x" in str(e):
-                pass
-            else:
-                raise e
+        x = self.connect()
+        y = x.cursor()
+        self.assertIsNotNone(x.mapi)
+        self.assertIsNotNone(y.connection)
+        with self.assertRaisesRegex(OperationalError, expected_regex="Unexpected symbol"):
+            with x as conn:
+                with y as cursor:
+                    cursor.execute("SELECT 42zzz")   # This fails
+                    self.fail("the statement above should have raised an exception")
+        # check cursor and conn have been closed
+        self.assertIsNone(y.connection)
+        self.assertIsNone(x.mapi)
 
     def test_connection_closes_when_other_error(self):
-        try:
-            x = self.connect()
-            self.assertIsNotNone(x.mapi)
-            try:
-                with x as conn:
-                    y = conn.cursor()
-                    self.assertIsNotNone(y.connection)
-                    try:
-                        with y as c:
-                            one = len([c])
-                            zero = 0
-                            one / zero
-                    finally:
-                        # check cursor is closed
-                        self.assertIsNone(y.connection)
-            finally:
-                # check connection is closed
-                self.assertIsNone(x.mapi)
-        except ZeroDivisionError:
-            pass
+        x = self.connect()
+        y = x.cursor()
+        self.assertIsNotNone(x.mapi)
+        self.assertIsNotNone(y.connection)
+        with self.assertRaises(ZeroDivisionError):
+            with x as conn:
+                with y as cursor:
+                    # create a ZeroDivisionError without static analyzers noticing it
+                    one = len([cursor])
+                    zero = 0
+                    one / zero
+                    self.fail("the statement above should have raised an exception")
+        # check cursor and conn have been closed
+        self.assertIsNone(y.connection)
+        self.assertIsNone(x.mapi)
