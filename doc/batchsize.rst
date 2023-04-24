@@ -4,8 +4,8 @@ Result set batch size
 When a query produces a large result set, pymonetdb will often only retrieve
 part of the result set, retrieving the rest later, one batch at a time.
 The default behavior is to start with a reasonably small batch size but
-increase it rapidly. However, if necessary the application can configure this
-behavior.  In the table below you can see the settings that control the behavior
+increase it rapidly. However, if necessary, the application can configure this
+behavior.  In the table below, you can see the settings controlling the behavior
 of large transfers.
 
 ==============  ==============  ==========================  ======================
@@ -37,61 +37,63 @@ How the rest of the rows are retrieved depends on how they are accessed.
 in batches of increasing size. Every batch is twice as large as the previous
 one until the prefetch limit `maxprefetch` has been reached. This setting
 controls the maximum number of fetched rows that are not immediately used.
+
+For instance, with `replysize = 100`, the first 100 `fetchone()` calls
+immediately return the next row from the cache. For the 101-st `fetchone()`,
+pymonetdb will first double the `replysize` and retrieve rows 101-300 before
+returning row 101. When `Cursor.fetchmany()` is used, pymonetdb also adjusts
+the `replysize` to the requested stride. For example, for `fetchmany(40)`, the
+first two calls will return rows from the cache. However, for the third call,
+pymonetdb will first retrieve rows 101-320, i.e. double the `replysize` and
+enlarge it to reach a multiple of 40, before returning rows 81 - 120.
+
 With `Cursor.fetchall()`, all rows are retrieved at once.
-
-When `Cursor.fetchmany()` is used, the batch sizes are adjusted to the requested
-stride. For example, if we repeatedly call `fetchmany(40)` while `replysize` was
-100, the first two calls will return rows from the cache and the third call
-needs to fetch more rows. With `fetchone()`, it would have retrieved rows 101-300,
-but with `fetchmany(40)`, it will enlarge the window to rows 101-320 to
-reach a multiple of 40.
-
 
 New result set format
 ---------------------
 
 Version Jun2023 of MonetDB introduces a new,
-binary result set format that is much more efficient to parse. This format
-cannot be used in the initial transfer of `replysize` rows but it makes the
-subsequent batches much more efficient. By default, pymonetdb will automatically
-use it when possible unless configured otherwise using the ‘binary’ setting.
+binary result set format that is much more efficient to parse. The initial
+transfer of `replysize` rows still uses the existing text-based format;
+however, the subsequent batches can be transferred much more efficiently with
+the binary format. By default, pymonetdb will automatically use it when
+possible unless configured otherwise using the `binary` setting, e.g.
+`pymonetdb.connect('demo', binary=0)` or
+`pymonetdb.connect('mapi:monetdb://localhost/demo?binary=0')`.
 
-Note that with the reply size set to -1, all data would be transferred in the
-initial response so the binary protocol could be used. As a special case, when
-binary transfers are possible but the reply size is set to -1, pymonetdb will
-override the replysize. It will keep the initial transfer small and then
-transfer the rest of the result set in one large binary batch instead.
-
+We have implemented a special case to benefit from the binary protocol even
+when the `replysize` is set to -1. When pymonetdb knows that binary transfers
+are possible (e.g. learnt when connecting with MoentDB) while `replysize` is
+-1, it overrides the `replysize`. Pymonetdb will use a small size for the
+initial transfer and then retrieve the rest of the result set in one large
+binary batch.
 
 Tweaking the behavior
 ---------------------
 
 Usually, the batching behavior does not need to be tweaked.
 
-If you have the choice, using `Cursor.fetchmany()` seems to be a few percent
-more efficient than `Cursor.fetchall()`, while `Cursor.fetchone()` tends to be
-10-15% slower.
+When deciding which function to use to fetch the result sets,
+`Cursor.fetchmany()` seems to be a few percent more efficient than
+`Cursor.fetchall()`, while `Cursor.fetchone()` tends to be 10-15% slower.
 
-To reduce the amount of prefetching, set `maxprefetch` to a lower value or even
-to 0. Value 0 disables prefetch entirely, only ever fetching the rows needed right
-now. Setting it to -1 has the opposite effect: it allows the prefetch size to
-increase without bound.
+To reduce the amount of prefetched data, set `maxprefetch` to a lower value or
+even 0. The value 0 disables prefetch entirely, only fetching the requested
+rows. Setting `maxprefetch` to -1 has the opposite effect: it allows the
+prefetch size to increase without a bound.
 
-If you expect the size of the individual rows to be huge, it may be a
-good idea to set both `replysize` and `maxprefetch` to small values, for
-example, 10 and 20, respectively, or even 1 and 0. These small batch sizes limit
-the memory each batch consumes. As a
-quick rule of thumb for the memory requirements, assume that pymonetdb may need
-up to three times the size of the result set. Also, remember that if MonetDB is
-running on the same host, the server will also need at least that amount of
-memory.
+If you expect the size of the individual rows to be huge, consider setting both
+`replysize` and `maxprefetch` to small values, for example, 10 and 20,
+respectively, or even 1 and 0. These small batch sizes limit the memory each
+batch consumes. As a quick rule of thumb for the memory requirements, one can
+assume that pymonetdb may need up to three times the size of the result set.
+Also, remember that if MonetDB is running on the same host, the server will
+also need at least that amount of memory.
 
-Generally, it does not make sense to make `replysize` larger than the default.
-The batch sizes grow quickly anyway, and with
-newer versions of MonetDB and pymonetdb it is better to keep the size of
-the initial response fairly small so the binary result set format can be used
-more.
-
+Generally, one does not need to make `replysize` larger than the default
+because it will grow rapidly. Furthermore, with the newer versions of MonetDB
+and pymonetdb, it is better to keep the size of the initial response small to
+transfer more data in the binary format.
 
 Arraysize
 ---------
@@ -101,7 +103,7 @@ The batching behavior of pymonetdb is governed mainly by `replysize` and
 The relationship between these three is as follows:
 
 1. The `replysize` and `maxprefetch` settings are specific to pymonetdb,
-   `arraysize` comes from the Python DBAPI.
+   while `arraysize` comes from the Python DBAPI.
 
 2. The DBAPI only uses `arraysize` as the default value for `fetchmany()` and
    says that it may influence the efficiency of `fetchall()`. It does not mention
@@ -114,7 +116,7 @@ The relationship between these three is as follows:
 
 4. The DBAPI says that the default value for the `arraysize` of a newly created
    cursor is 1. Pymonetdb deviates from that, similar to, for example,
-   python-oracledb_. Pymonetdb uses the replysize of the connection instead.
+   python-oracledb_. Pymonetdb uses the `replysize` of the connection instead.
    If `replysize` is not a positive integer, the default is 100.
 
 In general, all this means that `arraysize` needs no tweaking.
