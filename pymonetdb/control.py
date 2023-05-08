@@ -110,7 +110,7 @@ class Control:
     def create(self, database_name):
         """
         Initialises a new database or multiplexfunnel in the MonetDB Server.
-        A database created with this command makes it available  for use,
+        A database created with this command makes it available for use,
         however in maintenance mode (see pymonetdb lock).
         """
         return isempty(self._send_command(database_name, "create"))

@@ -146,7 +146,7 @@ class TestBatchPolicy(TestCase):
         try:
             self.assertEqual(without_binary, with_binary)
         except AssertionError as e:
-            raise AssertionError("Scenarios differ between  binary=False and binary=True") from e
+            raise AssertionError("Scenarios differ between binary=False and binary=True") from e
 
         try:
             self.assertEqual(without_binary, with_binary_but_disabled)

@@ -58,7 +58,7 @@ class BatchPolicy:
         reply_size = self._effective_reply_size()
         # Note how we set self.last to reply_size rather than to 0 as we do
         # in .scroll().
-        # This is because we the initial reply will already have happened
+        # This is because the initial reply will already have happened
         # by the time we look at it.
         self.last = reply_size
         return reply_size
