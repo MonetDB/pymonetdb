@@ -29,7 +29,7 @@ works and makes development easier.
 Prepare test databases
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Some tests rely on a running MonetDB daemon to create and use test databases,
+Some tests rely on a running MonetDB daemon to create and use test databases.
 Some tests rely on a running MonetDB default database "demo".
 Therefore, you need to set up those processes before running the tests.
 
@@ -52,8 +52,8 @@ passphrase and enable remote control::
   $ monetdbd start /tmp/pymonetdbtest
 
 **Note 1:** Test databases created by `test_control.py` are cleaned up after the
-control tests have finisehd. However, the `demo` database is neither stopped
-nor destroyed after the tests, because there might be other users using this
+control tests have finished. However, the `demo` database is neither stopped
+nor destroyed after the tests because there might be other users using this
 database.
 
 **Note 2:** The above commands are also in the file `tests/initdb.sh`.  Once the
@@ -69,21 +69,22 @@ Run tests
 ^^^^^^^^^
 
 There are many ways to run the tests.
-Below we list several often used commands.
-One should any the commands in the root directory of one's pymonetdb source.
+Below we list several often-used commands.
+One should use the following commands in the root directory of one's pymonetdb
+source.
 
 * With Python unittest::
 
   $ python -m unittest # to run all tests
   $ python -m unittest -f # to run all tests but stop after the first failure
   $ python -m unittest -v # to run all tests and get information about individual test
-  $ python -m unittest -v tests.test_policy # to run all test of the module "tests.test_policy"
-  $ python -m unittest -v -k test_fetch # to run the sub-testset "test_fetch*"
+  $ python -m unittest -v tests.test_policy # to run all tests of the module "tests.test_policy"
+  $ python -m unittest -v -k test_fetch # to run the sub-test set "test_fetch*"
 
 * With `pytest`::
 
   $ pytest # to run all tests
-  $ pytest -v # to run all test and get information about individual test
+  $ pytest -v # to run all tests and get information about individual test
   $ pytest -v tests/test_oid.py # to run one test file
 
 * With `make`::
@@ -102,18 +103,18 @@ source to a local folder on your VM. See also `vagrant`_.
 
   $ pip install tox; tox
 
-Note: You will need to add your Python version to the `envlist` in the
-`tox.ini` file, if it is not listed there.
+Note: If it is not listed there, you must add your Python version to the `envlist` in the
+`tox.ini` file.
 
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^
 
-A number of environment variables are defined in `tests/util.py`.
+Several environment variables are defined in `tests/util.py`.
 Many of them are self-explanatory.
 Here we just highlight a few:
 
-* TSTPASSPHRASE is the pass phrase of Merovingian. You have to set it if you want to run the control test (see `Prepare test databases`_ above).
-* Some tests are skipped unless TSTFULL is set to `true`, e.g.::
+* TSTPASSPHRASE is the Merovingian passphrase you must set to run the control test (see `Prepare test databases`_ above).
+* Some tests are skipped unless you set TSTFULL to `true`, e.g.::
 
   $ TSTFULL=true python3 -m unittest -v tests/test_control.py
 
