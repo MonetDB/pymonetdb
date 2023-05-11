@@ -14,6 +14,7 @@ import struct
 import hashlib
 import os
 import typing
+import ssl
 from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
@@ -114,6 +115,11 @@ class Connection(object):
         unix_socket is used if hostname is not defined.
         """
 
+        use_ssl = True # TODO: make it a parameter
+        root_certificate = "/home/kutsurak/src/monetdb/mercurial-repos/public/smapi/smapi-dev-certificates/new/ca_cert.pem"
+
+
+
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
                 raise DatabaseError("colon not allowed in database name, except as part of "
@@ -193,6 +199,12 @@ class Connection(object):
                 break
             if self.socket is None:
                 raise socket.error("Connection refused")
+            # Socket has been opened. Attempt to wrap it in SSL
+            if use_ssl:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context.load_verify_locations(root_certificate)
+                self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
+            
         else:
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.settimeout(self.connect_timeout)
