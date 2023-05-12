@@ -6,6 +6,8 @@ API
 Basic SQL usage
 ===============
 
+.. autofunction:: pymonetdb.connect
+
 .. autoclass:: pymonetdb.sql.connections.Connection
     :members:
     :undoc-members:
