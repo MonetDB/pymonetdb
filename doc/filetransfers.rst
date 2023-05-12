@@ -31,8 +31,8 @@ that directory.
 
 Note that in this example, we register the same handler object as an
 uploader and a downloader for demonstration purposes. In the real world, it is
-good security practice only to register an uploader or a downloader, or
-to use two separate handlers.
+good security practice only to register an uploader or a downloader
+It is also possible to use two separate handlers.
 
 See the API documentation for details.
 

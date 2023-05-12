@@ -1,6 +1,7 @@
 Development
 ===========
 
+
 Github
 ------
 
@@ -20,18 +21,26 @@ by following these steps:
 Also, we try to be pep8 compatible as much as possible, where possible and
 reasonable.
 
+
 Test suite
 ----------
 
 pymonetdb comes with a test suite to verify that the code
-works and makes development easier.
+works and make development easier.
+
 
 Prepare test databases
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Some tests rely on a running MonetDB daemon to create and use test databases.
-Some tests rely on a running MonetDB default database "demo".
-Therefore, you need to set up those processes before running the tests.
+Most tests use an existing MonetDB database that you must prepare beforehand.
+By default they try to connect to a database named "demo" but
+this can be configured otherwise, see below.
+
+Some of the tests rely on a running MonetDB daemon, to test
+creating and destroying new databases. This daemon also needs to be prepared
+beforehand, and configured to allow control connections.
+Alternatively, you may disable the control tests by setting the environment
+variable `TSTCONTROL=off`.
 
 The commands below assume an environment without any running MonetDB processes.
 
@@ -43,8 +52,8 @@ database::
   $ monetdb create demo
   $ monetdb release demo
 
-If you want to run the control tests (in `tests/test_control.py`), you need to set a
-passphrase and enable remote control::
+If you want to run the control tests (in `tests/test_control.py`), you need to
+set a passphrase and enable remote control::
 
   $ monetdbd set control=yes /tmp/pymonetdbtest
   $ monetdbd set passphrase=testdb /tmp/pymonetdbtest
@@ -52,26 +61,25 @@ passphrase and enable remote control::
   $ monetdbd start /tmp/pymonetdbtest
 
 **Note 1:** Test databases created by `test_control.py` are cleaned up after the
-control tests have finished. However, the `demo` database is neither stopped
-nor destroyed after the tests because there might be other users using this
-database.
+control tests have finished. However, the `demo` database and the MonetDB daemon
+itself are neither stopped nor destroyed.
 
 **Note 2:** The above commands are also in the file `tests/initdb.sh`.  Once the
 database farm has been created, you can use that script to do the remaining
 work::
 
-  $tests/initdb.sh demo /tmp/pymonetdbtest
+  $ tests/initdb.sh demo /tmp/pymonetdbtest
 
 **WARNING:** `initdb.sh` will destroy the given database `demo` *WITHOUT*
 asking for confirmation!
+
 
 Run tests
 ^^^^^^^^^
 
 There are many ways to run the tests.
 Below we list several often-used commands.
-One should use the following commands in the root directory of one's pymonetdb
-source.
+The commands should be run in the root directory of the pymonetdb source directory.
 
 * With Python unittest::
 
@@ -113,12 +121,24 @@ Several environment variables are defined in `tests/util.py`.
 Many of them are self-explanatory.
 Here we just highlight a few:
 
-* TSTPASSPHRASE is the Merovingian passphrase you must set to run the control test (see `Prepare test databases`_ above).
+* TSTDB is the name of the preexisting database used by most of the tests.
+  TSTHOSTNAME, TSTUSERNAME, TSTPASSWORD and MAPIPORT control the other connection
+  parameters. Note that for historical reasons it is MAPIPORT, not TSTPORT.
+
+* TSTPASSPHRASE is the Merovingian passphrase you must set to run the control
+  test (see `Prepare test databases`_ above).
+
 * Some tests are skipped unless you set TSTFULL to `true`, e.g.::
 
   $ TSTFULL=true python3 -m unittest -v tests/test_control.py
 
-* TSTCONTROL is also used to control the tests in `test_control.py`.  The default `tcp,local` means run the tests over TCP/IP (e.g. on port 50000) and the Unix domain socket (e.g. "/tmp/s.merovingian.50000"). When you run MonetDB in, e.g., a Docker container, you can turn off the tests over the Unix socket using `TSTCONTROL=tcp`.  If you want to turn off all Merovingian tests, you can use `TSTCONTROL=off` (actually, any string other than "tcp" and "local" will do)::
+* TSTCONTROL is used to control the tests in `test_control.py`. The default
+  `tcp,local` means run the tests over TCP/IP (e.g. on port 50000) and the Unix
+  domain socket (e.g. "/tmp/s.merovingian.50000"). When you run MonetDB in,
+  e.g., a Docker container, you can turn off the tests over the Unix socket
+  using `TSTCONTROL=tcp`.  If you want to turn off all Merovingian tests, you
+  can use `TSTCONTROL=off` (actually, any string other than "tcp" and "local"
+  will do)::
 
   $ TSTFULL=true TSTCONTROL=tcp  python3 -m unittest -v tests/test_control.py
 
