@@ -117,6 +117,7 @@ class Connection(object):
 
         use_ssl = True # TODO: make it a parameter
         root_certificate = "/home/kutsurak/src/monetdb/mercurial-repos/public/smapi/smapi-dev-certificates/new/ca_cert.pem"
+        # root_certificate = "/home/kutsurak/src/monetdb/projects/ca-bundle.crt"
 
 
 
@@ -202,6 +203,8 @@ class Connection(object):
             # Socket has been opened. Attempt to wrap it in SSL
             if use_ssl:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context.verify_mode = ssl.CERT_REQUIRED
+                ssl_context.check_hostname = False
                 ssl_context.load_verify_locations(root_certificate)
                 self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
             
@@ -210,7 +213,14 @@ class Connection(object):
             self.socket.settimeout(self.connect_timeout)
             self.socket.connect(unix_socket)
             if self.language != 'control':
-                # don't know why, but we need to do this
+                # When the monetdbd daemon spawns a new mserver, if it
+                # comunicates using a UNIX socket, it can send the file
+                # descriptor of the already open socket to the client.
+                # It does so by sending an initial message. If the message
+                # contains a file descriptor it contains the byte '1' (0x49)
+                # and the file descriptor. If the message has no content (as
+                # is the case here) it must contain the byte '0' (0x48).
+                # see SERVERlistenThread in monetdb5/modules/mal/mal_mapi.c
                 self.socket.send('0'.encode())
 
         if not (self.language == 'control' and not self.hostname):
