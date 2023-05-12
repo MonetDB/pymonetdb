@@ -518,7 +518,10 @@ class Connection(object):
             data = block[pos:pos + 8192]
             nsent = self.socket.send(data)
             pos += nsent
-        self.socket.shutdown(socket.SHUT_WR)
+        try:
+            self.socket.shutdown(socket.SHUT_WR)
+        except OSError:
+            pass
 
     def __del__(self):
         if self.socket:
