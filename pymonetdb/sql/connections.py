@@ -24,25 +24,33 @@ class Connection:
                  host=None, user=None, connect_timeout=-1):
         """ Set up a connection to a MonetDB SQL database.
 
-        args:
-            database (str): name of the database, or MAPI URI
-            hostname (str): Hostname where monetDB is running
-            port (int): port to connect to (default: 50000)
-            username (str): username for connection (default: "monetdb")
-            password (str): password for connection (default: "monetdb")
-            unix_socket (str): socket to connect to. used when hostname not set
-                                (default: "/tmp/.s.monetdb.50000")
-            autocommit (bool):  enable/disable auto commit (default: False)
-            connect_timeout -- the socket timeout while connecting
-                               (default: see python socket module)
+        Arguments
+        ~~~~~~~~~
 
-        MAPI URI:
-            tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
-            unix domain socket: mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
+        database (str)
+            name of the database, or MAPI URI (see below)
+        hostname (str)
+            Hostname where MonetDB is running
+        port (int)
+            port to connect to (default: 50000)
+        username (str)
+            username for connection (default: "monetdb")
+        password (str)
+            password for connection (default: "monetdb")
+        unix_socket (str)
+            socket to connect to. used when hostname not set (default: "/tmp/.s.monetdb.50000")
+        autocommit (bool)
+            enable/disable auto commit (default: false)
+        connect_timeout (int)
+            the socket timeout while connecting
 
-        returns:
-            Connection object
+        MAPI URI Syntax
+        ~~~~~~~~~~~~~~~
 
+        tcp socket
+            mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
+        unix domain socket
+            mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
         """
 
         self.autocommit = autocommit
