@@ -29,30 +29,35 @@ class Connection:
                  ):
         """ Set up a connection to a MonetDB SQL database.
 
-        args:
-            database (str): name of the database, or MAPI URI
-            hostname (str): Hostname where monetDB is running
-            port (int): port to connect to (default: 50000)
-            username (str): username for connection (default: "monetdb")
-            password (str): password for connection (default: "monetdb")
-            unix_socket (str): socket to connect to. used when hostname not set
-                                (default: "/tmp/.s.monetdb.50000")
-            autocommit (bool):  enable/disable auto commit (default: False)
-            connect_timeout -- the socket timeout while connecting
-                               (default: see python socket module)
-            binary (int):  enable binary result sets when possible if > 0 (default: 1)
-            replysize(int): number of rows to retrieve immediately after query
-                            execution (default: 100, -1 means everything)
-            maxprefetch(int): max. number of rows to prefetch during Cursor.fetchone()
-                              or Cursor.fetchmany()
+        database (str)
+            name of the database, or MAPI URI (see below)
+        hostname (str)
+            Hostname where MonetDB is running
+        port (int)
+            port to connect to (default: 50000)
+        username (str)
+            username for connection (default: "monetdb")
+        password (str)
+            password for connection (default: "monetdb")
+        unix_socket (str)
+            socket to connect to. used when hostname not set (default: "/tmp/.s.monetdb.50000")
+        autocommit (bool)
+            enable/disable auto commit (default: false)
+        connect_timeout (int)
+            the socket timeout while connecting
+        binary (int)
+            enable binary result sets when possible if > 0 (default: 1)
+        replysize(int)
+            number of rows to retrieve immediately after query execution (default: 100, -1 means everything)
+        maxprefetch(int)
+            max. number of rows to prefetch during Cursor.fetchone() or Cursor.fetchmany()
 
-        MAPI URI:
-            tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
-            unix domain socket: mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
+        **MAPI URI Syntax**:
 
-        returns:
-            Connection object
-
+        tcp socket
+            mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
+        unix domain socket
+            mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
         """
 
         # Aliases for host=hostname, user=username, the DB API spec is not specific about this

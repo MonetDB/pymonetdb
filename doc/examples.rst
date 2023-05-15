@@ -58,7 +58,7 @@ MAPI Connection
 ---------------
 
 If you would like to communicate with the database at a lower level
-you can use the MAPI library::
+you can use the MAPI library (but not recommended)::
 
  > from pymonetdb import mapi
  > server = mapi.Connection()
@@ -71,6 +71,6 @@ you can use the MAPI library::
 CSV Upload
 --------------
 
-This is an example script that uploads some csv data from the local file system:
+This is an example script that uploads some CSV data from the local file system:
 
 .. literalinclude:: examples/uploadcsv.py
