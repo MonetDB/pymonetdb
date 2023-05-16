@@ -63,6 +63,12 @@ possible unless configured otherwise using the `binary` setting, e.g.
 `pymonetdb.connect('demo', binary=0)` or
 `pymonetdb.connect('mapi:monetdb://localhost/demo?binary=0')`.
 
+Normally, the binary result set transfer is transparent to the user
+applications. The result set fetching functions automatically do the necessary
+data conversion.  However, if you want to know explicitly if the binary format
+has been used, you can use `Cursor.used_binary_protocol()`, e.g. after having
+called a fetch function.
+
 We have implemented a special case to benefit from the binary protocol even
 when the `replysize` is set to -1. When pymonetdb knows that binary transfers
 are possible (e.g. learnt when connecting with MoentDB) while `replysize` is
