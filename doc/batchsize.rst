@@ -1,3 +1,5 @@
+.. _batch_size:
+
 Result set batch size
 =====================
 
