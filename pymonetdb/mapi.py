@@ -96,6 +96,7 @@ class Connection(object):
         self._result = None
         self.socket = None
         self.unix_socket = None
+        self.use_tls = False
         self.hostname = ""
         self.port = 0
         self.username = ""
@@ -109,17 +110,14 @@ class Connection(object):
 
     def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
                 hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
+                use_tls=False, server_cert=None, dangerous_tls_nocheck=None,
                 handshake_options=None):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
         """
 
-        use_ssl = True # TODO: make it a parameter
-        root_certificate = "/home/kutsurak/src/monetdb/mercurial-repos/public/smapi/smapi-dev-certificates/new/ca_cert.pem"
-        # root_certificate = "/home/kutsurak/src/monetdb/projects/ca-bundle.crt"
-
-
+        self.use_tls = use_tls
 
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
@@ -201,13 +199,22 @@ class Connection(object):
             if self.socket is None:
                 raise socket.error("Connection refused")
             # Socket has been opened. Attempt to wrap it in SSL
-            if use_ssl:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                ssl_context.verify_mode = ssl.CERT_REQUIRED
-                ssl_context.check_hostname = False
-                ssl_context.load_verify_locations(root_certificate)
+            if dangerous_tls_nocheck:
+                disabled_checks = set(dangerous_tls_nocheck.split(','))
+            else:
+                disabled_checks = set()
+            if self.use_tls:
+                if server_cert:
+                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                    ssl_context.load_verify_locations(server_cert)
+                else:
+                    ssl_context = ssl.create_default_context()
+                if 'host' in disabled_checks:
+                    ssl_context.check_hostname = False
+                if 'cert' in disabled_checks:
+                    ssl_context.verify_mode = ssl.CERT_NONE
                 self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
-            
+
         else:
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.settimeout(self.connect_timeout)

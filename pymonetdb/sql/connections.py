@@ -21,7 +21,9 @@ class Connection:
 
     def __init__(self, database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None, connect_timeout=-1):
+                 host=None, user=None, use_tls=False, server_cert=None, connect_timeout=-1,
+                 dangerous_tls_nocheck=None,
+                 ):
         """ Set up a connection to a MonetDB SQL database.
 
         Arguments
@@ -43,7 +45,12 @@ class Connection:
             enable/disable auto commit (default: false)
         connect_timeout (int)
             the socket timeout while connecting
-
+        use_tls (bool)
+            whether to secure (encrypt) the connection
+        server_cert (str)
+            optional path to TLS certificate expected from server
+        dangerous_tls_nocheck (str)
+            optional comma separated list of security checks to disable. possible values: 'host' and 'cert'
         MAPI URI Syntax
         ~~~~~~~~~~~~~~~
 
@@ -79,6 +86,8 @@ class Connection:
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
+                          use_tls=use_tls, server_cert=server_cert,
+                          dangerous_tls_nocheck=dangerous_tls_nocheck,
                           handshake_options=handshake_options)
 
         # self.mapi.connect() has set .sent to True for all items that
