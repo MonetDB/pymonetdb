@@ -24,9 +24,6 @@ class Connection:
                  host=None, user=None, connect_timeout=-1):
         """ Set up a connection to a MonetDB SQL database.
 
-        Arguments
-        ~~~~~~~~~
-
         database (str)
             name of the database, or MAPI URI (see below)
         hostname (str)
@@ -44,8 +41,7 @@ class Connection:
         connect_timeout (int)
             the socket timeout while connecting
 
-        MAPI URI Syntax
-        ~~~~~~~~~~~~~~~
+        **MAPI URI Syntax**:
 
         tcp socket
             mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
