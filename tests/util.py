@@ -19,6 +19,18 @@ test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 test_control = environ.get('TSTCONTROL', 'tcp,local')
 
+# Configuration for tlstester.py:
+#
+# Hostname to connect to, must match exactly what tsltester.py is signing the
+# certificates for.
+test_tls_tester_host = environ.get('TSTTLSTESTERHOST')
+# Main port to connect to, tlstester.py will redirect the test cases to other
+# ports as well.
+test_tls_tester_port = environ.get('TSTTLSTESTERPORT')
+# Set to true if tlstester.py's ca3.crt has been inserted into the system
+# trusted root certificate store.
+test_tls_tester_sys_store = environ.get('TSTTLSTESTERSYSSTORE', 'false').lower() == 'true'
+
 test_args = {
     'port': test_port,
     'database': test_database,
