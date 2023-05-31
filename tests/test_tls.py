@@ -5,7 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
-from ssl import SSLCertVerificationError, SSLError
+from ssl import SSLError
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Optional, Union
 from unittest import SkipTest, TestCase, skip, skipUnless
@@ -124,23 +124,23 @@ class TestTLS(TestCase):
 
     def test_refuse_no_cert(self):
         with self.assertRaisesRegex(
-            SSLCertVerificationError, "self signed certificate in certificate chain"
+            SSLError, "self signed certificate in certificate chain"
         ):
             self.try_connect("server1", server_cert=None)
 
     def test_refuse_wrong_cert(self):
         with self.assertRaisesRegex(
-            SSLCertVerificationError, "self signed certificate in certificate chain"
+            SSLError, "self signed certificate in certificate chain"
         ):
             self.try_connect("server1", server_cert=self.download_file("/ca2.crt"))
 
     @skip("TLSv1.2 detection not implemented yet")
     def test_refuse_tls12(self):
-        with self.assertRaisesRegex(SSLCertVerificationError, "xyzzy"):
+        with self.assertRaisesRegex(SSLError, "xyzzy"):
             self.try_connect("tls12", server_cert=self.download_file("/ca1.crt"))
 
     def test_refuse_expired(self):
-        with self.assertRaisesRegex(SSLCertVerificationError, "has expired"):
+        with self.assertRaisesRegex(SSLError, "has expired"):
             self.try_connect("expiredcert", server_cert=self.download_file("/ca1.crt"))
 
     @skip("client auth not implemented yet")
