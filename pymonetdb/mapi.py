@@ -241,6 +241,9 @@ class Connection(object):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
+        assert self.socket
+        self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
         challenge = self._getblock()
         response = self._challenge_response(challenge, password)
         self._putblock(response)

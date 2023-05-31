@@ -26,9 +26,6 @@ class Connection:
                  ):
         """ Set up a connection to a MonetDB SQL database.
 
-        Arguments
-        ~~~~~~~~~
-
         database (str)
             name of the database, or MAPI URI (see below)
         hostname (str)
@@ -51,8 +48,8 @@ class Connection:
             optional path to TLS certificate expected from server
         dangerous_tls_nocheck (str)
             optional comma separated list of security checks to disable. possible values: 'host' and 'cert'
-        MAPI URI Syntax
-        ~~~~~~~~~~~~~~~
+
+        **MAPI URI Syntax**:
 
         tcp socket
             mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
