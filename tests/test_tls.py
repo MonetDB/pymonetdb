@@ -7,9 +7,9 @@
 
 from ssl import SSLCertVerificationError, SSLError
 from tempfile import NamedTemporaryFile
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from unittest import SkipTest, TestCase, skip, skipUnless
-from urllib.parse import urlencode
+from urllib.parse import quote as urlquote
 import urllib.request
 
 import pymonetdb
@@ -25,7 +25,7 @@ from tests.util import (
 class TestTLS(TestCase):
     _name: Optional[str]
     _cache: dict[str, str]
-    _files: dict[str, NamedTemporaryFile]
+    _files: dict[str, Any]  # they are NamedTemporaryFile's, but mypy hates those
 
     def __init__(self, methodName):
         self._name = methodName
@@ -61,7 +61,7 @@ class TestTLS(TestCase):
         port = self.port(port_name)
 
         try:
-            conn = pymonetdb.connect(
+            pymonetdb.connect(
                 "banana",
                 hostname=test_tls_tester_host,
                 port=port,
@@ -76,11 +76,12 @@ class TestTLS(TestCase):
 
     def port(self, port_name: str) -> int:
         portmap = dict()
-        url = f"/?test={urllib.parse.quote(self._name)}" if self._name else "/"
+        url = f"/?test={urlquote(self._name)}" if self._name else "/"
         ports = self.download(url, encoding="utf-8")
+        assert isinstance(ports, str)   # silence mypy
         for line in ports.splitlines():
-            name, port = line.split(":", 1)
-            portmap[name] = int(port)
+            name_field, port_field = line.split(":", 1)
+            portmap[name_field] = int(port_field)
         port = portmap.get(port_name)
         if port is None:
             names = ", ".join(repr(n) for n in portmap.keys())

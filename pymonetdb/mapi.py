@@ -237,7 +237,7 @@ class Connection(object):
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, password: str, iteration=0):
+    def _login(self, password: str, iteration=0):  # noqa: C901
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
