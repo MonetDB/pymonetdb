@@ -242,7 +242,8 @@ class Connection(object):
         everything is okay """
 
         assert self.socket
-        self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        if not self.use_tls:
+            self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
 
         challenge = self._getblock()
         response = self._challenge_response(challenge, password)
