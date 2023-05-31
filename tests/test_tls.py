@@ -7,7 +7,7 @@
 
 from ssl import SSLCertVerificationError, SSLError
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 from unittest import SkipTest, TestCase, skip, skipUnless
 from urllib.parse import quote as urlquote
 import urllib.request
@@ -24,8 +24,8 @@ from tests.util import (
 
 class TestTLS(TestCase):
     _name: Optional[str]
-    _cache: dict[str, str]
-    _files: dict[str, Any]  # they are NamedTemporaryFile's, but mypy hates those
+    _cache: Dict[str, str]
+    _files: Dict[str, Any]  # they are NamedTemporaryFile's, but mypy hates those
 
     def __init__(self, methodName):
         self._name = methodName
