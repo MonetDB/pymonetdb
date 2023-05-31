@@ -213,6 +213,7 @@ class Connection(object):
                     ssl_context.check_hostname = False
                 if 'cert' in disabled_checks:
                     ssl_context.verify_mode = ssl.CERT_NONE
+                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
                 self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
 
         else:

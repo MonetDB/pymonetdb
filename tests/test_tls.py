@@ -134,9 +134,8 @@ class TestTLS(TestCase):
         ):
             self.try_connect("server1", server_cert=self.download_file("/ca2.crt"))
 
-    @skip("TLSv1.2 detection not implemented yet")
     def test_refuse_tls12(self):
-        with self.assertRaisesRegex(SSLError, "xyzzy"):
+        with self.assertRaisesRegex(SSLError, "version"):
             self.try_connect("tls12", server_cert=self.download_file("/ca1.crt"))
 
     def test_refuse_expired(self):
