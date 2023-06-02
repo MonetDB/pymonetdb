@@ -22,10 +22,11 @@ class ProfilerConnection:
         self._buffer = ""
         self._objects = list()
 
-    def connect(self, database, username="monetdb", password="monetdb", hostname=None, port=50000, heartbeat=0):
-        self._heartbeat = heartbeat
-        self._mapi.connect(database, username, password, "mal", hostname, port)
-        self._mapi.cmd("profiler.setheartbeat(%d);\n" % heartbeat)
+    def connect(self, **kwargs):
+        self._heartbeat = kwargs.get('heartbeat', 0)
+        kwargs['language'] = 'mal'
+        self._mapi.connect(**kwargs)
+        self._mapi.cmd("profiler.setheartbeat(%d);\n" % self._heartbeat)
         try:
             self._mapi.cmd("profiler.openstream();\n")
         except OperationalError:
