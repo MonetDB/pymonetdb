@@ -8,7 +8,7 @@
 from ssl import SSLError
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Optional, Union
-from unittest import SkipTest, TestCase, skip, skipUnless
+from unittest import SkipTest, TestCase, skipUnless
 from urllib.parse import quote as urlquote
 import urllib.request
 
@@ -142,9 +142,20 @@ class TestTLS(TestCase):
         with self.assertRaisesRegex(SSLError, "has expired"):
             self.try_connect("expiredcert", server_cert=self.download_file("/ca1.crt"))
 
-    @skip("client auth not implemented yet")
     def test_connect_client_auth(self):
-        self.try_connect("clientauth", server_cert=self.download_file("/ca1.crt"))
+        self.try_connect(
+            "clientauth",
+            server_cert=self.download_file("/ca1.crt"),
+            client_key=self.download_file("/client2.key"),
+            client_cert=self.download_file("/client2.crt"),
+        )
+
+    def test_connect_client_auth_combined(self):
+        self.try_connect(
+            "clientauth",
+            server_cert=self.download_file("/ca1.crt"),
+            client_key=self.download_file("/client2.keycrt"),
+        )
 
     def test_fail_plain_to_tls(self):
         with self.assertRaises(SSLError):

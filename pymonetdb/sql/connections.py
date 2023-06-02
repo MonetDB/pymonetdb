@@ -21,7 +21,9 @@ class Connection:
 
     def __init__(self, database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None, use_tls=False, server_cert=None, connect_timeout=-1,
+                 host=None, user=None, connect_timeout=-1,
+                 use_tls=False, server_cert=None,
+                 client_key=None, client_cert=None, client_key_password=None,
                  dangerous_tls_nocheck=None,
                  ):
         """ Set up a connection to a MonetDB SQL database.
@@ -45,7 +47,14 @@ class Connection:
         use_tls (bool)
             whether to secure (encrypt) the connection
         server_cert (str)
-            optional path to TLS certificate expected from server
+            optional path to TLS certificate to verify the server with
+        client_key (str)
+            optional path to TLS key to present to server for authentication
+        client_cert (str)
+            optional path to TLS cert to present to server for authentication.
+            the certificate file can also be appended to the key file.
+        client_key_password (str)
+            optional password to decrypt client_key with
         dangerous_tls_nocheck (str)
             optional comma separated list of security checks to disable. possible values: 'host' and 'cert'
 
@@ -84,6 +93,8 @@ class Connection:
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
                           use_tls=use_tls, server_cert=server_cert,
+                          client_key=client_key, client_cert=client_cert,
+                          client_key_password=client_key_password,
                           dangerous_tls_nocheck=dangerous_tls_nocheck,
                           handshake_options=handshake_options)
 

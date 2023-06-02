@@ -111,6 +111,7 @@ class Connection(object):
     def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
                 hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
                 use_tls=False, server_cert=None, dangerous_tls_nocheck=None,
+                client_key=None, client_cert=None, client_key_password=None,
                 handshake_options=None):
         """ setup connection to MAPI server
 
@@ -159,6 +160,12 @@ class Connection(object):
             unix_socket = f"/tmp/.s.monetdb.{port}"
         elif not unix_socket and not hostname:
             hostname = 'localhost'
+
+        if use_tls:
+            if client_cert is not None and client_key is None:
+                raise DatabaseError('client_cert parameter is only valid if client_key is also given')
+            if client_key_password is not None and client_key is None:
+                raise DatabaseError('client_key_password parameter is only valid if client_key is also given')
 
         # None and zero are allowed values
         if connect_timeout != -1:
@@ -209,11 +216,17 @@ class Connection(object):
                     ssl_context.load_verify_locations(server_cert)
                 else:
                     ssl_context = ssl.create_default_context()
+                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
+                if client_key:
+                    ssl_context.load_cert_chain(
+                        certfile=client_cert if client_cert is not None else client_key,
+                        keyfile=client_key,
+                        password=client_key_password,
+                    )
                 if 'host' in disabled_checks:
                     ssl_context.check_hostname = False
                 if 'cert' in disabled_checks:
                     ssl_context.verify_mode = ssl.CERT_NONE
-                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
                 self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
 
         else:
