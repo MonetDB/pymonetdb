@@ -19,6 +19,9 @@ test_passphrase = environ.get('TSTPASSPHRASE', 'testdb')
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 test_control = environ.get('TSTCONTROL', 'tcp,local')
 
+test_use_tls = environ.get('TSTTLS', 'false').lower() == 'true'
+test_tls_server_cert = environ.get('TSTSERVERCERT')
+
 # Configuration for tlstester.py:
 #
 # Hostname to connect to, must match exactly what tsltester.py is signing the
@@ -37,6 +40,8 @@ test_args = {
     'hostname': test_hostname,
     'username': test_username,
     'password': test_password,
+    'use_tls': test_use_tls,
+    'server_cert': test_tls_server_cert,
 }
 
 

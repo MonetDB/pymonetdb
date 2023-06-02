@@ -7,7 +7,7 @@
 import unittest
 from pymonetdb.control import Control
 from pymonetdb.exceptions import OperationalError
-from tests.util import test_hostname, test_port, test_passphrase, test_full, test_control
+from tests.util import test_hostname, test_port, test_passphrase, test_full, test_control, test_use_tls
 
 database_prefix = 'controltest_'
 database_name = database_prefix + 'other'
@@ -34,6 +34,8 @@ class TestControl(unittest.TestCase):
         # use tcp
         if 'tcp' not in (test_control or '').split(','):
             raise unittest.SkipTest("Skipping 'tcp' Control test")
+        if test_use_tls:
+            raise unittest.SkipTest("Control over TLS doesn't work yet")
         return Control(hostname=test_hostname, port=test_port, passphrase=test_passphrase)
 
     def setUp(self):
