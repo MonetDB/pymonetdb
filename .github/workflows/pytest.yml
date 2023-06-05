@@ -40,7 +40,6 @@ jobs:
           sudo -u monetdb monetdb start demo || true
           sudo cat /var/lib/monetdb/merovingian.log
           sudo -u monetdb monetdb status
-      - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
