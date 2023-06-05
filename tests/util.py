@@ -43,7 +43,9 @@ test_args = {
     'use_tls': test_use_tls,
     'server_cert': test_tls_server_cert,
 }
-
+control_test_args = {**test_args}
+del control_test_args['password']
+control_test_args['passphrase'] = test_passphrase
 
 try:
     import_module('lz4.frame')
