@@ -28,6 +28,7 @@ jobs:
       TSTDB: monetdb
       TSTHOSTNAME: localhost.localdomain
       MAPIPORT: 43000
+      TSTPASSPHRASE: monetdb
       TSTTLS: true
       TSTSERVERCERT: proxy.crt
       TSTCONTROL: tcp
