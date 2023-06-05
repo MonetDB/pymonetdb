@@ -72,37 +72,28 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
-    def __init__(self, hostname=None, port=50000, passphrase=None,
-                 unix_socket=None, connect_timeout=-1):
 
-        if not unix_socket:
-            unix_socket = "/tmp/.s.merovingian.%i" % port
-
+    def __init__(self, hostname=None, port=50000, passphrase=None, **kwargs):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
+        parms = {'port': port, 'hostname': hostname, 'password': passphrase, **kwargs}
+        parms['username'] = 'monetdb'
+        parms['database'] = 'merovingian'
+        parms['language'] = 'control'
+
+        if 'unix_socket' not in parms:
+            parms['unix_socket'] = "/tmp/.s.merovingian.%i" % parms['port']
+        self.connect_parms = parms
         self.server = mapi.Connection()
-        self.hostname = hostname
-        self.port = port
-        self.passphrase = passphrase
-        self.unix_socket = unix_socket
-        self.connect_timeout = connect_timeout
 
         # check connection
-        self.server.connect(hostname=hostname, port=port, username='monetdb',
-                            password=passphrase,
-                            database='merovingian', language='control',
-                            unix_socket=unix_socket,
-                            connect_timeout=connect_timeout)
+        self.server.connect(**self.connect_parms)
         self.server.disconnect()
 
     def _send_command(self, database_name, command):
         logger.info("sending '{}' command to database {}".format(command, database_name))
-        self.server.connect(hostname=self.hostname, port=self.port,
-                            username='monetdb', password=self.passphrase,
-                            database='merovingian', language='control',
-                            unix_socket=self.unix_socket,
-                            connect_timeout=self.connect_timeout)
+        self.server.connect(**self.connect_parms)
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
         return result
