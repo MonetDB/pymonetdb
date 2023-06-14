@@ -74,7 +74,13 @@ def py_timetz(data):
 def py_date(data):
     """ Returns a python Date
     """
-    year, month, day = data.split('-', 3)
+    try:
+        year, month, day = data.split('-', 3)
+    except ValueError:
+        if data.startswith('-'):
+            raise ValueError("year out of range, must be positive")
+        else:
+            raise
     return datetime.date(int(year), int(month), int(day))
 
 
@@ -82,7 +88,13 @@ def py_timestamp(data):
     """ Returns a python Timestamp
     """
     date_part, time_part = data.split(' ', 2)
-    year, month, day = date_part.split('-', 3)
+    try:
+        year, month, day = date_part.split('-', 3)
+    except ValueError:
+        if date_part.startswith('-'):
+            raise ValueError("year out of range, must be positive")
+        else:
+            raise
     hour, min, sec_usec = time_part.split(':', 3)
     sec_parts = sec_usec.split('.', 2)
     sec = sec_parts[0]
