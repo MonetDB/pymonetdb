@@ -217,6 +217,7 @@ class Connection(object):
                 else:
                     ssl_context = ssl.create_default_context()
                 ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
+                ssl_context.set_alpn_protocols(["mapi/9"])
                 if client_key:
                     ssl_context.load_cert_chain(
                         certfile=client_cert if client_cert is not None else client_key,
