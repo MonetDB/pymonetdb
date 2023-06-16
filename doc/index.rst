@@ -27,6 +27,7 @@ Contents
    introduction
    examples
    filetransfers
+   batchsize
    api
    development
 
