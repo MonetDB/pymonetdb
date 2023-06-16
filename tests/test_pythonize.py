@@ -67,6 +67,22 @@ class TestPythonize(unittest.TestCase):
         self.assertEqual(row[0].isoformat(), dt.isoformat())
         self.assertEqual(row[1].isoformat(), dtz.isoformat())
 
+    def test_date_year0(self):
+        with self.assertRaisesRegex(ValueError, "out of range"):
+            self.cursor.execute("SELECT DATE '0-1-1'")
+
+    def test_date_negative_year(self):
+        with self.assertRaisesRegex(ValueError, "out of range"):
+            self.cursor.execute("SELECT DATE '-1-1-1'")
+
+    def test_timestamp_year0(self):
+        with self.assertRaisesRegex(ValueError, "out of range"):
+            self.cursor.execute("SELECT TIMESTAMP '0-1-1 11:12:13'")
+
+    def test_timestamp_negative_year(self):
+        with self.assertRaisesRegex(ValueError, "out of range"):
+            self.cursor.execute("SELECT TIMESTAMP '-1-1-1 11:12:13'")
+
     def test_roundtrip_binary(self):
         raw = b'BLUB\x00BLOB'
         wrapped = pymonetdb.Binary(raw)

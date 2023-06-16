@@ -14,6 +14,7 @@ jobs:
         monetdbversion:
           - "monetdb/dev-builds:Jan2022"
           - "monetdb/dev-builds:Sep2022"
+          - "monetdb/dev-builds:Jun2023"
           - "monetdb/dev-builds:default"
           - "monetdb/dev-builds:binresultset_manylinux"
     env:
@@ -31,7 +32,7 @@ jobs:
           - 50000:50000
     steps:
       - name: Check out
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up tests
         run: make setup
       - name: Run tests
