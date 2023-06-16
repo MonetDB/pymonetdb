@@ -12,7 +12,7 @@ jobs:
     container: python:3.11
     services:
       monetdb:
-        image: "monetdb/dev-builds:Sep2022"
+        image: "monetdb/dev-builds:Jun2023"
         env:
           MDB_DAEMON_PASS: monetdb
           MDB_DB_ADMIN_PASS: monetdb
