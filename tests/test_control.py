@@ -7,11 +7,13 @@
 import unittest
 from pymonetdb.control import Control
 from pymonetdb.exceptions import OperationalError
-from tests.util import control_test_args
-from tests.util import test_full, test_control
+from tests.util import test_control, control_test_args
 
 database_prefix = 'controltest_'
 database_name = database_prefix + 'other'
+
+test_control_tcp = 'tcp' in test_control.split(',')
+test_control_local = 'local' in test_control.split(',')
 
 
 def do_without_fail(function):
@@ -33,7 +35,7 @@ class TestControl(unittest.TestCase):
 
     def setUpControl(self):
         # use tcp
-        if 'tcp' not in (test_control or '').split(','):
+        if not test_control_tcp:
             raise unittest.SkipTest("Skipping 'tcp' Control test")
         return Control(**control_test_args)
 
@@ -145,7 +147,6 @@ class TestControl(unittest.TestCase):
         defaults = self.control.defaults()
         self.assertTrue("readonly" in defaults)
 
-    @unittest.skipUnless(test_full, "full test disabled")
     def test_neighbours(self):
         self.control.neighbours()
 
@@ -153,7 +154,7 @@ class TestControl(unittest.TestCase):
 class TestLocalControl(TestControl):
     def setUpControl(self):
         # use unix domain socket
-        if 'local' not in (test_control or '').split(','):
+        if not test_control_local:
             raise unittest.SkipTest("Skipping 'local' Control test")
         args = {**control_test_args}
         if 'hostname' in args:

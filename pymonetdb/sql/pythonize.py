@@ -116,14 +116,20 @@ def py_sec_interval(data: str) -> timedelta:
     """ Returns a python TimeDelta where data represents a value of MonetDB's INTERVAL SECOND type
     which resembles a stringified decimal.
     """
-    return timedelta(seconds=int(Decimal(data)))
+    # It comes in as a decimal but we use Pythons float parser to parse it.
+    # That's ok because the precision of the decimal is only three decimal digits
+    # so far coarser than the rounding errors introduced by the float.
+    return timedelta(seconds=float(data))
 
 
 def py_day_interval(data: str) -> int:
     """ Returns a python number of days where data represents a value of MonetDB's INTERVAL DAY type
     which resembles a stringified decimal.
     """
-    return timedelta(seconds=int(Decimal(data))).days
+    # It comes in as a decimal but we use Pythons float parser to parse it.
+    # That's ok because the precision of the decimal is only three decimal digits
+    # so far coarser than the rounding errors introduced by the float.
+    return timedelta(seconds=float(data)).days
 
 
 def py_bytes(data: str):

@@ -72,7 +72,6 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
-
     def __init__(self, hostname=None, port=50000, passphrase=None, **kwargs):
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
@@ -101,7 +100,7 @@ class Control:
     def create(self, database_name):
         """
         Initialises a new database or multiplexfunnel in the MonetDB Server.
-        A database created with this command makes it available  for use,
+        A database created with this command makes it available for use,
         however in maintenance mode (see pymonetdb lock).
         """
         return isempty(self._send_command(database_name, "create"))

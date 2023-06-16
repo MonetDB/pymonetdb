@@ -28,7 +28,7 @@ from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler, lookup_compression_algorithm
 from pymonetdb.filetransfer.uploads import NormalizeCrLf
-from tests.util import have_lz4, test_args, test_full
+from tests.util import test_have_lz4, test_args, test_full
 
 
 class MyException(Exception):
@@ -678,7 +678,7 @@ class TestSafeDirectoryHandler(TestCase, Common):
             'bz2',
             'xz',
         ]
-        if have_lz4:
+        if test_have_lz4:
             compressions.append('lz4')
         encodings = [
             'utf-8',

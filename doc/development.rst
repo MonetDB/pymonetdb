@@ -142,3 +142,8 @@ Here we just highlight a few:
 
   $ TSTFULL=true TSTCONTROL=tcp  python3 -m unittest -v tests/test_control.py
 
+* TSTREPLYSIZE, TSTMAXPREFETCH and TSTBINARY control the size and format of the
+  result set transfer (see :ref:`batch_size`). Check out the tests in
+  `test_policy.py` for examples of implemented data transfer policies and how
+  setting the variables `replysize`, `maxprefetch` and `binary` affects those
+  policies.
