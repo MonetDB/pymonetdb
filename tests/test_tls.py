@@ -124,13 +124,13 @@ class TestTLS(TestCase):
 
     def test_refuse_no_cert(self):
         with self.assertRaisesRegex(
-            SSLError, "self signed certificate in certificate chain"
+            SSLError, "self[- ]signed certificate in certificate chain"
         ):
             self.try_connect("server1", server_cert=None)
 
     def test_refuse_wrong_cert(self):
         with self.assertRaisesRegex(
-            SSLError, "self signed certificate in certificate chain"
+            SSLError, "self[- ]signed certificate in certificate chain"
         ):
             self.try_connect("server1", server_cert=self.download_file("/ca2.crt"))
 
