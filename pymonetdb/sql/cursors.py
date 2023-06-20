@@ -234,7 +234,7 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        return self.rowcount
+        return self.rowcount if self.rowcount >= 0 else None
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then
