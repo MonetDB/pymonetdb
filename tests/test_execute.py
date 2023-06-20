@@ -35,3 +35,4 @@ class ExecuteTests(TestCase):
         ret = c.execute("DROP TABLE foo")
         self.assertIsNone(ret)
 
+        conn.rollback()
