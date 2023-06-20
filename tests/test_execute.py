@@ -14,7 +14,7 @@ class ExecuteTests(TestCase):
         # The return value of Cursor.execute() is not specified by PEP 249
         # but we want it to behave as follows:
 
-        conn = pymonetdb.connect(database='foo')
+        conn = pymonetdb.connect(**test_args)
         c = conn.cursor()
 
         ret = c.execute("DROP TABLE IF EXISTS foo")
