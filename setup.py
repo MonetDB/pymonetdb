@@ -22,7 +22,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-__version__ = '1.7.0rc3'
+__version__ = '1.7.0'
 
 setup(
     name='pymonetdb',
