@@ -26,7 +26,7 @@ class Connection:
                  password="monetdb", unix_socket=None, autocommit=False,
                  host=None, user=None, connect_timeout=-1,
                  binary=1, replysize=None, maxprefetch=None,
-                 use_tls=False, server_cert=None,
+                 use_tls=False, server_cert=None, server_fingerprint=None,
                  client_key=None, client_cert=None, client_key_password=None,
                  dangerous_tls_nocheck=None,
                  ):
@@ -65,6 +65,9 @@ class Connection:
             the certificate file can also be appended to the key file.
         client_key_password (str)
             optional password to decrypt client_key with
+        server_fingerprint (str)
+            if given, only verify that server certificate has this fingerprint, implies dangerous_tls_nocheck=host,cert.
+            format: {hashname}hexdigits,{hashname}hexdigits,... hashname defaults to sha1
         dangerous_tls_nocheck (str)
             optional comma separated list of security checks to disable. possible values: 'host' and 'cert'
 
@@ -124,7 +127,7 @@ class Connection:
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
-                          use_tls=use_tls, server_cert=server_cert,
+                          use_tls=use_tls, server_cert=server_cert, server_fingerprint=server_fingerprint,
                           client_key=client_key, client_cert=client_cert,
                           client_key_password=client_key_password,
                           dangerous_tls_nocheck=dangerous_tls_nocheck,

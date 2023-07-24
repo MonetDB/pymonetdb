@@ -8,6 +8,7 @@ This is the python implementation of the mapi protocol.
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+import re
 import socket
 import logging
 import struct
@@ -15,7 +16,7 @@ import hashlib
 import os
 import ssl
 import typing
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qsl, urlparse
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
@@ -90,7 +91,7 @@ class Connection(object):
     MAPI (low level MonetDB API) connection
     """
 
-    socket: Optional[socket.socket]
+    socket: Optional[Union[socket.socket, ssl.SSLSocket]]
 
     def __init__(self):
         self.state = STATE_INIT
@@ -112,7 +113,7 @@ class Connection(object):
 
     def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
                 hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
-                use_tls=False, server_cert=None, dangerous_tls_nocheck=None,
+                use_tls=False, server_cert=None, server_fingerprint=None, dangerous_tls_nocheck=None,
                 client_key=None, client_cert=None, client_key_password=None,
                 handshake_options_callback: Callable[[bool], List['HandshakeOption']] = lambda x: []):
         """ setup connection to MAPI server
@@ -210,10 +211,14 @@ class Connection(object):
                 disabled_checks = set(dangerous_tls_nocheck.split(','))
             else:
                 disabled_checks = set()
+            if server_fingerprint:
+                disabled_checks.add('host')
+                disabled_checks.add('cert')
             if self.use_tls:
-                if server_cert:
+                if server_cert or server_fingerprint:
                     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                    ssl_context.load_verify_locations(server_cert)
+                    if not server_fingerprint:
+                        ssl_context.load_verify_locations(server_cert)
                 else:
                     ssl_context = ssl.create_default_context()
                 ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
@@ -229,6 +234,8 @@ class Connection(object):
                 if 'cert' in disabled_checks:
                     ssl_context.verify_mode = ssl.CERT_NONE
                 self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
+                if server_fingerprint:
+                    self._verify_fingerprint(server_fingerprint)
 
         else:
             self.socket = socket.socket(socket.AF_UNIX)
@@ -309,6 +316,28 @@ class Connection(object):
 
         else:
             raise ProgrammingError("unknown state: %s" % prompt)
+
+    def _verify_fingerprint(self, fingerprint: str):
+        assert self.socket and isinstance(self.socket, ssl.SSLSocket)
+        der = self.socket.getpeercert(binary_form=True)
+        if not der:
+            raise ssl.SSLError("server has no certificate")
+        digests = dict()
+        for print in fingerprint.split(','):
+            m = re.match(r'({(\w+)})?([0-9a-fA-F:]+)$', print)
+            if not m:
+                raise ssl.SSLError(f"invalid fingerprint {print!r}")
+            algo = (m.group(2) or 'sha1').lower()
+            if algo not in hashlib.algorithms_available:
+                raise ssl.SSLError(f"unknown fingerprint algorithm {algo!r}")
+            digits = m.group(3).lower().replace(':', '')
+            if algo not in digests:
+                digests[algo] = hashlib.new(algo, der, usedforsecurity=True).hexdigest()
+            if digests[algo].startswith(digits):
+                # Yay!
+                return
+        server_fingerprint = ", ".join([f"{{{a}}}{d}" for a, d in digests.items()])
+        raise ssl.SSLError(f"none of the requested fingerprints match the server certificate, it has: {server_fingerprint}")
 
     def disconnect(self):
         """ disconnect from the monetdb server """

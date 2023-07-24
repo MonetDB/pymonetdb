@@ -5,6 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+import hashlib
 from ssl import SSLError
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Optional, Union
@@ -164,6 +165,43 @@ class TestTLS(TestCase):
     def test_fail_tls_to_plain(self):
         with self.assertRaises(ConnectionError):
             self.try_connect("server1", use_tls=False)
+
+    def get_fingerprint(self, name: str, algo: str, prefix=True, ndigits: Optional[int] = 6) -> str:
+        file_name = self.download_file(name)
+        with open(file_name, "rb") as f:
+            der = f.read()
+        digest = hashlib.new(algo, der).hexdigest()
+        fingerprint = digest[:ndigits]
+        if prefix:
+            fingerprint = "{" + algo + "}" + fingerprint
+        return fingerprint
+
+    def test_connect_fingerprint_sha1(self):
+        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha1"))
+
+    def test_connect_fingerprint_default(self):
+        # leaves the "{sha1}" out of the fingerprint
+        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha1", prefix=False))
+
+    def test_connect_fingerprint_sha256(self):
+        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha256"))
+
+    def test_connect_fingerprint_sha512(self):
+        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha512"))
+
+    def test_fail_connect_wrong_fingerprint(self):
+        # we connect to server1 but use the fingerprint of server2's cert
+        with self.assertRaisesRegex(SSLError, "none of the requested"):
+            self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server2.der", "sha1"))
+
+    def test_connect_multiple_fingerprints(self):
+        print1 = self.get_fingerprint("/server1.der", "sha1")
+        print2 = self.get_fingerprint("/server2.der", "sha512")
+        prints = print1 + "," + print2
+        self.try_connect("server1", server_fingerprint=prints)
+        self.try_connect("server2", server_fingerprint=prints)
+        with self.assertRaises(SSLError):
+            self.try_connect("server3", server_fingerprint=prints)
 
     @skipUnless(test_tls_tester_sys_store, "TSTTLSTESTERSYSSTORE not set")
     def test_connect_trusted(self):
