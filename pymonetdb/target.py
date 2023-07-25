@@ -133,6 +133,71 @@ class Target:
 
     fetchsize = property(None, set_fetchsize)
 
+    @property
+    def effective_use_tls(self) -> bool:
+        return not not self.use_tls
+
+    @property
+    def effective_tcp_host(self) -> Optional[str]:
+        if self.host is not None:
+            return self.host
+        if self.sock is not None:
+            return None
+        return "localhost"
+
+    @property
+    def effective_port(self) -> Optional[int]:
+        if self.port is not None:
+            return self.port
+        return 50_000
+
+    @property
+    def effective_unix_sock(self) -> Optional[str]:
+        if self.sock is not None:
+            return self.sock
+        if self.host is None or self.host == 'localhost':
+            return f"/tmp/.s.monetdb.{self.effective_port}"
+        return None
+
+    @property
+    def effective_language(self) -> str:
+        return self.language if self.language is not None else "sql"
+
+    @property
+    def effective_binary(self) -> int:
+        huge_number = int(1e100 - 1)
+        b = self.binary
+        if b is None or b is True:
+            return huge_number
+        elif b is False:
+            return 0
+        else:
+            return min(b, huge_number)
+
+    def validate(self):
+        """
+        Raise a ValueError if the combination of fields in this Target object is not valid.
+        """
+        # V1
+        if self.sock is not None and self.host is not None and self.host != "localhost":
+            raise ValueError("sock= is only valid for localhost")
+        # V2
+        if self.port is not None and not (1 <= self.port <= 65535):
+            raise ValueError("port must be between 1 and 65535 (inclusive)")
+        # V3
+        if self.clientcert is not None and self.clientkey is None:
+            raise ValueError("clientcert= does not make sense without clientkey=")
+        # V4
+        if self.password is not None and self.user is None:
+            raise ValueError("cannot have password= without user=")
+        # V5
+        # not implemented yet
+
+        # check range of basically every int
+        b = self.binary
+        if b is not None and isinstance(b, int) and b < 0:
+            raise ValueError("binary= must not be negative")
+
     def clone(self):
         return copy.copy(self)
 
@@ -238,15 +303,22 @@ class Target:
         setattr(self, name, val)
 
     def get_as_text(self, name: str) -> Optional[str]:
-        if name == "binary":
-            val = self.binary
-            if val is True:
-                return "true"
-            elif val is False:
-                return "false"
-        if name not in ALL_FIELDS:
+        if name in ALL_FIELDS or name.startswith("effective_"):
+            val = getattr(self, name)
+        elif name == "valid":
+            try:
+                self.validate()
+                val = True
+            except ValueError:
+                val = False
+        else:
             raise ValueError(f"field '{name}' does not exist")
-        val = getattr(self, name)
+
         if val is None:
             return None
-        return str(val)
+        elif val is True:
+            return "true"
+        elif val is False:
+            return "false"
+        else:
+            return str(val)

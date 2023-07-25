@@ -106,52 +106,61 @@ EXPECT NO password
 ```test
 PARSE monetdb:///
 EXPECT NO binary
+EXPECT effective_binary!=0
 ```
 
 ```test
 PARSE monetdb://?binary=0
 EXPECT binary=0
+EXPECT effective_binary=0
 ```
 
 ```test
 PARSE monetdb://?binary=01
 EXPECT binary=1
+EXPECT effective_binary=1
 ```
 
 ```test
 PARSE monetdb://?binary=0100
 EXPECT binary=100
+EXPECT effective_binary=100
 ```
-
 
 ```test
 PARSE monetdb://?binary=true
 EXPECT binary=true
+EXPECT effective_binary!=0
 ```
 
 ```test
 PARSE monetdb://?binary=yEs
 EXPECT binary=true
+EXPECT effective_binary!=0
 ```
 
 ```test
 PARSE monetdb://?binary=on
 EXPECT binary=true
+EXPECT effective_binary!=0
 ```
 
 ```test
 PARSE monetdb://?binary=fAlse
 EXPECT binary=false
+EXPECT effective_binary=0
 ```
 
 ```test
 PARSE monetdb://?binary=no
 EXPECT binary=false
+EXPECT effective_binary=0
 ```
 
 ```test
 PARSE monetdb://?binary=off
 EXPECT binary=false
+EXPECT effective_binary=0
 ```
 
 ```test
@@ -161,4 +170,114 @@ REJECT monetdb://?binary=banana
 ```test
 PARSE monetdb://?replysize=100&fetchsize=200&replysize=300
 EXPECT replysize=300
+```
+
+
+```test
+EXPECT valid=true
+```
+
+```test
+SET host=banana
+SET port=1234
+EXPECT valid=true
+```
+
+```test
+SET port=1234
+EXPECT valid=true
+```
+
+```test
+SET host=banana
+SET port=0
+EXPECT valid=false
+```
+
+```test
+SET host=banana
+SET port=65536
+EXPECT valid=false
+```
+
+```test
+SET host=banana
+SET port=-1
+EXPECT valid=false
+```
+
+```test
+SET password=banana
+EXPECT valid=false
+SET user=banana
+EXPECT valid=true
+```
+
+```test
+EXPECT valid=true
+EXPECT NO use_tls
+EXPECT effective_use_tls=false
+SET use_tls=on
+EXPECT effective_use_tls=true
+SET use_tls=off
+EXPECT effective_use_tls=false
+```
+
+```test
+EXPECT NO host
+EXPECT NO sock
+EXPECT effective_tcp_host=localhost
+SET sock=/tmp/sok
+EXPECT NO effective_tcp_host
+```
+
+
+```test
+EXPECT effective_tcp_host=localhost
+EXPECT effective_port=50000
+EXPECT effective_unix_sock=/tmp/.s.monetdb.50000
+```
+
+```test
+PARSE monetdb:///
+EXPECT effective_tcp_host=localhost
+EXPECT effective_port=50000
+EXPECT effective_unix_sock=/tmp/.s.monetdb.50000
+```
+
+```test
+PARSE monetdb://dbhost/
+EXPECT effective_tcp_host=dbhost
+EXPECT effective_port=50000
+EXPECT NO effective_unix_sock
+```
+
+```skiptest
+PARSE monetdb://:12345/
+EXPECT effective_tcp_host=localhost
+EXPECT effective_port=50000
+EXPECT effective_unix_sock=/tmp/.s.monetdb.50000
+```
+
+```test
+PARSE monetdb://dbhost:12345
+EXPECT effective_tcp_host=dbhost
+EXPECT effective_port=12345
+EXPECT NO effective_unix_sock
+```
+
+```test
+EXPECT effective_tcp_host=localhost
+EXPECT effective_port=50000
+EXPECT effective_unix_sock=/tmp/.s.monetdb.50000
+```
+
+```test
+REJECT monetdb://dbhost:12345?port=3456
+```
+
+## Interaction between replysize and fetchsize
+
+```test
+PARSE monetdb:?
 ```
