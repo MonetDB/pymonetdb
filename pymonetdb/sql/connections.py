@@ -18,7 +18,7 @@ logger = logging.getLogger("pymonetdb")
 
 
 class Connection:
-    """A MonetDB SQL database connection"""
+    """A MonetDB SQL database connection, use pymonetdb.connect() to create one."""
     default_cursor = cursors.Cursor
 
     def __init__(self,   # noqa C901
@@ -32,51 +32,7 @@ class Connection:
                  ):
         """ Set up a connection to a MonetDB SQL database.
 
-        database (str)
-            name of the database, or MAPI URI (see below)
-        hostname (str)
-            Hostname where MonetDB is running
-        port (int)
-            port to connect to (default: 50000)
-        username (str)
-            username for connection (default: "monetdb")
-        password (str)
-            password for connection (default: "monetdb")
-        unix_socket (str)
-            socket to connect to. used when hostname not set (default: "/tmp/.s.monetdb.50000")
-        autocommit (bool)
-            enable/disable auto commit (default: false)
-        connect_timeout (int)
-            the socket timeout while connecting
-        binary (int)
-            enable binary result sets when possible if > 0 (default: 1)
-        replysize(int)
-            number of rows to retrieve immediately after query execution (default: 100, -1 means everything)
-        maxprefetch(int)
-            max. number of rows to prefetch during Cursor.fetchone() or Cursor.fetchmany()
-        use_tls (bool)
-            whether to secure (encrypt) the connection
-        server_cert (str)
-            optional path to TLS certificate to verify the server with
-        client_key (str)
-            optional path to TLS key to present to server for authentication
-        client_cert (str)
-            optional path to TLS cert to present to server for authentication.
-            the certificate file can also be appended to the key file.
-        client_key_password (str)
-            optional password to decrypt client_key with
-        server_fingerprint (str)
-            if given, only verify that server certificate has this fingerprint, implies dangerous_tls_nocheck=host,cert.
-            format: {hashname}hexdigits,{hashname}hexdigits,... hashname defaults to sha1
-        dangerous_tls_nocheck (str)
-            optional comma separated list of security checks to disable. possible values: 'host' and 'cert'
-
-        **MAPI URI Syntax**:
-
-        tcp socket
-            mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
-        unix domain socket
-            mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
+        Do not call this directly, call pymonetdb.connect() instead.
         """
 
         # Aliases for host=hostname, user=username, the DB API spec is not specific about this
