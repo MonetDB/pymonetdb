@@ -8,6 +8,7 @@ Test the URL parser and related utilities
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import os
+import re
 from typing import Optional, Tuple
 from unittest import TestCase, skipIf
 
@@ -95,28 +96,34 @@ class TestMonetDBURL(TestCase):
                 raise e
 
     def run_set(self, target: Target, prop: str):
-        name, value = self.parse_property(prop)
+        name, op, value = self.parse_property(prop)
+        if op != "=":
+            self.fail(f"cannot use '{op}' here")
         target.set_from_text(name, value, only_params=False)
 
     def run_expect(self, target: Target, property: str):
-        name, expected = self.parse_property(property)
+        name, op, expected = self.parse_property(property)
         actual = target.get_as_text(name)
-        self.assertEqual(expected, actual)
+        if op == "=":
+            self.assertEqual(expected, actual)
+        elif op == "!=":
+            self.assertNotEqual(expected, actual)
 
-    def parse_property(self, prop: str) -> Tuple[str, Optional[str]]:
-        eq = prop.find("=")
+    def parse_property(self, prop: str) -> Tuple[str, str, Optional[str]]:
+        pos = re.search("=|!=", prop)
         if prop.upper().startswith("NO "):
-            if eq >= 0:
+            if pos is not None:
                 self.fail("cannot have = after NO")
             key = prop[3:]
             value = None
+            op = ""
         else:
-            if eq < 0:
-                self.fail("expected =")
-            key = prop[:eq]
-            eq += 1
-            value = prop[eq:]
-        return (key, value)
+            if pos is None:
+                self.fail("expected = or !=")
+            key = prop[: pos.start()]
+            value = prop[pos.end():]
+            op = pos.group(0)
+        return (key, op, value)
 
 
 class TestPercentDecode(TestCase):
