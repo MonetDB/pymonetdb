@@ -13,6 +13,16 @@ import re
 from typing import Any, Callable, Dict, Optional, Union
 from urllib.parse import parse_qsl, urlparse
 
+
+def looks_like_url(text: str) -> bool:
+    return (
+        text.startswith("mapi:")
+        or text.startswith("monetdb:")
+        or text.startswith("monetdbs:")
+        or text.startswith("monetdbe:")
+    )
+
+
 BOOL_NAMES: dict[str, bool] = dict(
     true=True, yes=True, on=True, false=False, no=False, off=False
 )
@@ -59,6 +69,7 @@ PARSE_PARAM: Dict[str, Optional[Callable[[str], Any]]] = dict(
     cert=None,
     clientkey=None,
     clientcert=None,
+    clientkeypassword=None,
     user=None,
     password=None,
     language=None,
@@ -69,6 +80,10 @@ PARSE_PARAM: Dict[str, Optional[Callable[[str], Any]]] = dict(
     fetchsize=int,
     maxprefetch=int,
     binary=parse_int_bool,
+    # extensions
+    connect_timeout=int,
+    dangerous_tls_nocheck=None,
+    server_fingerprint=None
 )
 
 
@@ -87,7 +102,8 @@ ALL_FIELDS = set([*PARSE_OTHER.keys(), *PARSE_PARAM.keys()])
 
 
 class Target:
-    use_tls: Optional[bool] = None
+    _password_set: bool = False
+    use_tls = None
     host: Optional[str] = None
     port: Optional[int] = None
     database: Optional[str] = None
@@ -95,6 +111,7 @@ class Target:
     cert: Optional[str] = None
     clientkey: Optional[str] = None
     clientcert: Optional[str] = None
+    clientkeypassword: Optional[str] = None
     _user: Optional[str] = None
     _password: Optional[str] = None
     language: Optional[str] = None
@@ -104,7 +121,10 @@ class Target:
     replysize: Optional[int] = None
     maxprefetch: Optional[int] = None
     binary: Optional[Union[int, bool]] = None
-    _password_set: bool = False
+    # extensions:
+    connect_timeout: Optional[int] = None
+    dangerous_tls_nocheck: Optional[str] = None
+    server_fingerprint: Optional[str] = None
 
     def get_user(self) -> Optional[str]:
         return self._user
@@ -155,7 +175,7 @@ class Target:
     def effective_unix_sock(self) -> Optional[str]:
         if self.sock is not None:
             return self.sock
-        if self.host is None or self.host == 'localhost':
+        if self.host is None or self.host == "localhost":
             return f"/tmp/.s.monetdb.{self.effective_port}"
         return None
 
@@ -187,6 +207,10 @@ class Target:
         # V3
         if self.clientcert is not None and self.clientkey is None:
             raise ValueError("clientcert= does not make sense without clientkey=")
+        if self.clientkeypassword is not None and self.clientkey is None:
+            raise ValueError(
+                "clientkeypassword= does not make sense without clientkey="
+            )
         # V4
         if self.password is not None and self.user is None:
             raise ValueError("cannot have password= without user=")
@@ -322,3 +346,84 @@ class Target:
             return "false"
         else:
             return str(val)
+
+    def apply_connect_kwargs(  # noqa C901
+        self,
+        database,
+        hostname=None,
+        port=None,
+        username=None,
+        password=None,
+        unix_socket=None,
+        autocommit=False,
+        host=None,
+        user=None,
+        connect_timeout=-1,
+        binary=1,
+        replysize=None,
+        maxprefetch=None,
+        use_tls=False,
+        server_cert=None,
+        server_fingerprint=None,
+        client_key=None,
+        client_cert=None,
+        client_key_password=None,
+        dangerous_tls_nocheck=None,
+    ):
+        """
+        Apply kwargs such as taken by pymonetdb.connect().
+        If 'database' is a URL it is parsed after the other parameters have been
+        processed.
+        Calls user_password_barrier() before and after.
+        """
+
+        # Aliases for host=hostname, user=username, the DB API spec is not specific about this
+        if host:
+            hostname = host
+        if user:
+            username = user
+
+        self.user_password_barrier()
+
+        if hostname is not None:
+            self.host = hostname
+        if port is not None:
+            self.port = port
+        if username is not None:
+            self.user = username
+        if password is not None:
+            self.password = password
+        if unix_socket is not None:
+            self.sock = unix_socket
+        if autocommit is not None:
+            self.autocommit = autocommit
+        if connect_timeout is not None:
+            self.connect_timeout = connect_timeout
+        if binary is not None:
+            self.binary = binary
+        if replysize is not None:
+            self.replysize = replysize
+        if maxprefetch is not None:
+            self.maxprefetch = maxprefetch
+        if use_tls is not None:
+            self.use_tls = use_tls
+        if server_cert is not None:
+            self.cert = server_cert
+        if server_fingerprint is not None:
+            self.server_fingerprint = server_fingerprint
+        if client_key is not None:
+            self.clientkey = client_key
+        if client_cert is not None:
+            self.clientcert = client_cert
+        if client_key_password is not None:
+            self.clientkeypassword = client_key_password
+        if dangerous_tls_nocheck is not None:
+            self.dangerous_tls_nocheck = dangerous_tls_nocheck
+
+        if database is not None:
+            if looks_like_url(database):
+                self.parse_url(database)
+            else:
+                self.database = database
+
+        self.user_password_barrier()
