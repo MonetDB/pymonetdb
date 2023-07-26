@@ -131,8 +131,10 @@ class Connection(object):
 
         # Enter a loop to deal with redirects.
         if self.socket:
-            if hasattr(self.socket, 'fileno'):
-                assert self.socket.fileno() == -1
+            try:
+                self.socket.close()
+            except OSError:
+                pass
             self.socket = None
         for i in range(10):
             # maybe the previous attempt left an open socket that just needs an
@@ -449,7 +451,8 @@ class Connection(object):
 
         salt, server_type, protocol, hashes, endian = challenges[:5]
 
-        if server_type == 'merovingian':
+        if server_type == 'merovingian' and self.target.effective_language != 'control':
+            # we want to be forwarded, hide real credentials
             user = 'merovingian'
             password = ''
         else:

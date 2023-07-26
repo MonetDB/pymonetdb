@@ -4,10 +4,10 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-import platform
 import logging
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
+from pymonetdb.target import Target, looks_like_url
 
 
 logger = logging.getLogger(__name__)
@@ -72,27 +72,31 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
-    def __init__(self, hostname=None, port=50000, passphrase=None, **kwargs):
-        if platform.system() == "Windows" and not hostname:
-            hostname = "localhost"
+    def __init__(self, hostname=None, port=None, passphrase=None, **kwargs):
+        target = Target()
 
-        parms = {'port': port, 'hostname': hostname, 'password': passphrase, **kwargs}
-        parms['username'] = 'monetdb'
-        parms['database'] = 'merovingian'
-        parms['language'] = 'control'
+        # Backward compatibility.
 
-        if 'unix_socket' not in parms:
-            parms['unix_socket'] = "/tmp/.s.merovingian.%i" % parms['port']
-        self.connect_parms = parms
+        target.apply_connect_kwargs(port=port, **kwargs)
+        target.user = 'monetdb'
+        target.password = passphrase
+        target.database = 'merovingian'
+        target.language = 'control'
+        if hostname is not None and looks_like_url(hostname):
+            target.parse_url(hostname)
+        else:
+            target.host = hostname
+
+        self.target = target
         self.server = mapi.Connection()
 
         # check connection
-        self.server.connect(**self.connect_parms)
+        self.server.connect(target)
         self.server.disconnect()
 
     def _send_command(self, database_name, command):
         logger.info("sending '{}' command to database {}".format(command, database_name))
-        self.server.connect(**self.connect_parms)
+        self.server.connect(self.target)
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
         return result

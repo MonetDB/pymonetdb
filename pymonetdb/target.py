@@ -182,7 +182,11 @@ class Target:
         if self.sock is not None:
             return self.sock
         if self.host is None or self.host == "localhost":
-            return f"/tmp/.s.monetdb.{self.effective_port}"
+            if self.effective_language == 'control':
+                kind = "merovingian"
+            else:
+                kind = "monetdb"
+            return f"/tmp/.s.{kind}.{self.effective_port}"
         return None
 
     @property
