@@ -54,7 +54,7 @@ def parse_int_bool(s: str) -> Union[int, bool]:
 _UNQUOTE_PATTERN = re.compile(b"[%](.?.?)")
 
 
-def _unquote_fun(m: re.Match) -> bytes:
+def _unquote_fun(m) -> bytes:
     digits = m.group(1)
     if len(digits) != 2:
         raise ValueError()

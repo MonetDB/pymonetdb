@@ -150,8 +150,6 @@ def _decode_utf8(x: bytes) -> str:
 
 
 class ZeroDelimitedDecoder(BinaryDecoder):
-    converter: Callable[[bytes], Any]
-
     def __init__(self, converter: Callable[[bytes], Any]):
         self.converter = converter
 
