@@ -51,7 +51,7 @@ class TestTLS(TestCase):
         if not have_host:
             raise SkipTest("TSTTLSTESTERHOST and TSTTLSTESTERPORT not set")
 
-    def try_connect(self, port_name: str, use_tls=True, server_cert=None, **kwargs):
+    def try_connect(self, port_name: str, use_tls=True, server_cert=None, expect=None, **kwargs):
         """Try to connect to the named port, looking it up in tlstester.py's portmap.
 
         Returns succesfully if pymonetdb.connect raised a DatabaseError containing
@@ -72,7 +72,12 @@ class TestTLS(TestCase):
             )
             self.fail("Expected connection to tlstester.py to fail but it didn't")
         except DatabaseError as e:
-            if "Sorry, this is not a real MonetDB instance" not in str(e):
+            msg = str(e)
+            if "Sorry, this is not a real MonetDB instance" not in msg:
+                raise
+            if expect is None:
+                expect = port_name
+            if expect and f"({expect})" not in msg:
                 raise
 
     def port(self, port_name: str) -> int:
@@ -202,6 +207,9 @@ class TestTLS(TestCase):
         self.try_connect("server2", server_fingerprint=prints)
         with self.assertRaises(SSLError):
             self.try_connect("server3", server_fingerprint=prints)
+
+    def test_connect_redirected(self):
+        self.try_connect("redirect", expect="server2", server_cert=self.download_file("/ca1.crt"))
 
     @skipUnless(test_tls_tester_sys_store, "TSTTLSTESTERSYSSTORE not set")
     def test_connect_trusted(self):
