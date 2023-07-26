@@ -18,7 +18,7 @@ import typing
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qsl, urlparse
 
-from pymonetdb.exceptions import InternalError, OperationalError, DatabaseError, \
+from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
 from pymonetdb.target import Target
 
@@ -189,7 +189,7 @@ class Connection(object):
         timeout = self.target.effective_connect_timeout
 
         sock = self.target.effective_unix_sock
-        if sock is not None:
+        if sock is not None and hasattr(socket, 'AF_UNIX'):
             s = socket.socket(socket.AF_UNIX)
             if timeout:
                 s.settimeout(float(timeout))
@@ -225,7 +225,7 @@ class Connection(object):
 
         if err is not None:
             raise err
-        raise InternalError("somehow effective_unix_sock and effective_tcp_host were both None")
+        raise DatabaseError("endpoint not found")
 
     def prime_or_wrap_connection(self):
         if not self.target.effective_use_tls:
