@@ -238,6 +238,15 @@ EXPECT effective_port=50000
 EXPECT effective_unix_sock=/tmp/.s.monetdb.50000
 ```
 
+
+```test
+SET use_tls=on
+EXPECT effective_tcp_host=localhost
+EXPECT effective_port=50000
+EXPECT NO effective_unix_sock
+```
+
+
 ```test
 PARSE monetdb:///
 EXPECT effective_tcp_host=localhost

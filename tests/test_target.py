@@ -19,8 +19,8 @@ HERE = os.path.dirname(__file__)
 FIELDS = set(ALL_FIELDS)
 
 DUMMY_TEST_CASE = """\
-PARSE monetdb://?binary=01
-EXPECT binary=1
+SET use_tls=on
+EXPECT NO effective_unix_sock
 """
 
 
@@ -104,19 +104,21 @@ class TestMonetDBURL(TestCase):
     def run_expect(self, target: Target, property: str):
         name, op, expected = self.parse_property(property)
         actual = target.get_as_text(name)
-        if op == "=":
+        if op == "=" or op is None:
             self.assertEqual(expected, actual)
         elif op == "!=":
             self.assertNotEqual(expected, actual)
+        else:
+            self.fail(f"unhandled op '{op}'")
 
-    def parse_property(self, prop: str) -> Tuple[str, str, Optional[str]]:
+    def parse_property(self, prop: str) -> Tuple[str, Optional[str], Optional[str]]:
         pos = re.search("=|!=", prop)
         if prop.upper().startswith("NO "):
             if pos is not None:
                 self.fail("cannot have = after NO")
             key = prop[3:]
             value = None
-            op = ""
+            op = None
         else:
             if pos is None:
                 self.fail("expected = or !=")

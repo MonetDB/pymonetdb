@@ -191,7 +191,7 @@ class TestTLS(TestCase):
 
     def test_fail_connect_wrong_fingerprint(self):
         # we connect to server1 but use the fingerprint of server2's cert
-        with self.assertRaisesRegex(SSLError, "none of the requested"):
+        with self.assertRaisesRegex(SSLError, "wrong server certificate fingerprint"):
             self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server2.der", "sha1"))
 
     def test_connect_multiple_fingerprints(self):

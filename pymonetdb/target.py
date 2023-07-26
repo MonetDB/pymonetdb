@@ -23,6 +23,10 @@ def looks_like_url(text: str) -> bool:
     )
 
 
+def valid_database_name(text: str) -> bool:
+    return not not re.match("^[-a-zA-Z0-9_]+", text)
+
+
 BOOL_NAMES: dict[str, bool] = dict(
     true=True, yes=True, on=True, false=False, no=False, off=False
 )
@@ -67,6 +71,7 @@ def strict_percent_decode(text: str) -> str:
 PARSE_PARAM: Dict[str, Optional[Callable[[str], Any]]] = dict(
     sock=None,
     cert=None,
+    fingerprint=None,
     clientkey=None,
     clientcert=None,
     clientkeypassword=None,
@@ -83,7 +88,6 @@ PARSE_PARAM: Dict[str, Optional[Callable[[str], Any]]] = dict(
     # extensions
     connect_timeout=int,
     dangerous_tls_nocheck=None,
-    server_fingerprint=None
 )
 
 
@@ -109,6 +113,7 @@ class Target:
     database: Optional[str] = None
     sock: Optional[str] = None
     cert: Optional[str] = None
+    fingerprint: Optional[str] = None
     clientkey: Optional[str] = None
     clientcert: Optional[str] = None
     clientkeypassword: Optional[str] = None
@@ -124,7 +129,6 @@ class Target:
     # extensions:
     connect_timeout: Optional[int] = None
     dangerous_tls_nocheck: Optional[str] = None
-    server_fingerprint: Optional[str] = None
 
     def get_user(self) -> Optional[str]:
         return self._user
@@ -173,6 +177,8 @@ class Target:
 
     @property
     def effective_unix_sock(self) -> Optional[str]:
+        if self.use_tls is True:
+            return None
         if self.sock is not None:
             return self.sock
         if self.host is None or self.host == "localhost":
@@ -185,7 +191,7 @@ class Target:
 
     @property
     def effective_binary(self) -> int:
-        huge_number = int(1e100 - 1)
+        huge_number = 2 << 64
         b = self.binary
         if b is None or b is True:
             return huge_number
@@ -193,6 +199,14 @@ class Target:
             return 0
         else:
             return min(b, huge_number)
+
+    @property
+    def effective_connect_timeout(self):
+        t = self.connect_timeout
+        if t is not None and t >= 0:
+            return t
+        else:
+            return None
 
     def validate(self):
         """
@@ -217,10 +231,16 @@ class Target:
         # V5
         # not implemented yet
 
-        # check range of basically every int
+        # Also check range of basically every int
         b = self.binary
         if b is not None and isinstance(b, int) and b < 0:
             raise ValueError("binary= must not be negative")
+
+        if self.sock is not None and self.use_tls is True:
+            raise ValueError("can't do TLS on Unix Domain sockets")
+
+        if self.database is not None and not valid_database_name(self.database):
+            raise ValueError("invalid database name")
 
     def clone(self):
         return copy.copy(self)
@@ -232,7 +252,7 @@ class Target:
         self.port = None
         self.database = None
         if url.startswith("mapi:"):
-            self._parse_mapi_url(url)
+            self._parse_mapi_monetdb_url(url)
         else:
             self._parse_monetdb_url(url)
         self.user_password_barrier()
@@ -269,7 +289,7 @@ class Target:
         for name, value in parse_qsl(parsed.query):
             self.set_from_text(name, value, only_params=True)
 
-    def _parse_mapi_url(self, url: str):  # noqa: C901
+    def _parse_mapi_monetdb_url(self, url: str, allow_override_database=False):  # noqa: C901
         # mapi urls have no percent encoding at all.
         parsed = urlparse(url[5:])
         if parsed.scheme != "monetdb":
@@ -294,19 +314,36 @@ class Target:
 
         # do it manually, the library functions perform percent decoding
         if parsed.query:
-            for part in parsed.query.split("&"):
-                if part.startswith("language="):
-                    self.language = part[9:]
-                elif part.startswith("database="):
-                    if self.sock is not None:
-                        self.database = part[9:]
-                    else:
-                        raise ValueError(
-                            "database parameter only allowed with unix domain sockets"
-                        )
-                else:
-                    part = part.split("=", 1)[0]
-                    raise ValueError("illegal parameter: " + part)
+            self.parse_mapi_query(parsed.query)
+
+    def parse_mapi_merovingian_url(self, url: str):
+        if not url.startswith('mapi:merovingian://proxy'):
+            raise ValueError("invalid mapi:merovingian URL: " + url)
+        if len(url) == 24:
+            # prefix is all there was
+            return
+        if url[24] != '?':
+            raise ValueError("invalid mapi:merovingian URL: " + url)
+        self.parse_mapi_query(url[25:])
+
+    def parse_mapi_query(self, query: str):
+        for part in query.split("&"):
+            if part.startswith("language="):
+                self.language = part[9:]
+            elif part.startswith("database="):
+                self.database = part[9:]
+            elif part.startswith('user=') or part.startswith('password='):
+                # ignore
+                pass
+            elif part.startswith('binary='):
+                self.set_from_text('binary', part[7:])
+            elif part.startswith('replysize='):
+                self.set_from_text('replysize', part[10:])
+            elif part.startswith('maxprefetch='):
+                self.set_from_text('maxprefetch', part[12:])
+            else:
+                part = part.split("=", 1)[0]
+                raise ValueError("illegal parameter: " + part)
 
     def set_from_text(self, name: str, text: Optional[str], only_params=True):
         if name in PARSE_PARAM:
@@ -349,17 +386,18 @@ class Target:
 
     def apply_connect_kwargs(  # noqa C901
         self,
-        database,
+        database=None,
         hostname=None,
         port=None,
         username=None,
         password=None,
         unix_socket=None,
-        autocommit=False,
+        language=None,
+        autocommit=None,
         host=None,
         user=None,
-        connect_timeout=-1,
-        binary=1,
+        connect_timeout=None,
+        binary=None,
         replysize=None,
         maxprefetch=None,
         use_tls=False,
@@ -395,6 +433,8 @@ class Target:
             self.password = password
         if unix_socket is not None:
             self.sock = unix_socket
+        if language is not None:
+            self.language = language
         if autocommit is not None:
             self.autocommit = autocommit
         if connect_timeout is not None:
@@ -410,7 +450,7 @@ class Target:
         if server_cert is not None:
             self.cert = server_cert
         if server_fingerprint is not None:
-            self.server_fingerprint = server_fingerprint
+            self.fingerprint = server_fingerprint
         if client_key is not None:
             self.clientkey = client_key
         if client_cert is not None:

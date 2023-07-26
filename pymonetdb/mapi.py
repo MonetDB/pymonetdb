@@ -13,14 +13,14 @@ import socket
 import logging
 import struct
 import hashlib
-import os
 import ssl
 import typing
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qsl, urlparse
 
-from pymonetdb.exceptions import OperationalError, DatabaseError, \
+from pymonetdb.exceptions import InternalError, OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
+from pymonetdb.target import Target
 
 if typing.TYPE_CHECKING:
     from pymonetdb.filetransfer.downloads import Downloader
@@ -91,239 +91,243 @@ class Connection(object):
     MAPI (low level MonetDB API) connection
     """
 
-    socket: Optional[Union[socket.socket, ssl.SSLSocket]]
+    state: int = STATE_INIT
+    target: Target = Target()
+    socket: Optional[Union['socket.socket', ssl.SSLSocket]] = None
+    is_tcp: Optional[bool] = None
+    is_raw_control: Optional[bool] = None
+    handshake_options_callback: Optional[Callable[[int], List['HandshakeOption']]] = None
+    remaining_handshake_options: List['HandshakeOption'] = []
+    uploader: Optional['Uploader'] = None
+    downloader: Optional['Downloader'] = None
+    stashed_buffer: Optional[bytearray] = None
 
-    def __init__(self):
-        self.state = STATE_INIT
-        self._result = None
-        self.socket = None
-        self.unix_socket = None
-        self.use_tls = False
-        self.hostname = ""
-        self.port = 0
-        self.username = ""
-        self.database = ""
-        self.language = ""
-        self.handshake_options_callback = None
-        self.remaining_handshake_options = []
-        self.connect_timeout = socket.getdefaulttimeout()
-        self.uploader = None
-        self.downloader = None
-        self.stashed_buffer = None
-
-    def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
-                hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
-                use_tls=False, server_cert=None, server_fingerprint=None, dangerous_tls_nocheck=None,
-                client_key=None, client_cert=None, client_key_password=None,
-                handshake_options_callback: Callable[[bool], List['HandshakeOption']] = lambda x: []):
+    def connect(self, database: Optional[Union[Target, str]] = None, *args, **kwargs):  # noqa C901
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
         """
 
-        self.use_tls = use_tls
-
-        url_options = {}
-        if ':' in database:
-            if not database.startswith('mapi:monetdb:'):
-                raise DatabaseError("colon not allowed in database name, except as part of "
-                                    "mapi:monetdb://<hostname>[:<port>]/<database> URI")
-            parsed = urlparse(database[5:])
-            url_options = dict(parse_qsl(parsed.query))
-            # parse basic settings
-            if parsed.hostname or parsed.port:
-                # connect over tcp
-                if not parsed.path.startswith('/'):
-                    raise DatabaseError('invalid mapi url')
-                database = parsed.path[1:]
-                if '/' in database:
-                    raise DatabaseError('invalid mapi url')
-                username = parsed.username or username
-                password = parsed.password or password
-                hostname = parsed.hostname or hostname
-                port = parsed.port or port
-            else:
-                # connect over unix domain socket
-                unix_socket = parsed.path or unix_socket
-                username = parsed.username or username
-                password = parsed.password or password
-                database = ''  # must be set in uri parameter
-            if 'database' in url_options:
-                if database == '':
-                    database = url_options['database']
-                else:
-                    raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
-
-        if hostname and hostname[:1] == '/' and not unix_socket:
-            unix_socket = f'{hostname}/.s.monetdb.{port}'
-            hostname = None
-        if not unix_socket and os.path.exists(f"/tmp/.s.monetdb.{port}"):
-            unix_socket = f"/tmp/.s.monetdb.{port}"
-        elif not unix_socket and not hostname:
-            hostname = 'localhost'
-
-        # None and zero are allowed values
-        if connect_timeout != -1:
-            assert connect_timeout is None or connect_timeout >= 0
-            self.connect_timeout = connect_timeout
-
-        if use_tls:
-            if client_cert is not None and client_key is None:
-                raise DatabaseError('client_cert parameter is only valid if client_key is also given')
-            if client_key_password is not None and client_key is None:
-                raise DatabaseError('client_key_password parameter is only valid if client_key is also given')
-
-        self.hostname = hostname
-        self.port = port
-        self.username = username
-        self.database = database
-        self.language = language
-        self.unix_socket = unix_socket
-        self.handshake_options_callback = handshake_options_callback
-        if hostname:
-            if self.socket:
-                self.socket.close()
-                self.socket = None
-            for af, socktype, proto, canonname, sa in socket.getaddrinfo(hostname, port,
-                                                                         socket.AF_UNSPEC, socket.SOCK_STREAM):
-                try:
-                    self.socket = socket.socket(af, socktype, proto)
-                    # For performance, mirror MonetDB/src/common/stream.c socket settings.
-                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                    self.socket.settimeout(self.connect_timeout)
-                except socket.error as msg:
-                    logger.debug(f"'{msg}' for af {af} with socktype {socktype}")
-                    self.socket = None
-                    continue
-                try:
-                    self.socket.connect(sa)
-                except socket.error as msg:
-                    logger.info(msg.strerror)
-                    self.socket.close()
-                    self.socket = None
-                    continue
-                break
-            if self.socket is None:
-                raise socket.error("Connection refused")
-            # Socket has been opened. Attempt to wrap it in SSL
-            if dangerous_tls_nocheck:
-                disabled_checks = set(dangerous_tls_nocheck.split(','))
-            else:
-                disabled_checks = set()
-            if server_fingerprint:
-                disabled_checks.add('host')
-                disabled_checks.add('cert')
-            if self.use_tls:
-                if server_cert or server_fingerprint:
-                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                    if not server_fingerprint:
-                        ssl_context.load_verify_locations(server_cert)
-                else:
-                    ssl_context = ssl.create_default_context()
-                ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
-                ssl_context.set_alpn_protocols(["mapi/9"])
-                if client_key:
-                    ssl_context.load_cert_chain(
-                        certfile=client_cert if client_cert is not None else client_key,
-                        keyfile=client_key,
-                        password=client_key_password,
-                    )
-                if 'host' in disabled_checks:
-                    ssl_context.check_hostname = False
-                if 'cert' in disabled_checks:
-                    ssl_context.verify_mode = ssl.CERT_NONE
-                self.socket = ssl_context.wrap_socket(self.socket, server_hostname=hostname)
-                if server_fingerprint:
-                    self._verify_fingerprint(server_fingerprint)
-
+        # Ideally we'd just take the Target as a parameter, but we want to
+        # provide some backward compatibility so we first deal with the legacy
+        # arguments.
+        callback = kwargs.get('handshake_options_callback')
+        if callback is not None:
+            self.handshake_options_callback = callback
+            del kwargs['handshake_options_callback']
+        # Create Target or use given
+        if isinstance(database, Target):
+            self.target = database.clone()
+            assert not args and not kwargs
         else:
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.settimeout(self.connect_timeout)
-            self.socket.connect(unix_socket)
-            if self.language != 'control':
-                # When the monetdbd daemon spawns a new mserver, if it
-                # comunicates using a UNIX socket, it can send the file
-                # descriptor of the already open socket to the client.
-                # It does so by sending an initial message. If the message
-                # contains a file descriptor it contains the byte '1' (0x49)
-                # and the file descriptor. If the message has no content (as
-                # is the case here) it must contain the byte '0' (0x48).
-                # see SERVERlistenThread in monetdb5/modules/mal/mal_mapi.c
-                self.socket.send('0'.encode())
+            self.target = Target()
+            self.target.apply_connect_kwargs(database, *args, **kwargs)
 
-        if not (self.language == 'control' and not self.hostname):
-            # control doesn't require authentication over socket
-            self._login(password=password, url_options=url_options)
+        # Validate the target parameters
+        try:
+            self.target.validate()
+        except ValueError as e:
+            raise DatabaseError(str(e))
 
-        self.socket.settimeout(socket.getdefaulttimeout())
+        # Enter a loop to deal with redirects.
+        if self.socket:
+            if hasattr(self.socket, 'fileno'):
+                assert self.socket.fileno() == -1
+            self.socket = None
+        for i in range(10):
+            # maybe the previous attempt left an open socket that just needs an
+            # additional login attempt
+            if self.socket is None:
+                # No, we need to make a new connection
+                self.try_connect()
+                assert self.socket is not None
+
+                if self.target.effective_connect_timeout is not None:
+                    # The new socket's timeout was overridden during the
+                    # connect. Put it back.
+                    self.socket.settimeout(socket.getdefaulttimeout())
+
+                # Once connected, deal with the file handle passing protocol,
+                # AND with TLS. Note that these are necessarily exclusive, we
+                # can't do TLS over unix domain sockets.
+                self.is_raw_control = False
+                if self.is_tcp:
+                    self.prime_or_wrap_connection()
+                elif self.target.effective_language == 'control':
+                    self.is_raw_control = True
+                else:
+                    # Send a '0' (0x48) to let the other side know we're not
+                    # going to try to pass a file handle.
+                    self.socket.sendall(b'0')
+
+            # We have a connection now. Try to log in. If it succeeds, we're
+            # done. If it fails, _login should either
+            # 1) close the socket and update self.target for a new attempt, or
+            # 2) leave the socket open for another login attempt.
+            if self.is_raw_control:
+                # no login needed, we're done
+                break
+            elif self._login():
+                break
+            else:
+                # _login has determined that we need another round
+                continue
+        else:
+            raise OperationalError("too many redirects")
+
+        # We have a working connection now. Take care of the options we couldn't
+        # handle during the handshake
         self.state = STATE_READY
 
         for opt in self.remaining_handshake_options:
             opt.fallback(opt.value)
 
-    def _login(self, password: str, url_options: Dict[str, str], iteration=0):  # noqa: C901
+    def try_connect(self):  # noqa C901
+        err = None
+        timeout = self.target.effective_connect_timeout
+
+        sock = self.target.effective_unix_sock
+        if sock is not None:
+            s = socket.socket(socket.AF_UNIX)
+            if timeout:
+                s.settimeout(float(timeout))
+            try:
+                s.connect(sock)
+                # it worked!
+                self.socket = s
+                self.is_tcp = False
+                return
+            except OSError as e:
+                s.close()
+                err = e
+
+        host = self.target.effective_tcp_host
+        if host is not None:
+            port = self.target.effective_port
+            addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            for fam, typ, proto, cname, addr in addrs:
+                s = socket.socket(fam, typ, proto)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                if timeout:
+                    s.settimeout(float(timeout))
+                try:
+                    s.connect(addr)
+                    # it worked!
+                    self.socket = s
+                    self.is_tcp = True
+                    return
+                except OSError as e:
+                    s.close()
+                    err = e
+
+        if err is not None:
+            raise err
+        raise InternalError("somehow effective_unix_sock and effective_tcp_host were both None")
+
+    def prime_or_wrap_connection(self):
+        if not self.target.effective_use_tls:
+            # Prime the connection with some NUL bytes.
+            # We expect the remote server to be a MAPI server, in which
+            # case it will ignore them.
+            # But if it is accidentally a TLS server, the NUL bytes tend
+            # to force an error, avoiding a hang.
+            # Also, unexpectedly, in some situations sending the NUL bytes
+            # appear to make connection setup a little faster rather than slower.
+            self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+            return
+        target = self.target
+
+        if target.dangerous_tls_nocheck:
+            disabled_checks = set(target.dangerous_tls_nocheck.split(','))
+        else:
+            disabled_checks = set()
+        if target.fingerprint:
+            disabled_checks.add('host')
+            disabled_checks.add('cert')
+
+        # Create the context and load the trusted certificates
+        if not target.cert and not target.fingerprint:
+            # This one uses the system trusted root certificate store
+            ssl_context = ssl.create_default_context()
+        else:
+            # Arrange our own.
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            if target.cert and not target.fingerprint and 'cert' not in disabled_checks:
+                ssl_context.load_verify_locations(target.cert)
+
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
+        ssl_context.set_alpn_protocols(["mapi/9"])
+        if target.clientkey:
+            ssl_context.load_cert_chain(
+                certfile=target.clientcert if target.clientcert is not None else target.clientkey,
+                keyfile=target.clientkey,
+                password=target.clientkeypassword,
+            )
+        if 'host' in disabled_checks:
+            ssl_context.check_hostname = False
+        if 'cert' in disabled_checks:
+            ssl_context.verify_mode = ssl.CERT_NONE
+        self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.effective_tcp_host)
+        if target.fingerprint:
+            self._verify_fingerprint(target.fingerprint)
+
+    def _login(self) -> bool:  # noqa: C901
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
         assert self.socket
-        if not self.use_tls:
-            self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
 
         challenge = self._getblock()
-        response = self._challenge_response(challenge, password, url_options)
+        response = self._challenge_response(challenge)
         self._putblock(response)
         prompt = self._getblock().strip()
 
-        if len(prompt) == 0:
-            # Empty response, server is happy
-            pass
-        elif prompt == MSG_OK:
-            pass
+        if len(prompt) == 0 or prompt == MSG_OK:
+            # server is happy
+            return True
         elif prompt.startswith(MSG_INFO):
+            # is this right?
             logger.info("%s" % prompt[1:])
-
+            return True
         elif prompt.startswith(MSG_ERROR):
             logger.error(prompt[1:])
             raise DatabaseError(prompt[1:])
-
         elif prompt.startswith(MSG_REDIRECT):
-            # a redirect can contain multiple redirects, for now we only use
-            # the first
-            redirect = prompt.split()[0][1:].split(':')
-            if redirect[1] == "merovingian":
-                logger.debug("restarting authentication")
-                if iteration <= 10:
-                    self._login(iteration=iteration + 1, password=password, url_options={})
-                else:
-                    raise OperationalError("maximal number of redirects "
-                                           "reached (10)")
-
-            elif redirect[1] == "monetdb":
-                self.hostname = redirect[2][2:]
-                self.port, self.database = redirect[3].split('/')
-                self.port = int(self.port)
-                logger.info("redirect to monetdb://%s:%s/%s" %
-                            (self.hostname, self.port, self.database))
-                if self.socket:
-                    self.socket.close()
-                self.connect(hostname=self.hostname, port=self.port,
-                             username=self.username, password=password,
-                             database=self.database, language=self.language)
-
-            else:
-                raise ProgrammingError("unknown redirect: %s" % prompt)
-
+            # a redirect can contain multiple redirects, we only use the first
+            redirect = prompt.split('\n', 1)[0][1:]
+            self._handle_redirect(redirect)
+            return False
         else:
             raise ProgrammingError("unknown state: %s" % prompt)
+        assert False and "unreachable"
+
+    def _handle_redirect(self, redirect: str):
+        if redirect.startswith('mapi:merovingian:'):
+            logger.debug("restarting authentication")
+            try:
+                self.target.parse_mapi_merovingian_url(redirect)
+            except ValueError as e:
+                raise DatabaseError(str(e))
+        else:
+            logger.debug("redirect to " + redirect)
+            try:
+                self.target.parse_url(redirect)
+            except ValueError as e:
+                raise DatabaseError(str(e))
+            # close the socket so the next iteration will reconnect based on the
+            # updated target.
+            if self.socket:
+                self.socket.close()
+                self.socket = None
 
     def _verify_fingerprint(self, fingerprint: str):
         assert self.socket and isinstance(self.socket, ssl.SSLSocket)
         der = self.socket.getpeercert(binary_form=True)
         if not der:
             raise ssl.SSLError("server has no certificate")
-        digests = dict()
-        for print in fingerprint.split(','):
+        digest_cache = dict()
+        for print in fingerprint.lower().split(','):
             m = re.match(r'({(\w+)})?([0-9a-fA-F:]+)$', print)
             if not m:
                 raise ssl.SSLError(f"invalid fingerprint {print!r}")
@@ -331,13 +335,13 @@ class Connection(object):
             if algo not in hashlib.algorithms_available:
                 raise ssl.SSLError(f"unknown fingerprint algorithm {algo!r}")
             digits = m.group(3).lower().replace(':', '')
-            if algo not in digests:
-                digests[algo] = hashlib.new(algo, der, usedforsecurity=True).hexdigest()
-            if digests[algo].startswith(digits):
+            if algo not in digest_cache:
+                digest_cache[algo] = hashlib.new(algo, der, usedforsecurity=True).hexdigest()
+            if digest_cache[algo].startswith(digits):
                 # Yay!
                 return
-        server_fingerprint = ", ".join([f"{{{a}}}{d}" for a, d in digests.items()])
-        raise ssl.SSLError(f"none of the requested fingerprints match the server certificate, it has: {server_fingerprint}")
+        all_fingerprints = ", ".join([f"{{{a}}}{d}" for a, d in digest_cache.items()])
+        raise ssl.SSLError(f"wrong server certificate fingerprint: {all_fingerprints}")
 
     def disconnect(self):
         """ disconnect from the monetdb server """
@@ -399,7 +403,7 @@ class Connection(object):
             raise exception(msg)
         elif response[0] == MSG_INFO:
             logger.info("%s" % (response[1:]))
-        elif self.language == 'control' and not self.hostname:
+        elif self.is_raw_control:
             if response.startswith("OK"):
                 return response[2:].strip() or ""
             else:
@@ -435,7 +439,7 @@ class Connection(object):
 
         return view
 
-    def _challenge_response(self, challenge: str, password: str, url_options: Dict[str, str]):  # noqa: C901
+    def _challenge_response(self, challenge: str):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
@@ -443,7 +447,14 @@ class Connection(object):
             raise OperationalError("Server sent invalid challenge")
         challenges.pop()
 
-        salt, identity, protocol, hashes, endian = challenges[:5]
+        salt, server_type, protocol, hashes, endian = challenges[:5]
+
+        if server_type == 'merovingian':
+            user = 'merovingian'
+            password = ''
+        else:
+            user = self.target.user or ''
+            password = self.target.password or ''
 
         if endian == 'LIT':
             self.server_endian = 'little'
@@ -477,7 +488,13 @@ class Connection(object):
             raise NotSupportedError("Unsupported hash algorithms required"
                                     " for login: %s" % hashes)
 
-        response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
+        response = ":".join([
+            "BIG",
+            user,
+            pwhash,
+            self.target.effective_language,
+            self.target.database or ''
+        ]) + ":"
 
         self.binexport_level = 0
         if len(challenges) >= 8:
@@ -485,7 +502,8 @@ class Connection(object):
             assert part.startswith('BINARY=')
             self.binexport_level = int(part[7:])
 
-        handshake_options = self.handshake_options_callback(self.binexport_level)
+        callback = self.handshake_options_callback
+        handshake_options = callback(self.binexport_level) if callback else []
 
         if len(challenges) >= 7:
             response += "FILETRANS:"
@@ -509,7 +527,7 @@ class Connection(object):
 
     def _getblock_and_transfer_files(self) -> str:
         """ read one mapi encoded block and take care of any file transfers the server requests"""
-        if self.language == 'control' and not self.hostname:
+        if self.is_raw_control:
             # control connections do not use the blocking protocol and do not transfer files
             return self._recv_to_end()
 
@@ -536,7 +554,7 @@ class Connection(object):
 
     def _getblock(self) -> str:
         """ read one mapi encoded block """
-        if self.language == 'control' and not self.hostname:
+        if self.is_raw_control:
             # control connections do not use the blocking protocol
             return self._recv_to_end()
         buf = self._get_buffer()
@@ -614,7 +632,7 @@ class Connection(object):
     def _putblock(self, block):
         """ wrap the line in mapi format and put it into the socket """
         data = block.encode('utf-8')
-        if self.language == 'control' and not self.hostname:
+        if self.is_raw_control:
             # control does not use the blocking protocol
             return self._send_all_and_shutdown(data)
         else:
