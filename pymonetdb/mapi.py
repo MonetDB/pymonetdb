@@ -336,7 +336,7 @@ class Connection(object):
                 raise ssl.SSLError(f"unknown fingerprint algorithm {algo!r}")
             digits = m.group(3).lower().replace(':', '')
             if algo not in digest_cache:
-                digest_cache[algo] = hashlib.new(algo, der, usedforsecurity=True).hexdigest()
+                digest_cache[algo] = hashlib.new(algo, der).hexdigest()
             if digest_cache[algo].startswith(digits):
                 # Yay!
                 return

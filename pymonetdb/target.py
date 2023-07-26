@@ -27,7 +27,7 @@ def valid_database_name(text: str) -> bool:
     return not not re.match("^[-a-zA-Z0-9_]+", text)
 
 
-BOOL_NAMES: dict[str, bool] = dict(
+BOOL_NAMES: Dict[str, bool] = dict(
     true=True, yes=True, on=True, false=False, no=False, off=False
 )
 
