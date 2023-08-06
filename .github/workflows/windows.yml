@@ -19,7 +19,6 @@ jobs:
       # We fix that in the next step.
       - name: Download MonetDB
         run: |
-          mkdir ${{ runner.temp }}
           curl -L https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-*.msi -o ${{ runner.temp }}\monetdb.msi --no-progress-meter
           dir ${{ runner.temp }}
           7z x ${{ runner.temp }}\monetdb.msi -o${{ runner.temp }}\staging
