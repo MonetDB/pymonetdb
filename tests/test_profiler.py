@@ -18,7 +18,7 @@ class ProfilerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.conn = ProfilerConnection()
-        cls.conn.connect(**util.test_args)
+        cls.conn.connect(**util.test_mapi_args)
 
     @classmethod
     def tearDownClass(cls) -> None:

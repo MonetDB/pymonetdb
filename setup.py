@@ -22,7 +22,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-__version__ = '1.6.3'
+__version__ = '1.7.1a0'
 
 setup(
     name='pymonetdb',
@@ -45,6 +45,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     tests_require=tests_require,

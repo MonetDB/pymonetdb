@@ -1,0 +1,38 @@
+name: Test against various MonetDB versions
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    container: python:3.11
+    strategy:
+      fail-fast: false
+      matrix:
+        monetdbversion:
+          - "monetdb/dev-builds:Jan2022"
+          - "monetdb/dev-builds:Sep2022"
+          - "monetdb/dev-builds:Jun2023"
+          - "monetdb/dev-builds:default"
+    env:
+      TSTHOSTNAME: "monetdb"
+      TSTDB: "monetdb"
+      TSTPASSPHRASE: "monetdb"
+      TSTCONTROL: "tcp"
+    services:
+      monetdb:
+        image: ${{ matrix.monetdbversion }}
+        env:
+          MDB_DAEMON_PASS: monetdb
+          MDB_DB_ADMIN_PASS: monetdb
+        ports:
+          - 50000:50000
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Set up tests
+        run: make setup
+      - name: Run tests
+        run: make test

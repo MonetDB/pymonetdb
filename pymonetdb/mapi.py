@@ -14,8 +14,8 @@ import struct
 import hashlib
 import os
 import typing
-from typing import Optional, Tuple
-from urllib.parse import urlparse, parse_qs
+from typing import Callable, Dict, List, Optional, Tuple
+from urllib.parse import parse_qsl, urlparse
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -46,7 +46,8 @@ MSG_TUPLE_NOSLICE = "="
 MSG_REDIRECT = "^"
 MSG_OK = "=OK"
 
-MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'utf-8')
+MSG_ERROR_B = bytes(MSG_ERROR, 'ascii')
+MSG_FILETRANS_B = bytes(MSG_FILETRANS, 'ascii')
 
 STATE_INIT = 0
 STATE_READY = 1
@@ -88,17 +89,20 @@ class Connection(object):
     MAPI (low level MonetDB API) connection
     """
 
+    socket: Optional[socket.socket]
+
     def __init__(self):
         self.state = STATE_INIT
         self._result = None
-        self.socket: Optional[socket.socket] = None
+        self.socket = None
         self.unix_socket = None
         self.hostname = ""
         self.port = 0
         self.username = ""
         self.database = ""
         self.language = ""
-        self.handshake_options = None
+        self.handshake_options_callback = None
+        self.remaining_handshake_options = []
         self.connect_timeout = socket.getdefaulttimeout()
         self.uploader = None
         self.downloader = None
@@ -106,17 +110,19 @@ class Connection(object):
 
     def connect(self, database: str, username: str, password: str, language: str,  # noqa: C901
                 hostname: Optional[str] = None, port: Optional[int] = None, unix_socket=None, connect_timeout=-1,
-                handshake_options=None):
+                handshake_options_callback: Callable[[bool], List['HandshakeOption']] = lambda x: []):
         """ setup connection to MAPI server
 
         unix_socket is used if hostname is not defined.
         """
 
+        url_options = {}
         if ':' in database:
             if not database.startswith('mapi:monetdb:'):
                 raise DatabaseError("colon not allowed in database name, except as part of "
                                     "mapi:monetdb://<hostname>[:<port>]/<database> URI")
             parsed = urlparse(database[5:])
+            url_options = dict(parse_qsl(parsed.query))
             # parse basic settings
             if parsed.hostname or parsed.port:
                 # connect over tcp
@@ -135,15 +141,11 @@ class Connection(object):
                 username = parsed.username or username
                 password = parsed.password or password
                 database = ''  # must be set in uri parameter
-            # parse uri parameters
-            if parsed.query:
-                parms = parse_qs(parsed.query)
-                if 'database' in parms:
-                    if database == '':
-                        database = parms['database'][-1]
-                    else:
-                        raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
-                # Future work: parse other parameters such as reply_size.
+            if 'database' in url_options:
+                if database == '':
+                    database = url_options['database']
+                else:
+                    raise DatabaseError('database= query parameter is only allowed with unix domain sockets')
 
         if hostname and hostname[:1] == '/' and not unix_socket:
             unix_socket = f'{hostname}/.s.monetdb.{port}'
@@ -164,7 +166,7 @@ class Connection(object):
         self.database = database
         self.language = language
         self.unix_socket = unix_socket
-        self.handshake_options = handshake_options or []
+        self.handshake_options_callback = handshake_options_callback
         if hostname:
             if self.socket:
                 self.socket.close()
@@ -201,17 +203,23 @@ class Connection(object):
 
         if not (self.language == 'control' and not self.hostname):
             # control doesn't require authentication over socket
-            self._login(password=password)
+            self._login(password=password, url_options=url_options)
 
         self.socket.settimeout(socket.getdefaulttimeout())
         self.state = STATE_READY
 
-    def _login(self, password: str, iteration=0):
+        for opt in self.remaining_handshake_options:
+            opt.fallback(opt.value)
+
+    def _login(self, password: str, url_options: Dict[str, str], iteration=0):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
+        assert self.socket
+        self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
         challenge = self._getblock()
-        response = self._challenge_response(challenge, password)
+        response = self._challenge_response(challenge, password, url_options)
         self._putblock(response)
         prompt = self._getblock().strip()
 
@@ -234,7 +242,7 @@ class Connection(object):
             if redirect[1] == "merovingian":
                 logger.debug("restarting authentication")
                 if iteration <= 10:
-                    self._login(iteration=iteration + 1, password=password)
+                    self._login(iteration=iteration + 1, password=password, url_options={})
                 else:
                     raise OperationalError("maximal number of redirects "
                                            "reached (10)")
@@ -280,7 +288,7 @@ class Connection(object):
             # don't care
             pass
 
-    def cmd(self, operation):  # noqa: C901
+    def cmd(self, operation: str):  # noqa: C901
         """ put a mapi command on the line"""
         logger.debug("executing command %s" % operation)
 
@@ -325,7 +333,35 @@ class Connection(object):
         else:
             raise ProgrammingError("unknown state: %s" % response)
 
-    def _challenge_response(self, challenge: str, password: str):  # noqa: C901
+    def binary_cmd(self, operation: str) -> memoryview:
+        """ put a mapi command on the line, with a binary response.
+
+        returns a memoryview that can only be used until the next
+        operation on this Connection object.
+        """
+        logger.debug("executing binary command %s" % operation)
+
+        if self.state != STATE_READY:
+            raise ProgrammingError("Not connected")
+
+        self._putblock(operation)
+        buffer = self._get_buffer()
+        n = self._getblock_raw(buffer, 0)
+        view = memoryview(buffer)[:n]
+        self._stash_buffer(buffer)
+
+        # Handle !Error message
+        if view[0:len(MSG_ERROR_B)] == MSG_ERROR_B:
+            msg_bytes = bytes(view)
+            idx = msg_bytes.find(b'\n')
+            if idx > 0:
+                msg_bytes = msg_bytes[1:idx + 1]
+            exception, msg = handle_error(str(msg_bytes, 'utf-8'))
+            raise exception(msg)
+
+        return view
+
+    def _challenge_response(self, challenge: str, password: str, url_options: Dict[str, str]):  # noqa: C901
         """ generate a response to a mapi login challenge """
 
         challenges = challenge.split(':')
@@ -334,6 +370,13 @@ class Connection(object):
         challenges.pop()
 
         salt, identity, protocol, hashes, endian = challenges[:5]
+
+        if endian == 'LIT':
+            self.server_endian = 'little'
+        elif endian == 'BIG':
+            self.server_endian = 'big'
+        else:
+            raise NotSupportedError('Unknown byte order: ' + endian)
 
         if protocol == '9':
             algo = challenges[5]
@@ -362,6 +405,14 @@ class Connection(object):
 
         response = ":".join(["BIG", self.username, pwhash, self.language, self.database]) + ":"
 
+        self.binexport_level = 0
+        if len(challenges) >= 8:
+            part = challenges[7]
+            assert part.startswith('BINARY=')
+            self.binexport_level = int(part[7:])
+
+        handshake_options = self.handshake_options_callback(self.binexport_level)
+
         if len(challenges) >= 7:
             response += "FILETRANS:"
             options_level = 0
@@ -372,15 +423,17 @@ class Connection(object):
                     except ValueError:
                         raise OperationalError("invalid sql options level in server challenge: " + part)
             options = []
-            for opt in self.handshake_options:
+            for opt in handshake_options:
                 if opt.level < options_level:
                     options.append(opt.name + "=" + str(int(opt.value)))
                     opt.sent = True
             response += ",".join(options) + ":"
 
+        self.remaining_handshake_options = [opt for opt in handshake_options if not opt.sent]
+
         return response
 
-    def _getblock_and_transfer_files(self):
+    def _getblock_and_transfer_files(self) -> str:
         """ read one mapi encoded block and take care of any file transfers the server requests"""
         if self.language == 'control' and not self.hostname:
             # control connections do not use the blocking protocol and do not transfer files
@@ -516,7 +569,10 @@ class Connection(object):
             data = block[pos:pos + 8192]
             nsent = self.socket.send(data)
             pos += nsent
-        self.socket.shutdown(socket.SHUT_WR)
+        try:
+            self.socket.shutdown(socket.SHUT_WR)
+        except OSError:
+            pass
 
     def __del__(self):
         if self.socket:
@@ -559,3 +615,14 @@ class HandshakeOption:
         self.value = value
         self.fallback = fallback
         self.sent = False
+
+
+def mapi_url_options(possible_mapi_url: str) -> Dict[str, str]:
+    """Try to parse the argument as a MAPI URL and return a Dict of url options
+
+    Return empty dict if it's not a MAPI URL.
+    """
+    if not possible_mapi_url.startswith('mapi:monetdb:'):
+        return {}
+    url = possible_mapi_url[5:]
+    return dict(parse_qsl(urlparse(url).query))

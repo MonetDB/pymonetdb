@@ -22,6 +22,13 @@ setup: venv/installed
 test: setup
 	venv/bin/pytest
 
+testwheel: wheel
+	rm -rf testvenv
+	python3 -m venv testvenv
+	./testvenv/bin/pip install dist/*.whl
+	./testvenv/bin/pip install pytest
+	cd tests && ../testvenv/bin/pytest
+
 clean: venv/
 	venv/bin/python3 setup.py clean
 	rm -rf build dist *.egg-info .eggs  .*_cache venv/ doc/_build

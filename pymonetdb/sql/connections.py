@@ -7,8 +7,10 @@
 from datetime import datetime, timedelta, timezone
 import logging
 import platform
+from typing import List
 
 from pymonetdb.sql import cursors
+from pymonetdb.policy import BatchPolicy
 from pymonetdb import exceptions
 from pymonetdb import mapi
 
@@ -19,66 +21,97 @@ class Connection:
     """A MonetDB SQL database connection"""
     default_cursor = cursors.Cursor
 
-    def __init__(self, database, hostname=None, port=50000, username="monetdb",
+    def __init__(self,   # noqa C901
+                 database, hostname=None, port=50000, username="monetdb",
                  password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None, connect_timeout=-1):
+                 host=None, user=None, connect_timeout=-1,
+                 binary=1, replysize=None, maxprefetch=None,
+                 ):
         """ Set up a connection to a MonetDB SQL database.
 
-        args:
-            database (str): name of the database, or MAPI URI
-            hostname (str): Hostname where monetDB is running
-            port (int): port to connect to (default: 50000)
-            username (str): username for connection (default: "monetdb")
-            password (str): password for connection (default: "monetdb")
-            unix_socket (str): socket to connect to. used when hostname not set
-                                (default: "/tmp/.s.monetdb.50000")
-            autocommit (bool):  enable/disable auto commit (default: False)
-            connect_timeout -- the socket timeout while connecting
-                               (default: see python socket module)
+        database (str)
+            name of the database, or MAPI URI (see below)
+        hostname (str)
+            Hostname where MonetDB is running
+        port (int)
+            port to connect to (default: 50000)
+        username (str)
+            username for connection (default: "monetdb")
+        password (str)
+            password for connection (default: "monetdb")
+        unix_socket (str)
+            socket to connect to. used when hostname not set (default: "/tmp/.s.monetdb.50000")
+        autocommit (bool)
+            enable/disable auto commit (default: false)
+        connect_timeout (int)
+            the socket timeout while connecting
+        binary (int)
+            enable binary result sets when possible if > 0 (default: 1)
+        replysize(int)
+            number of rows to retrieve immediately after query execution (default: 100, -1 means everything)
+        maxprefetch(int)
+            max. number of rows to prefetch during Cursor.fetchone() or Cursor.fetchmany()
 
-        MAPI URI:
-            tcp socket:         mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
-            unix domain socket: mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
+        **MAPI URI Syntax**:
 
-        returns:
-            Connection object
-
+        tcp socket
+            mapi:monetdb://[<username>[:<password>]@]<host>[:<port>]/<database>
+        unix domain socket
+            mapi:monetdb:///[<username>[:<password>]@]path/to/socket?database=<database>
         """
 
-        self.autocommit = autocommit
-        self.sizeheader = True
-        self.replysize = 0
-
-        # The DB API spec is not specific about this
+        # Aliases for host=hostname, user=username, the DB API spec is not specific about this
         if host:
             hostname = host
         if user:
             username = user
 
+        policy = BatchPolicy()
+        policy.binary_level = binary
+        if replysize is not None:
+            policy.replysize = replysize
+        if maxprefetch is not None:
+            policy.maxprefetch = maxprefetch
+
+        url_options = mapi.mapi_url_options(database)
+        if 'binary' in url_options:
+            val = url_options['binary']
+            val = dict(true='1', on='1', false='0', off='0').get(val, val)
+            policy.binary_level = int(val)
+        if 'replysize' in url_options:
+            policy.replysize = int(url_options['replysize'])
+        if 'maxprefetch' in url_options:
+            policy.maxprefetch = int(url_options['maxprefetch'])
+
+        self.autocommit = autocommit
+        self.sizeheader = True
+        self._policy = policy
+        self._current_replysize = 100     # server default, will be updated after handshake
+        self._current_timezone_seconds_east = 0   # server default, will be updated
+
         if platform.system() == "Windows" and not hostname:
             hostname = "localhost"
 
-        # Level numbers taken from mapi.h.
-        # The options start out with member .sent set to False.
-        handshake_options = [
-            mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
-            mapi.HandshakeOption(2, "reply_size", self.set_replysize, 100),
-            mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
-            mapi.HandshakeOption(5, "time_zone", self.set_timezone, _local_timezone_offset_seconds()),
-        ]
+        handshake_timezone_offset = _local_timezone_offset_seconds()
+
+        def handshake_options_callback(server_binexport_level: int) -> List[mapi.HandshakeOption]:
+            policy.server_binexport_level = server_binexport_level
+            return [
+                # Level numbers taken from mapi.h.
+                mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
+                mapi.HandshakeOption(2, "reply_size", self._change_replysize, policy.handshake_reply_size()),
+                mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
+                mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
+            ]
 
         self.mapi = mapi.Connection()
         self.mapi.connect(hostname=hostname, port=int(port), username=username,
                           password=password, database=database, language="sql",
                           unix_socket=unix_socket, connect_timeout=connect_timeout,
-                          handshake_options=handshake_options)
+                          handshake_options_callback=handshake_options_callback)
 
-        # self.mapi.connect() has set .sent to True for all items that
-        # have already been arranged during the initial challenge/response.
-        # Now take care of the rest.
-        for option in handshake_options:
-            if not option.sent:
-                option.fallback(option.value)
+        self._current_replysize = policy.handshake_reply_size()
+        self._current_timezone_seconds_east = handshake_timezone_offset
 
     def close(self):
         """ Close the connection.
@@ -98,6 +131,21 @@ class Connection:
         else:
             raise exceptions.Error("already closed")
 
+    def __enter__(self):
+        """This method is invoked when this Connection is used in a with-statement.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """This method is invoked when this Connection is used in a with-statement.
+        """
+        try:
+            self.close()
+        except exceptions.Error:
+            pass
+        # Propagate any errors
+        return False
+
     def set_autocommit(self, autocommit):
         """
         Set auto commit on or off. 'autocommit' must be a boolean
@@ -113,9 +161,9 @@ class Connection:
         self.command("Xsizeheader %s" % int(sizeheader))
         self.sizeheader = sizeheader
 
-    def set_replysize(self, replysize):
+    def _change_replysize(self, replysize):
         self.command("Xreply_size %s" % int(replysize))
-        self.replysize = replysize
+        self._current_replysize = replysize
 
     def set_timezone(self, seconds_east_of_utc):
         hours = int(seconds_east_of_utc / 3600)
@@ -125,6 +173,7 @@ class Connection:
         c = self.cursor()
         c.execute(cmd)
         c.close()
+        self._current_timezone_seconds_east = seconds_east_of_utc
 
     def set_uploader(self, uploader):
         """
@@ -141,6 +190,30 @@ class Connection:
         Must be an instance of class pymonetdb.Downloader or None
         """
         self.mapi.set_downloader(downloader)
+
+    def get_replysize(self) -> int:
+        return self._policy.replysize
+
+    def set_replysize(self, replysize: int):
+        self._policy.replysize = replysize
+
+    replysize = property(get_replysize, set_replysize)
+
+    def get_maxprefetch(self) -> int:
+        return self._policy.maxprefetch
+
+    def set_maxprefetch(self, maxprefetch: int):
+        self._policy.maxprefetch = maxprefetch
+
+    maxprefetch = property(get_maxprefetch, set_maxprefetch)
+
+    def get_binary(self) -> int:
+        return 1 if self._policy.binary_level else 0
+
+    def set_binary(self, binary: int):
+        self._policy.binary_level = binary > 0
+
+    binary = property(get_binary, set_binary)
 
     def commit(self):
         """
@@ -186,6 +259,11 @@ class Connection:
         """ use this function to send low level mapi commands """
         self.__mapi_check()
         return self.mapi.cmd(command)
+
+    def binary_command(self, command):
+        """ use this function to send low level mapi commands that return raw bytes"""
+        self.__mapi_check()
+        return self.mapi.binary_cmd(command)
 
     def __mapi_check(self):
         """ check if there is a connection with a server """

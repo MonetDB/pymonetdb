@@ -6,9 +6,12 @@
 
 import logging
 from collections import namedtuple
-from typing import Optional, Dict
+import struct
+from typing import List, Optional, Dict, Tuple
+from pymonetdb.policy import BatchPolicy
+import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
-from pymonetdb.sql import monetize, pythonize
+from pymonetdb.sql import monetize, pythonize, pythonizebin
 from pymonetdb.exceptions import Error, ProgrammingError, InterfaceError
 from pymonetdb import mapi
 
@@ -25,17 +28,38 @@ class Cursor(object):
     database by a cursor are immediately visible by the other
     cursors"""
 
-    def __init__(self, connection):
+    connection: 'pymonetdb.sql.connections.Connection'
+    _policy: BatchPolicy
+    operation: str
+
+    arraysize: int
+    """Default value for the size parameter of :func:`~pymonetdb.sql.cursors.Cursor.fetchmany`. """
+
+    rowcount: int
+    description: Optional[Description]
+    _can_bindecode: Optional[bool]
+    _bindecoders: Optional[List['pythonizebin.BinaryDecoder']]
+    rownumber: int
+    _executed: Optional[str]
+    _offset: int
+    _rows: List[Tuple]
+    _resultsets_to_close: List[str]
+    _query_id: int
+    messages: List[str]
+    lastrowid: Optional[int]
+
+    def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
         object on which the cursor was created."""
         self.connection = connection
+        self._policy = connection._policy.clone()
 
         # last executed operation (query)
         self.operation = ""
 
         # This read/write attribute specifies the number of rows to
         # fetch at a time with .fetchmany()
-        self.arraysize = connection.replysize
+        self.arraysize = self._policy.decide_arraysize()
 
         # This read-only attribute specifies the number of rows that
         # the last .execute*() produced (for DQL statements like
@@ -66,6 +90,13 @@ class Cursor(object):
         # operation invoked via the .execute*() method yet.
         self.description = None
 
+        # When the opportunity presents itself to fetch a result set in binary
+        # we need to know if we can handle the result and if so, how.
+        #
+        # These attributes are cleared by execute() and set by _nextchunk()
+        self._can_bindecode = None
+        self._bindecoders = None
+
         # This read-only attribute indicates at which row
         # we currently are
         self.rownumber = -1
@@ -78,8 +109,8 @@ class Cursor(object):
         # the resultset
         self._rows = []
 
-        # whether the current result set must be closed explicitly
-        self._must_close_resultset = False
+        # ids of result sets that must eventually be closed on the server
+        self._resultsets_to_close = []
 
         # used to identify a query during server contact.
         # Only select queries have query ID
@@ -111,15 +142,23 @@ class Cursor(object):
         # using INSERT with .executemany().
         self.lastrowid = None
 
+        # This is used to unpack binary result sets
+        server_endian = self.connection.mapi.server_endian
+        if server_endian == 'little':
+            unpacker = '<q'
+        elif server_endian == 'big':
+            unpacker = '>q'
+        self._unpack_int64 = unpacker
+
     def _check_executed(self):
         if not self._executed:
             self._exception_handler(ProgrammingError, "do a execute() first")
 
-    def _close_earlier_resultset(self):
-        if self._must_close_resultset:
-            self._must_close_resultset = False
-            command = 'Xclose %s' % self._query_id
+    def _close_earlier_resultsets(self):
+        for rs in self._resultsets_to_close:
+            command = 'Xclose %s' % rs
             self.connection.command(command)
+        del self._resultsets_to_close[:]
 
     def close(self):
         """ Close the cursor now (rather than whenever __del__ is
@@ -128,10 +167,25 @@ class Cursor(object):
         if any operation is attempted with the cursor."""
 
         try:
-            self._close_earlier_resultset()
+            self._close_earlier_resultsets()
         except Error:
             pass
         self.connection = None
+
+    def __enter__(self):
+        """This method is invoked when this Cursor is used in a with-statement.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """This method is invoked when this Cursor is used in a with-statement.
+        """
+        try:
+            self.close()
+        except Error:
+            pass
+        # Propagate any errors
+        return False
 
     def execute(self, operation: str, parameters: Optional[Dict] = None):
         """Prepare and execute a database operation (query or
@@ -145,11 +199,14 @@ class Cursor(object):
         # clear message history
         self.messages = []
 
-        self._close_earlier_resultset()
+        self._close_earlier_resultsets()
+        self._can_bindecode = None
+        self._bindecoders = None
 
         # set the number of rows to fetch
-        if self.arraysize != self.connection.replysize:
-            self.connection.set_replysize(self.arraysize)
+        desired_replysize = self._policy.new_query()
+        if self.connection._current_replysize != desired_replysize:
+            self.connection._change_replysize(desired_replysize)
 
         if operation == self.operation:
             # same operation, DBAPI mentioned something about reuse
@@ -177,8 +234,7 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        self._must_close_resultset = self._rows and self.rowcount > len(self._rows)
-        return self.rowcount
+        return self.rowcount if self.rowcount >= 0 else None
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then
@@ -209,16 +265,15 @@ class Cursor(object):
         single sequence, or None when no more data is available."""
 
         self._check_executed()
-
         if self._query_id == -1:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
-        if self.rownumber >= self.rowcount:
-            return None
-
-        if self.rownumber >= (self._offset + len(self._rows)):
-            self.nextset()
+        cache_end = self._offset + len(self._rows)
+        if self.rownumber >= cache_end:
+            if self.rownumber >= self.rowcount:
+                return None
+            self._populate_cache(0, self.rownumber + 1)
 
         result = self._rows[self.rownumber - self._offset]
         self.rownumber += 1
@@ -231,90 +286,78 @@ class Cursor(object):
 
         The number of rows to fetch per call is specified by the
         parameter.  If it is not given, the cursor's arraysize
-        determines the number of rows to be fetched. The method
-        should try to fetch as many rows as indicated by the size
-        parameter. If this is not possible due to the specified
-        number of rows not being available, fewer rows may be
-        returned.
+        determines the number of rows to be fetched.
 
-        An Error (or subclass) exception is raised if the previous
-        call to .execute*() did not produce any result set or no
-        call was issued yet.
-
-        Note there are performance considerations involved with
-        the size parameter.  For optimal performance, it is
-        usually best to use the arraysize attribute.  If the size
-        parameter is used, then it is best for it to retain the
-        same value from one .fetchmany() call to the next."""
-
-        self._check_executed()
-
-        if self.rownumber >= self.rowcount:
-            return []
-
-        end = min(self.rownumber + (size or self.arraysize), self.rowcount)
-        result = self._rows[self.rownumber - self._offset:end - self._offset]
-        self.rownumber = min(end, len(self._rows) + self._offset)
-
-        while (end > self.rownumber) and self.nextset():
-            result += self._rows[self.rownumber - self._offset:end - self._offset]
-            self.rownumber = min(end, len(self._rows) + self._offset)
-        return result
-
-    def fetchall(self):
-        """Fetch all (remaining) rows of a query result, returning
-        them as a sequence of sequences (e.g. a list of tuples).
-        Note that the cursor's arraysize attribute can affect the
-        performance of this operation.
-
-        An Error (or subclass) exception is raised if the previous
+        A :class:`~pymonetdb.ProgrammingError` is raised if the previous
         call to .execute*() did not produce any result set or no
         call was issued yet."""
 
         self._check_executed()
-
         if self._query_id == -1:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
-        result = self._rows[self.rownumber - self._offset:]
-        self.rownumber = len(self._rows) + self._offset
+        if size is None:
+            size = self.arraysize
 
-        # slide the window over the resultset
-        while self.nextset():
-            result += self._rows
-            self.rownumber = len(self._rows) + self._offset
+        cache_end = self._offset + len(self._rows)
+        requested_end = min(self.rownumber + size, self.rowcount)
+
+        if requested_end <= cache_end:
+            result = self._rows[self.rownumber - self._offset:requested_end - self._offset]
+            self.rownumber = requested_end
+        else:
+            result = self._rows[self.rownumber - self._offset:cache_end - self._offset]
+            self.rownumber = cache_end
+            self._populate_cache(len(result), requested_end)
+            result += self._rows[self.rownumber - self._offset:requested_end - self._offset]
+            self.rownumber = requested_end
 
         return result
 
-    def nextset(self):
-        """This method will make the cursor skip to the next
-        available set, discarding any remaining rows from the
-        current set.
+    def fetchall(self):
+        """Fetch all remaining rows of a query result, returning
+        them as a sequence of sequences (e.g. a list of tuples).
 
-        If there are no more sets, the method returns
-        None. Otherwise, it returns a true value and subsequent
-        calls to the fetch methods will return rows from the next
-        result set.
-
-        An Error (or subclass) exception is raised if the previous
+        A :class:`~pymonetdb.ProgrammingError` is raised if the previous
         call to .execute*() did not produce any result set or no
         call was issued yet."""
 
-        self._check_executed()
+        return self.fetchmany(self.rowcount)
 
-        if self.rownumber >= self.rowcount:
-            return False
+    def _populate_cache(self, already_used, requested_end):
+        del self._rows[:]
+        self._offset = self.rownumber
 
-        self._offset += len(self._rows)
+        rows_to_fetch = self._policy.batch_size(
+            already_used,
+            self.rownumber, requested_end,
+            self.rowcount)
 
-        end = min(self.rowcount, self.rownumber + self.arraysize)
-        amount = end - self._offset
+        if self._can_bindecode is None:
+            self._check_bindecode_possible()
+        if self._can_bindecode:
+            command = 'Xexportbin %s %s %s' % (self._query_id, self.rownumber, rows_to_fetch)
+            binary_block = self.connection.binary_command(command)
+            self._store_binary_result(binary_block)
+        else:
+            command = 'Xexport %s %s %s' % (self._query_id, self.rownumber, rows_to_fetch)
+            block = self.connection.command(command)
+            self._store_result(block)
 
-        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
-        block = self.connection.command(command)
-        self._store_result(block)
-        return True
+    def _check_bindecode_possible(self):
+        self._can_bindecode = False
+        decoders = []
+        if not self.connection._policy.use_binary():
+            return
+        for i in range(len(self.description)):
+            dec = pythonizebin.get_decoder(self, i)
+            if not dec:
+                return
+            decoders.append(dec)
+        # if we get here, all columns have a decoder
+        self._can_bindecode = True
+        self._bindecoders = decoders
 
     def setinputsizes(self, sizes):
         """
@@ -355,34 +398,18 @@ class Cursor(object):
         null_ok = False
         type_ = []
 
+        msg_tuple = mapi.MSG_TUPLE
+        assert len(msg_tuple) == 1
+        msg_header = mapi.MSG_HEADER
+        assert len(msg_header) == 1
+
         for line in block.split("\n"):
-            if line.startswith(mapi.MSG_INFO):
-                logger.info(line[1:])
-                self.messages.append((Warning, line[1:]))
+            first = line[:1]
 
-            elif line.startswith(mapi.MSG_QTABLE):
-                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
+            if first == msg_tuple:
+                self._rows.append(self._parse_tuple(line))
 
-                columns = int(columns)  # number of columns in result
-                self.rowcount = int(rowcount)  # total number of rows
-                # tuples = int(tuples)     # number of rows in this set
-                self._rows = []
-
-                # set up fields for description
-                # table_name = [None] * columns
-                column_name = [None] * columns
-                type_ = [None] * columns
-                display_size = [None] * columns
-                internal_size = [None] * columns
-                precision = [None] * columns
-                scale = [None] * columns
-                null_ok = [None] * columns
-                # typesizes = [(0, 0)] * columns
-
-                self._offset = 0
-                self.lastrowid = None
-
-            elif line.startswith(mapi.MSG_HEADER):
+            elif first == msg_header:
                 (data, identity) = line[1:].split("#")
                 values = [x.strip() for x in data.split(",")]
                 identity = identity.strip()
@@ -413,11 +440,37 @@ class Cursor(object):
                                                    precision[i], scale[i], null_ok[i]))
                 self.description = description
                 self._offset = 0
-                self.lastrowid = None
 
-            elif line.startswith(mapi.MSG_TUPLE):
-                values = self._parse_tuple(line)
-                self._rows.append(values)
+            elif line.startswith(mapi.MSG_INFO):
+                logger.info(line[1:])
+                self.messages.append((Warning, line[1:]))
+
+            elif line.startswith(mapi.MSG_QTABLE) or line.startswith(mapi.MSG_QPREPARE):
+                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
+
+                columns = int(columns)  # number of columns in result
+                self.rowcount = int(rowcount)  # total number of rows
+                tuples = int(tuples)     # number of rows in this set
+                if tuples < self.rowcount:
+                    self._resultsets_to_close.append(self._query_id)
+                self._rows = []
+
+                # set up fields for description
+                # table_name = [None] * columns
+                column_name = [None] * columns
+                type_ = [None] * columns
+                display_size = [None] * columns
+                internal_size = [None] * columns
+                precision = [None] * columns
+                scale = [None] * columns
+                null_ok = [None] * columns
+                # typesizes = [(0, 0)] * columns
+
+                self._offset = 0
+                if line.startswith(mapi.MSG_QPREPARE):
+                    self.lastrowid = int(self._query_id)
+                else:
+                    self.lastrowid = None
 
             elif line.startswith(mapi.MSG_TUPLE_NOSLICE):
                 self._rows.append((line[1:],))
@@ -456,6 +509,39 @@ class Cursor(object):
 
         self._exception_handler(InterfaceError, "Unknown state, %s" % block)
 
+    def _store_binary_result(self, block: memoryview):
+        assert self._bindecoders is not None
+        if len(block) < 8:
+            self._exception_handler(InterfaceError, "binary response too short")
+
+        toc_pos = struct.unpack_from(self._unpack_int64, block, len(block) - 8)[0]
+        if toc_pos < 0:
+            # It actually points to the error message.
+            # The message ends at the first \x00.
+            bmsg = bytes(block[toc_pos:-8])
+            bmsg = bmsg.split(b'\x00', 1)[0]
+            try:
+                msg = str(bmsg, 'utf-8')
+            except UnicodeDecodeError:
+                self._exception_handler(InterfaceError, "invalid utf-8 in error message")
+            self._exception_handler(ProgrammingError, msg)
+
+        # if we get here toc_pos actually points to the toc.
+        ncols = len(self._bindecoders)
+        cols = []
+        for i in range(ncols):
+            # TODO fix endianness
+            start_pos = toc_pos + 16 * i
+            length_pos = start_pos + 8
+            start = struct.unpack_from(self._unpack_int64, block, start_pos)[0]
+            length = struct.unpack_from(self._unpack_int64, block, length_pos)[0]
+            slice = block[start:start + length]
+            decoder = self._bindecoders[i]
+            col = decoder.decode(self.connection.mapi.server_endian, slice)
+            cols.append(col)
+        rows = list(zip(*cols))
+        self._rows = rows
+
     def _parse_tuple(self, line):
         """
         parses a mapi data tuple, and returns a list of python types
@@ -489,15 +575,17 @@ class Cursor(object):
         if mode == 'relative':
             value += self.rownumber
 
+        if self._offset <= value < self._offset + len(self._rows):
+            self.rownumber = value
+            return
+
         if value > self.rowcount:
             self._exception_handler(IndexError, "value beyond length of resultset")
 
+        self.rownumber = value
         self._offset = value
-        end = min(self.rowcount, self.rownumber + self.arraysize)
-        amount = end - self._offset
-        command = 'Xexport %s %s %s' % (self._query_id, self._offset, amount)
-        block = self.connection.command(command)
-        self._store_result(block)
+        self._rows = []
+        self._policy.scroll()
 
     def _exception_handler(self, exception_class, message):
         """
@@ -506,3 +594,39 @@ class Cursor(object):
         """
         self.messages.append((exception_class, message))
         raise exception_class(message)
+
+    def get_replysize(self) -> int:
+        return self._policy.replysize
+
+    def set_replysize(self, replysize: int):
+        self._policy.replysize = replysize
+
+    replysize = property(get_replysize, set_replysize)
+
+    def get_maxprefetch(self) -> int:
+        return self._policy.maxprefetch
+
+    def set_maxprefetch(self, maxprefetch: int):
+        self._policy.maxprefetch = maxprefetch
+
+    maxprefetch = property(get_maxprefetch, set_maxprefetch)
+
+    def get_binary(self) -> int:
+        return self._policy.binary_level
+
+    def set_binary(self, level: int):
+        self._policy.binary_level = level
+
+    binary = property(get_binary, set_binary)
+
+    def used_binary_protocol(self) -> bool:
+        """Pymonetdb-specific. Return True if the last fetch{one,many,all}
+        for the current statement made use of the binary protocol.
+
+        Primarily used for testing.
+
+        Note that the binary protocol is never used for the first few rows
+        of a result set. Exactly when it kicks in depends on the
+        `replysize` setting.
+        """
+        return self._can_bindecode is True  # True as opposed to False or None

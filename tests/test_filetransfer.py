@@ -28,7 +28,7 @@ from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler, lookup_compression_algorithm
 from pymonetdb.filetransfer.uploads import NormalizeCrLf
-from tests.util import have_lz4, test_args, test_full
+from tests.util import test_have_lz4, test_args, test_full
 
 
 class MyException(Exception):
@@ -84,11 +84,13 @@ class MyDownloader(Downloader):
     refuse: Optional[str] = None
     forget_to_return_after_refusal: bool = False
     buffer: StringIO
+    filename: Optional[str] = None
 
     def __init__(self):
         self.buffer = StringIO()
 
     def handle_download(self, download: Download, filename: str, text_mode: bool):
+        self.filename = filename
         if self.refuse:
             download.send_error(self.refuse)
             if not self.forget_to_return_after_refusal:
@@ -111,6 +113,9 @@ class MyDownloader(Downloader):
     def get(self):
         return self.buffer.getvalue()
 
+    def get_filename(self):
+        return self.filename
+
 
 class DeadManHandle:
     """
@@ -118,6 +123,7 @@ class DeadManHandle:
     deadlocks, but can be inconvenient when running tests in the debugger. In
     that case, temporarily call deadman.cancel() at the start of the test.
     """
+
     def __init__(self):
         self.cond = Condition()
         self.deadline = None
@@ -312,6 +318,7 @@ class TestFileTransfer(TestCase, Common):
         self.fill_foo(5)
         self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
         self.assertEqual("1\n2\n3\n4\n5\n", self.downloader.get())
+        self.assertEqual("foo", self.downloader.get_filename())
 
     def test_download_empty(self):
         self.fill_foo(0)
@@ -332,6 +339,12 @@ class TestFileTransfer(TestCase, Common):
         # connection still alive
         self.execute("SELECT 42")
         self.expect1(42)
+
+    def test_download_filename_with_spaces(self):
+        self.fill_foo(5)
+        self.execute("COPY (SELECT * FROM foo) INTO 'foo bar' ON CLIENT")
+        self.assertEqual("1\n2\n3\n4\n5\n", self.downloader.get())
+        self.assertEqual("foo bar", self.downloader.get_filename())
 
     @skipUnless(test_full, "full test disabled")
     def test_large_upload(self):
@@ -365,6 +378,9 @@ class TestFileTransfer(TestCase, Common):
 
     def test_upload_unix_binary_file(self):
         self.upload_file('unix.csv', dict(newline="\n"), False)
+
+    def test_upload_native_text_filename_w_whitespaces(self):
+        self.upload_file('filename with spaces.csv', {}, True)
 
     def upload_file(self, filename, write_opts, read_text):
         encoding = self.defaultencoding if read_text else 'utf-8'
@@ -523,7 +539,11 @@ class TestSafeDirectoryHandler(TestCase, Common):
                         self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
                     continue
 
-    def get_testdata_name(self, enc_name: str, newline: str, lines: int = None, compression=None) -> str:
+    def get_testdata_name(self,
+                          enc_name: str, newline: str,
+                          lines: Optional[int] = None,
+                          compression: Optional[str] = None
+                          ) -> str:
         newline_name = {None: "none", "\n": "lf", "\r\n": "crlf"}[newline]
         file_name = f"{enc_name}_{newline_name}"
         if lines is not None:
@@ -533,7 +553,7 @@ class TestSafeDirectoryHandler(TestCase, Common):
             file_name += "." + compression
         return file_name
 
-    def get_testdata(self, enc_name: str, newline: str, lines: int, compression: str = None) -> str:
+    def get_testdata(self, enc_name: str, newline: str, lines: int, compression: Optional[str] = None) -> str:
         encoding = codecs.lookup(enc_name) if enc_name else None
         fname = self.get_testdata_name(enc_name, newline, lines, compression)
         p = self.file(fname)
@@ -658,7 +678,7 @@ class TestSafeDirectoryHandler(TestCase, Common):
             'bz2',
             'xz',
         ]
-        if have_lz4:
+        if test_have_lz4:
             compressions.append('lz4')
         encodings = [
             'utf-8',

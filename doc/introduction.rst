@@ -1,31 +1,40 @@
-==========================================
-The MonetDB MAPI and SQL client python API
-==========================================
-
-
-Introduction
-============
-
-pymonetdb is a native python client API for monetDB. This API is cross-platform,
-and doesn't depend on any monetdb libraries.  It has support for
-python 3.5+ and PyPy and is Python DBAPI 2.0 compatible.
-
-.. Note:: Since June 2016 pymonetdb is now the official MonetDB Python API. It
-  replaces the old python-monetdb code. pymonetdb should be a drop-in
-  replacement for python-monetdb. The only thing that changes is the module
-  name; change `import monetdb` into `import pymonetdb`.
+===============
+Getting Started
+===============
 
 
 Installation
 ============
 
-To install the MonetDB python API run the following command from the
-python source directory::
-
- $ python setup.py install
- 
-pymonetdb is also available on pypi::
+pymonetdb is available on PyPI and can be installed with the following command::
 
  $ pip install pymonetdb
 
-That's all, now you are ready to start using the API.
+It can also be installed from its source directory by running::
+
+ $ python setup.py install
+
+
+Connecting
+==========
+
+In its simplest form, the function :func:`pymonetdb.connect` takes a single
+parameter, the database name::
+
+    conn = pymonetdb.connect('demo')
+
+Usually, you have to pass more::
+
+    conn = pymonetdb.connect(
+      'demo',
+      hostname='dbhost', port=50001,
+      username='yours', password='truly')
+
+There are also some options you can set, for example :code:`autocommit=True`.
+
+It is also possible to combine everything in a URL::
+
+  url = 'mapi:monetdb://yours:truly@dbhost:50001/demo?autocommit=true'
+  conn = pymonetdb.connect(url)
+
+For more details see the documentation of :func:`pymonetdb.connect`.
