@@ -6,20 +6,20 @@ on:
 
 jobs:
   runtests:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v1
         with:
-          python-version: '3.6'
+          python-version: '3.8'
 
       # Unfortunately msiexec does seem to work on the windows runner.
       # 7zip is able to unpack .msi files but it loses the directory structure.
       # We fix that in the next step.
       - name: Download MonetDB
         run: |
-          curl https://www.monetdb.org/downloads/Windows/Jan2022-SP1/MonetDB5-SQL-Installer-x86_64-20220207.msi -o ${{ runner.temp }}\monetdb.msi --no-progress-meter
+          curl https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-*.msi -o ${{ runner.temp }}\monetdb.msi --no-progress-meter
           dir ${{ runner.temp }}
           7z x ${{ runner.temp }}\monetdb.msi -o${{ runner.temp }}\staging
           dir ${{ runner.temp }}\staging
