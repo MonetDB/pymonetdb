@@ -6,13 +6,13 @@ on:
 
 jobs:
   runtests:
-    runs-on: windows-2022
+    runs-on: windows-latest
     env:
       uri: https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-20230718.msi
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.8'
 
