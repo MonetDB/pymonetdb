@@ -37,7 +37,7 @@ jobs:
 
       - name: test network
         run: |
-          netsh interface ipv4 show excludedportrange prot
+          netsh interface ipv4 show excludedportrange tcp
 
       # Script tests/windows_tests.py starts an mserver in the background
       # and runs pytest, excluding the Control tests.
