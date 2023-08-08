@@ -8,7 +8,7 @@ jobs:
   runtests:
     runs-on: windows-2022
     env:
-      MSI: https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-20230718.msi
+      uri: https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-20230718.msi
     steps:
       - uses: actions/checkout@v3
 
@@ -21,16 +21,14 @@ jobs:
       # We fix that in the next step.
       - name: Download MonetDB
         run: |
-          $msifile="c:\${{ env.MSI }}"
+          $msifile="c:\monetdb.msi"
           #New-Item -Path 'C:\test.log' -ItemType File
-          (New-Object System.Net.WebClient).DownloadFile("http://monetdb.org/testweb/web/${{ env.MSI }}","$msifile");
+          (New-Object System.Net.WebClient).DownloadFile("${{ env.uri }}","$msifile");
           $procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2' -Wait
           #$procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2 /L*xv c:\test.log' 
           #$procLog = Start-Process powershell 'Get-Content -Path c:\test.log -Wait' -NoNewWindow -PassThru
           #$procMain.WaitForExit()
           #$procLog.Kill()
-          #  Install-Binary -Url "http://monetdb.org/testweb/web/${{ env.MSI }}" -Name "${{ env.MSI }}" -ArgumentList "/norestart /quiet /passive /qn INSTALLLEVEL=1000"
-
       - name: Setup virtual environment
         run: |
           python -m venv venv
