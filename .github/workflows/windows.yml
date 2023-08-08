@@ -4,6 +4,9 @@ on:
     branches: [ master ]
   pull_request:
 
+  schedule:
+    - cron:  '5 0 * * *'
+
 jobs:
   runtests:
     runs-on: windows-latest
@@ -11,7 +14,6 @@ jobs:
       uri: https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-20230718.msi
     steps:
       - uses: actions/checkout@v3
-
       - uses: actions/setup-python@v4
         with:
           python-version: '3.8'
