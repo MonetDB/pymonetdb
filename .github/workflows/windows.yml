@@ -19,7 +19,7 @@ jobs:
       # Unfortunately msiexec does seem to work on the windows runner.
       # 7zip is able to unpack .msi files but it loses the directory structure.
       # We fix that in the next step.
-      - name: Download MonetDB
+      - name: Install MonetDB
         run: |
           $msifile="c:\monetdb.msi"
           #New-Item -Path 'C:\test.log' -ItemType File
@@ -34,6 +34,10 @@ jobs:
           python -m venv venv
           venv\Scripts\Activate.ps1
           python -m pip install -r tests/requirements.txt
+
+      - name: test network
+        run: |
+          netsh interface ipv4 show excludedportrange prot
 
       # Script tests/windows_tests.py starts an mserver in the background
       # and runs pytest, excluding the Control tests.
