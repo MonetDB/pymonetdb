@@ -232,8 +232,9 @@ def TimestampTzFromTicks(ticks):
     return _make_localtime(Timestamp(*time.localtime(ticks)[:6]))
 
 
+local_tzinfo = datetime.datetime.now().astimezone().tzinfo
 def _make_localtime(t):
-    return t.replace(tzinfo=timezone(timedelta(hours=1)))
+    return t.replace(tzinfo=local_tzinfo)
 
 
 Date = datetime.date
