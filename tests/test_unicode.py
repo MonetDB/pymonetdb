@@ -69,7 +69,7 @@ class TestUnicode(unittest.TestCase):
             cur = con.cursor()
             self.executeDDL1(cur)
             args = {'beer': '\xc4\xa5'}
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
+            cur.execute('insert into %sbooze values (:beer)' % self.table_prefix, args)
             cur.execute('select name from %sbooze' % self.table_prefix)
             res = cur.fetchall()
             beer = res[0][0]
@@ -85,7 +85,7 @@ class TestUnicode(unittest.TestCase):
             args = {'beer': '\N{latin small letter a with acute}'}
             encoded = args['beer']
 
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
+            cur.execute('insert into %sbooze values (:beer)' % self.table_prefix, args)
             cur.execute('select name from %sbooze' % self.table_prefix)
             res = cur.fetchall()
             beer = res[0][0]
@@ -99,7 +99,7 @@ class TestUnicode(unittest.TestCase):
             cur = con.cursor()
             self.executeDDL1(cur)
             args = {'beer': '"" \"\'\",\\"\\"\"\'\"'}
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
+            cur.execute('insert into %sbooze values (:beer)' % self.table_prefix, args)
             cur.execute('select name from %sbooze' % self.table_prefix)
             res = cur.fetchall()
             beer = res[0][0]
@@ -134,7 +134,7 @@ class TestUnicode(unittest.TestCase):
         self.executeDDL1(cur)
         for i in teststrings:
             args = {'beer': i}
-            cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix, args)
+            cur.execute('insert into %sbooze values (:beer)' % self.table_prefix, args)
             cur.execute('select * from %sbooze' % self.table_prefix)
             row = cur.fetchone()
             cur.execute('delete from %sbooze where name=%%s' % self.table_prefix, i)
@@ -147,7 +147,7 @@ class TestUnicode(unittest.TestCase):
         self.executeDDL1(cur)
         input_ = '中文 zhōngwén'
         args = {'beer': input_}
-        cur.execute('insert into %sbooze values (%%(beer)s)' % self.table_prefix,
+        cur.execute('insert into %sbooze values (:beer)' % self.table_prefix,
                     args)
         cur.execute('select name from %sbooze' % self.table_prefix)
         res = cur.fetchall()

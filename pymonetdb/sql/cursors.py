@@ -217,8 +217,12 @@ class Cursor(object):
 
         query = ""
         if parameters:
+            #if pymonetdb.paramstyle == 'named':
             if isinstance(parameters, dict):
-                query = operation % {k: monetize.convert(v) for (k, v) in parameters.items()}
+                l = []
+                for k, v in parameters.items():
+                     l.append( '%s %s' % (k, monetize.convert(v)))
+                query = operation + ' : ( ' + ','.join(l) + ' )'
             elif type(parameters) is list or type(parameters) is tuple:
                 query = operation % tuple(
                     [monetize.convert(item) for item in parameters])

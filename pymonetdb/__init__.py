@@ -32,7 +32,7 @@ except pkg_resources.DistributionNotFound:
 
 apilevel = "2.0"
 threadsafety = 1
-paramstyle = "pyformat"
+paramstyle = "named"
 
 __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connection', 'DATE', 'Date', 'Time',
            'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',

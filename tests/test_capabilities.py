@@ -410,21 +410,21 @@ class DatabaseTest(unittest.TestCase):
 
     def test_temporal_operations(self):
         dt = datetime.datetime(2017, 12, 6, 12, 30)
-        self.cursor.execute("SELECT %(dt)s - INTERVAL '1' DAY", {'dt': dt})
+        self.cursor.execute("SELECT cast(:dt as TIMESTAMP) - INTERVAL '1' DAY", {'dt': dt})
         expected = datetime.datetime(2017, 12, 5, 12, 30)
         self.assertEqual(self.cursor.fetchone()[0], expected)
 
         d = datetime.date(2017, 12, 6)
-        self.cursor.execute("SELECT %(d)s - INTERVAL '1' DAY", {'d': d})
+        self.cursor.execute("SELECT cast(:d as date) - INTERVAL '1' DAY", {'d': d})
         expected = datetime.date(2017, 12, 5)
         self.assertEqual(self.cursor.fetchone()[0], expected)
 
         t = datetime.time(12, 5)
-        self.cursor.execute("SELECT %(t)s - INTERVAL '30' MINUTE", {'t': t})
+        self.cursor.execute("SELECT cast(:t as time) - INTERVAL '30' MINUTE", {'t': t})
         expected = datetime.time(11, 35)
         self.assertEqual(self.cursor.fetchone()[0], expected)
 
         td = datetime.timedelta(days=5, hours=2, minutes=10)
-        self.cursor.execute("SELECT %(dt)s - %(td)s", {'dt': dt, 'td': td})
+        self.cursor.execute("SELECT cast(:dt as timestamp) - cast(:td as interval minute)", {'dt': dt, 'td': td})
         expected = datetime.datetime(2017, 12, 1, 10, 20)
         self.assertEqual(self.cursor.fetchone()[0], expected)
