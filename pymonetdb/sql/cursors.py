@@ -217,7 +217,6 @@ class Cursor(object):
 
         query = ""
         if parameters:
-            #if pymonetdb.paramstyle == 'named':
             if isinstance(parameters, dict):
                 l = []
                 for k, v in parameters.items():

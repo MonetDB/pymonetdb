@@ -15,9 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         monetdbversion:
-          - "monetdb/dev-builds:Jan2022"
-          - "monetdb/dev-builds:Sep2022"
-          - "monetdb/dev-builds:Jun2023"
           - "monetdb/dev-builds:default"
     env:
       TSTHOSTNAME: "monetdb"

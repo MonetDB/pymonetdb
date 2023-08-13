@@ -12,7 +12,7 @@ from typing import List
 from pymonetdb.sql import cursors
 from pymonetdb.policy import BatchPolicy
 from pymonetdb import exceptions
-from pymonetdb import mapi
+from pymonetdb import mapi 
 
 logger = logging.getLogger("pymonetdb")
 
