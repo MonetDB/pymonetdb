@@ -27,6 +27,8 @@ class DatabaseTest(unittest.TestCase):
 
     leak_test = False
 
+    local_tzinfo = datetime.datetime.now().astimezone().tzinfo
+
     def setUp(self):
         db = pymonetdb.connect(autocommit=False, **test_args)
         self.connection = db
@@ -225,6 +227,8 @@ class DatabaseTest(unittest.TestCase):
     def test_TIME(self):
         ticks = time()
 
+        self.assertIsNone(pymonetdb.TimeFromTicks(ticks).tzinfo)
+
         def generator(row, col):
             return pymonetdb.TimeFromTicks(ticks + row * 86400 - col * 1313)
 
@@ -234,6 +238,8 @@ class DatabaseTest(unittest.TestCase):
 
     def test_TIMETZ(self):
         ticks = time()
+
+        self.assertEqual(self.local_tzinfo, pymonetdb.TimeTzFromTicks(ticks).tzinfo)
 
         def generator(row, col):
             return pymonetdb.TimeTzFromTicks(ticks + row * 86400 - col * 1313)
@@ -245,6 +251,8 @@ class DatabaseTest(unittest.TestCase):
     def test_DATETIME(self):
         ticks = time()
 
+        self.assertIsNone(pymonetdb.TimestampFromTicks(ticks).tzinfo)
+
         def generator(row, col):
             return pymonetdb.TimestampFromTicks(ticks + row * 86400 - col * 1313)
 
@@ -255,6 +263,8 @@ class DatabaseTest(unittest.TestCase):
     def test_TIMESTAMP(self):
         ticks = time()
 
+        self.assertIsNone(pymonetdb.TimestampFromTicks(ticks).tzinfo)
+
         def generator(row, col):
             return pymonetdb.TimestampFromTicks(ticks + row * 86400 - col * 1313)
 
@@ -264,6 +274,8 @@ class DatabaseTest(unittest.TestCase):
 
     def test_TIMESTAMPTZ(self):
         ticks = time()
+
+        self.assertEqual(self.local_tzinfo, pymonetdb.TimestampTzFromTicks(ticks).tzinfo)
 
         def generator(row, col):
             return pymonetdb.TimestampTzFromTicks(ticks + row * 86400 - col * 1313)
