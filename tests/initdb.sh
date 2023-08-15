@@ -15,8 +15,11 @@ export LC_CTYPE=$LANG
 
 # First configure the farm
 if [ -n "$DBFARM" ]; then
-	test -d "$DBFARM"
-	monetdbd stop "$DBFARM" || true "No problem!"
+	if [ -d "$DBFARM" ]; then
+		monetdbd stop "$DBFARM" || true "No problem!"
+	else
+		monetdbd create "$DBFARM"
+	fi
 	monetdbd set control=yes "$DBFARM"
 	monetdbd set passphrase=testdb "$DBFARM"
 	monetdbd start "$DBFARM"
