@@ -218,10 +218,10 @@ class Cursor(object):
         query = ""
         if parameters:
             if isinstance(parameters, dict):
-                l = []
+                args = []
                 for k, v in parameters.items():
-                     l.append( '%s %s' % (k, monetize.convert(v)))
-                query = operation + ' : ( ' + ','.join(l) + ' )'
+                    args.append('%s %s' % (k, monetize.convert(v)))
+                query = operation + ' : ( ' + ','.join(args) + ' )'
             elif type(parameters) is list or type(parameters) is tuple:
                 query = operation % tuple(
                     [monetize.convert(item) for item in parameters])
