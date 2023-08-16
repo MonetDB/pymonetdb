@@ -14,6 +14,7 @@ venv/:
 	venv/bin/pip install --upgrade pip wheel
 
 venv/installed: venv/
+	venv/bin/pip install setuptools
 	venv/bin/pip install -e ".[test,doc]"
 	touch venv/installed
 
