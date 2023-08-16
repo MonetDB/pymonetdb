@@ -8,6 +8,7 @@
 
 import os
 from setuptools import find_packages, setup
+import pymonetdb
 
 tests_require = ['pytest', 'mypy', 'pycodestyle', 'types-setuptools']
 
@@ -22,7 +23,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-__version__ = '1.7.1a0'
+__version__ = pymonetdb.__version__
 
 setup(
     name='pymonetdb',
