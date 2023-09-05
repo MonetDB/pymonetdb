@@ -129,13 +129,32 @@ class Connection(object):
         except ValueError as e:
             raise DatabaseError(str(e))
 
-        # Enter a loop to deal with redirects.
+        # Close any remainders of previous attempts
         if self.socket:
             try:
                 self.socket.close()
             except OSError:
                 pass
             self.socket = None
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Connecting to {self.target.summary_url()}")
+        # Enter a loop to deal with redirects.
+        try:
+            self.connect_loop()
+        except Exception as e:
+            logger.error(f"Could not connect to {self.target.summary_url()}: {e}")
+            raise
+        logger.info(f"Established connection to {self.target.summary_url()}")
+
+        # We have a working connection now. Take care of the options we couldn't
+        # handle during the handshake
+        self.state = STATE_READY
+
+        for opt in self.remaining_handshake_options:
+            opt.fallback(opt.value)
+
+    def connect_loop(self):
         for i in range(10):
             # maybe the previous attempt left an open socket that just needs an
             # additional login attempt
@@ -177,12 +196,7 @@ class Connection(object):
         else:
             raise OperationalError("too many redirects")
 
-        # We have a working connection now. Take care of the options we couldn't
-        # handle during the handshake
-        self.state = STATE_READY
 
-        for opt in self.remaining_handshake_options:
-            opt.fallback(opt.value)
 
     def try_connect(self):  # noqa C901
         err = None
@@ -196,6 +210,7 @@ class Connection(object):
             try:
                 s.connect(sock)
                 # it worked!
+                logger.debug(f"Connected to {sock}")
                 self.socket = s
                 self.is_tcp = False
                 return
@@ -216,6 +231,7 @@ class Connection(object):
                 try:
                     s.connect(addr)
                     # it worked!
+                    logger.debug(f"Connected to {addr[0]} port {addr[1]}")
                     self.socket = s
                     self.is_tcp = True
                     return
@@ -273,6 +289,14 @@ class Connection(object):
         self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.effective_tcp_host)
         if target.fingerprint:
             self._verify_fingerprint(target.fingerprint)
+            logger.debug(f"TLS certificate matches fingerprint {target.fingerprint}")
+        else:
+            peercert = self.socket.getpeercert()
+            if peercert:
+                logger.debug("Valid TLS certificate")
+            else:
+                logger.debug("TLS certificate check was disabled")
+
 
     def _login(self) -> bool:  # noqa: C901
         """ Reads challenge from line, generate response and check if
@@ -306,13 +330,13 @@ class Connection(object):
 
     def _handle_redirect(self, redirect: str):
         if redirect.startswith('mapi:merovingian:'):
-            logger.debug("restarting authentication")
+            logger.debug("Local redirect, restarting authentication")
             try:
                 self.target.parse_mapi_merovingian_url(redirect)
             except ValueError as e:
                 raise DatabaseError(str(e))
         else:
-            logger.debug("redirect to " + redirect)
+            logger.debug("Redirected to " + redirect)
             try:
                 self.target.parse_url(redirect)
             except ValueError as e:
@@ -347,7 +371,7 @@ class Connection(object):
 
     def disconnect(self):
         """ disconnect from the monetdb server """
-        logger.info("disconnecting from database")
+        logger.info("Closing connection")
         self.state = STATE_INIT
         self.socket.close()
 

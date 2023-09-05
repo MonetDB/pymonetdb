@@ -11,7 +11,7 @@ Utilities for parsing MonetDB URLs
 import copy
 import re
 from typing import Any, Callable, Dict, Optional, Union
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 
 def looks_like_url(text: str) -> bool:
@@ -471,3 +471,18 @@ class Target:
                 self.database = database
 
         self.user_password_barrier()
+
+    def summary_url(self):
+        db = self.database or ''
+        if self.sock:
+            return f"monetdb://localhost/{db}?sock={urlencode(self.sock)}"
+        scheme = "monetdbs" if self.use_tls else "monetdb"
+        host = self.host or "localhost"
+        if self.port and self.port != 50_000:
+            return f"{scheme}://{host}:{self.port}/{db}"
+        else:
+            return f"{scheme}://{host}/{db}"
+
+
+        scheme = "monetdbs" if self.use_tls else "monetdb"
+        host = self.host or "localhost"
