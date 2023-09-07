@@ -197,8 +197,6 @@ class Connection(object):
         else:
             raise OperationalError("too many redirects")
 
-
-
     def try_connect(self):  # noqa C901
         err = None
         timeout = self.target.effective_connect_timeout
@@ -244,7 +242,7 @@ class Connection(object):
             raise err
         raise DatabaseError("endpoint not found")
 
-    def prime_or_wrap_connection(self):
+    def prime_or_wrap_connection(self):  # noqa: C901
         if not self.target.effective_use_tls:
             # Prime the connection with some NUL bytes.
             # We expect the remote server to be a MAPI server, in which
@@ -297,7 +295,6 @@ class Connection(object):
                 logger.debug("Valid TLS certificate")
             else:
                 logger.debug("TLS certificate check was disabled")
-
 
     def _login(self) -> bool:  # noqa: C901
         """ Reads challenge from line, generate response and check if

@@ -219,7 +219,7 @@ class Cursor(object):
         if parameters:
             if isinstance(parameters, dict):
                 query = operation % {k: monetize.convert(v) for (k, v) in parameters.items()}
-            elif type(parameters) == list or type(parameters) == tuple:
+            elif isinstance(parameters, list) or isinstance(parameters, tuple):
                 query = operation % tuple(
                     [monetize.convert(item) for item in parameters])
             elif isinstance(parameters, str):
