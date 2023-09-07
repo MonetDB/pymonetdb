@@ -145,7 +145,8 @@ class Connection(object):
         except Exception as e:
             logger.error(f"Could not connect to {self.target.summary_url()}: {e}")
             raise
-        logger.info(f"Established connection to {self.target.summary_url()}")
+        if logger.isEnabledFor(logging.INFO):
+            logger.info(f"Established connection to {self.target.summary_url()}")
 
         # We have a working connection now. Take care of the options we couldn't
         # handle during the handshake
