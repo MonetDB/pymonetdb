@@ -228,7 +228,7 @@ class Cursor(object):
                     for k, v in parameters.items():
                         args.append('%s %s' % (k, monetize.convert(v)))
                     query = operation + ' : ( ' + ','.join(args) + ' )'
-            elif type(parameters) is list or type(parameters) is tuple:
+            elif isinstance(parameters, list) or isinstance(parameters, tuple):
                 query = operation % tuple(
                     [monetize.convert(item) for item in parameters])
             elif isinstance(parameters, str):
