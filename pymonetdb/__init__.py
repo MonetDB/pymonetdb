@@ -24,11 +24,12 @@ from pymonetdb.filetransfer.downloads import Download, Downloader
 from pymonetdb.filetransfer.uploads import Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 
-__version__ = '1.7.1a0'
+__version__ = '1.7.1'
 
 apilevel = "2.0"
 threadsafety = 1
-paramstyle = "pyformat"
+
+paramstyle = "pyformat"   # with sufficiently recent MonetDB versions you can override this to 'named'
 
 __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connection', 'DATE', 'Date', 'Time',
            'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',

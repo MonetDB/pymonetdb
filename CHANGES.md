@@ -1,3 +1,35 @@
+# 1.7.1
+
+changes since 1.7.0
+
+* Bug fix: let TimeTzFromTicks and TimestampTzFromTicks use the correct time zone
+
+* Feature: add support for the named parameter syntax that will be introduced in
+  the next major version of MonetDB AFTER Jun2023. (Not Jun2023 itself.)
+
+Example of the named parameters:
+
+```python
+import pymonetdb
+
+# classic behavior: paramstyle pyformat
+assert pymonetdb.paramstyle == 'pyformat'
+
+with pymonetdb.connect('demo') as conn, conn.cursor() as cursor:
+    parameters = dict(number=42, fruit="ban'ana")
+    cursor.execute("SELECT %(number)s, %(fruit)s", parameters)
+    assert cursor.fetchone() == (42, "ban'ana")
+
+# enable named parameters
+pymonetdb.paramstyle = 'named'
+
+with pymonetdb.connect('demo') as conn, conn.cursor() as cursor:
+    parameters = dict(number=42, fruit="ban'ana")
+    cursor.execute("SELECT :number, :fruit", parameters)
+    assert cursor.fetchone() == (42, "ban'ana")
+```
+
+
 # 1.7.0
 
 changes since 1.6.4
