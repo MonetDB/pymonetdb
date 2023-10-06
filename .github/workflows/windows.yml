@@ -11,7 +11,7 @@ jobs:
   runtests:
     runs-on: windows-latest
     env:
-      uri: https://www.monetdb.org/downloads/Windows/Latest/MonetDB5-SQL-Installer-x86_64-20230718.msi
+      uri: https://www.monetdb.org/downloads/Windows/Jun2023-SP2/MonetDB5-SQL-Installer-x86_64-20230929.msi
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
