@@ -14,7 +14,7 @@ import datetime
 import re
 import uuid
 from decimal import Decimal
-from datetime import timedelta, timezone
+from datetime import timedelta
 
 from pymonetdb.sql import types
 from pymonetdb.exceptions import ProgrammingError
@@ -232,8 +232,11 @@ def TimestampTzFromTicks(ticks):
     return _make_localtime(Timestamp(*time.localtime(ticks)[:6]))
 
 
+_local_tzinfo = datetime.datetime.now().astimezone().tzinfo
+
+
 def _make_localtime(t):
-    return t.replace(tzinfo=timezone(timedelta(hours=1)))
+    return t.replace(tzinfo=_local_tzinfo)
 
 
 Date = datetime.date

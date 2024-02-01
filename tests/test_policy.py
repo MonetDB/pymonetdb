@@ -442,15 +442,15 @@ class TestPolicySetting(TestCase):
     @skipIf(test_use_tls, "URLs don't have TLS support yet")
     def test_url_parameters1(self):
         updated_url = self.update_url(replysize='99', maxprefetch='444', binary='1')
-        conn = pymonetdb.connect(updated_url)
-        self.assertEqual(1, conn._policy.binary_level)
-        self.assertEqual(99, conn._policy.replysize)
-        self.assertEqual(444, conn._policy.maxprefetch)
+        with pymonetdb.connect(updated_url) as conn:
+            self.assertEqual(1, conn._policy.binary_level)
+            self.assertEqual(99, conn._policy.replysize)
+            self.assertEqual(444, conn._policy.maxprefetch)
 
     @skipIf(test_use_tls, "URLs don't have TLS support yet")
     def test_url_parameters2(self):
         updated_url = self.update_url(replysize='999', maxprefetch='44', binary='0')
-        conn = pymonetdb.connect(updated_url)
-        self.assertEqual(0, conn._policy.binary_level)
-        self.assertEqual(999, conn._policy.replysize)
-        self.assertEqual(44, conn._policy.maxprefetch)
+        with pymonetdb.connect(updated_url) as conn:
+            self.assertEqual(0, conn._policy.binary_level)
+            self.assertEqual(999, conn._policy.replysize)
+            self.assertEqual(44, conn._policy.maxprefetch)

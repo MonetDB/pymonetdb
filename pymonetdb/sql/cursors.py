@@ -187,7 +187,7 @@ class Cursor(object):
         # Propagate any errors
         return False
 
-    def execute(self, operation: str, parameters: Optional[Dict] = None):
+    def execute(self, operation: str, parameters: Optional[Dict] = None):  # noqa C901
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
         will be bound to variables in the operation.
@@ -218,7 +218,16 @@ class Cursor(object):
         query = ""
         if parameters:
             if isinstance(parameters, dict):
-                query = operation % {k: monetize.convert(v) for (k, v) in parameters.items()}
+                if pymonetdb.paramstyle == 'pyformat':
+                    query = operation % {
+                        k: monetize.convert(v)
+                        for (k, v) in parameters.items()
+                    }
+                elif pymonetdb.paramstyle == 'named':
+                    args = []
+                    for k, v in parameters.items():
+                        args.append('%s %s' % (k, monetize.convert(v)))
+                    query = operation + ' : ( ' + ','.join(args) + ' )'
             elif isinstance(parameters, list) or isinstance(parameters, tuple):
                 query = operation % tuple(
                     [monetize.convert(item) for item in parameters])
@@ -234,7 +243,7 @@ class Cursor(object):
         self._store_result(block)
         self.rownumber = 0
         self._executed = operation
-        return self.rowcount
+        return self.rowcount if self.rowcount >= 0 else None
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then

@@ -10,7 +10,6 @@ To set up a connection use pymonetdb.connect()
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-import pkg_resources
 from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
@@ -25,14 +24,12 @@ from pymonetdb.filetransfer.downloads import Download, Downloader
 from pymonetdb.filetransfer.uploads import Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 
-try:
-    __version__ = pkg_resources.require("pymonetdb")[0].version
-except pkg_resources.DistributionNotFound:
-    __version__ = "1.0rc"
+__version__ = '1.7.2a0'
 
 apilevel = "2.0"
 threadsafety = 1
-paramstyle = "pyformat"
+
+paramstyle = "pyformat"   # with sufficiently recent MonetDB versions you can override this to 'named'
 
 __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connection', 'DATE', 'Date', 'Time',
            'Timestamp', 'DateFromTicks', 'TimeFromTicks', 'TimestampFromTicks', 'DataError', 'DatabaseError', 'Error',

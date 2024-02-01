@@ -5,6 +5,9 @@ on:
     branches: [ master, monetdbs ]
   pull_request:
 
+  schedule:
+    - cron:  '5 0 * * *'
+
 jobs:
   analyze:
     name: Analyze
@@ -19,10 +22,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
-        languages: python   
+        languages: python
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
+      uses: github/codeql-action/autobuild@v2
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2

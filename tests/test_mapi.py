@@ -4,10 +4,15 @@ from pymonetdb.mapi import Connection
 
 
 class TestMapi(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.conn = Connection()
-        cls.conn.connect(language='sql', **test_mapi_args)
+    def setUp(self):
+        self.conn = Connection()
+        self.conn.connect(language='sql', **test_mapi_args)
+
+    def tearDown(self):
+        try:
+            self.conn.close()
+        except Exception:
+            pass
 
     def test_set_size(self):
         query = 'sselect * from tables t1, tables t2;'

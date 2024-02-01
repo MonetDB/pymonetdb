@@ -4,39 +4,39 @@ on:
     branches: [ master, monetdbs ]
   pull_request:
 
+  schedule:
+    - cron:  '5 0 * * *'
+
 jobs:
   runtests:
-    runs-on: windows-2019
+    runs-on: windows-latest
+    env:
+      uri: https://www.monetdb.org/downloads/Windows/Jun2023-SP2/MonetDB5-SQL-Installer-x86_64-20230929.msi
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.6'
+          python-version: '3.8'
 
-      # Unfortunately msiexec does seem to work on the windows runner.
-      # 7zip is able to unpack .msi files but it loses the directory structure.
-      # We fix that in the next step.
-      - name: Download MonetDB
-        run: |
-          curl https://www.monetdb.org/downloads/Windows/Jan2022-SP1/MonetDB5-SQL-Installer-x86_64-20220207.msi -o ${{ runner.temp }}\monetdb.msi --no-progress-meter
-          dir ${{ runner.temp }}
-          7z x ${{ runner.temp }}\monetdb.msi -o${{ runner.temp }}\staging
-          dir ${{ runner.temp }}\staging
-
-      # Run a script to restore the directory structure and see if it works (a little)
       - name: Install MonetDB
         run: |
-          python tests/install_monetdb_from_msi_dir.py ${{ runner.temp }}\staging ${{ runner.temp }}\MONET
-          dir ${{ runner.temp }}\MONET
-          dir ${{ runner.temp }}\MONET\bin
-          ${{ runner.temp }}\MONET\bin\mserver5.exe --help
-
+          $msifile="c:\monetdb.msi"
+          #New-Item -Path 'C:\test.log' -ItemType File
+          (New-Object System.Net.WebClient).DownloadFile("${{ env.uri }}","$msifile");
+          $procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2' -Wait
+          #$procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2 /L*xv c:\test.log' 
+          #$procLog = Start-Process powershell 'Get-Content -Path c:\test.log -Wait' -NoNewWindow -PassThru
+          #$procMain.WaitForExit()
+          #$procLog.Kill()
       - name: Setup virtual environment
         run: |
           python -m venv venv
           venv\Scripts\Activate.ps1
           python -m pip install -r tests/requirements.txt
+
+      - name: test network
+        run: |
+          netsh interface ipv4 show excludedportrange tcp
 
       # Script tests/windows_tests.py starts an mserver in the background
       # and runs pytest, excluding the Control tests.
@@ -44,7 +44,7 @@ jobs:
         run: |
           venv\Scripts\Activate.ps1
           mkdir ${{ runner.temp }}\dbfarm
-          python tests/windows_tests.py ${{ runner.temp }}\MONET ${{ runner.temp }}\dbfarm demo 50000
+          python tests/windows_tests.py "C:\Program Files\MONETDB\MonetDB5" ${{ runner.temp }}\dbfarm demo 50000
           echo ""; echo ""; echo "================ SERVER STDERR: ==================="; echo ""
           type ${{ runner.temp }}\dbfarm\errlog
 

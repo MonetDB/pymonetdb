@@ -1,4 +1,4 @@
-import os
+import socket
 import unittest
 from pymonetdb.exceptions import DatabaseError
 from socket import gethostbyname
@@ -17,13 +17,22 @@ class TestMapiUri(TestCase):
         self.database = test_args['database']
         self.username = test_args['username']
         self.password = test_args['password']
+        self.to_close = []
+
+    def tearDown(self):
+        for c in self.to_close:
+            try:
+                c.close()
+            except Exception:
+                pass
 
     def attempt_connect(self, uri, **kwargs):
-        connection = connect(uri, **kwargs)
-        cursor = connection.cursor()
-        q = "select tag from sys.queue()"
-        cursor.execute(q)
-        cursor.fetchall()
+        with connect(uri, **kwargs) as connection:
+            self.to_close.append(connection)
+            cursor = connection.cursor()
+            q = "select tag from sys.queue()"
+            cursor.execute(q)
+            cursor.fetchall()
 
     def test_no_uri(self):
         # test setUp and attempt_connect themselves
@@ -63,15 +72,24 @@ class TestMapiUri(TestCase):
                              username=self.username, password=self.password)
 
     def test_unix_domain_socket(self):
-        sock_path = "/tmp/.s.monetdb.%i" % self.port
-        if not os.path.exists(sock_path):
-            raise unittest.SkipTest("Unix domain socket does not exist")
-        uri = f"mapi:monetdb://{sock_path}?database={self.database}"
+        uri = self.unix_domain_socket_uri()
         self.attempt_connect(uri, username=self.username, password=self.password)
 
     def test_unix_domain_socket_username(self):
-        sock_path = "/tmp/.s.monetdb.%i" % self.port
-        if not os.path.exists(sock_path):
-            raise unittest.SkipTest("Unix domain socket does not exist")
-        uri = f"mapi:monetdb://{self.username}:{self.password}@{sock_path}?database={self.database}"
+        uri = self.unix_domain_socket_uri()
         self.attempt_connect(uri, username="not" + self.username, password="not" + self.password)
+
+    def unix_domain_socket_uri(self):
+        if not hasattr(socket, 'AF_UNIX'):
+            raise unittest.SkipTest("Unix domain sockets are not supported on this platform")
+        sock_path = "/tmp/.s.monetdb.%i" % self.port
+        try:
+            with socket.socket(socket.AF_UNIX) as sock:
+                sock.settimeout(0.1)
+                sock.connect(sock_path)
+        except FileNotFoundError:
+            raise unittest.SkipTest(f"Unix domain socket {sock_path} does not exist")
+        except ConnectionRefusedError:
+            raise unittest.SkipTest(f"Unix domain socket {sock_path} is stale")
+
+        return f"mapi:monetdb://{self.username}:{self.password}@{sock_path}?database={self.database}"
