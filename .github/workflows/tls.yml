@@ -2,7 +2,7 @@ name: Test TLS support
 on:
   pull_request:
   push:
-    branches: master
+    branches: master, monetdbs
 
 
 jobs:

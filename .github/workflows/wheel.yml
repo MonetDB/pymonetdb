@@ -1,9 +1,9 @@
 name: Make wheels
 on:
   push:
-    branches: [ master ]
+    branches: [ master, monetdbs ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, monetdbs ]
   release:
     types: [published]
 jobs:
