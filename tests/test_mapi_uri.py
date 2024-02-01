@@ -15,13 +15,22 @@ class TestMapiUri(TestCase):
         self.database = test_args['database']
         self.username = test_args['username']
         self.password = test_args['password']
+        self.to_close = []
+
+    def tearDown(self):
+        for c in self.to_close:
+            try:
+                c.close()
+            except Exception:
+                pass
 
     def attempt_connect(self, uri, **kwargs):
-        connection = connect(uri, **kwargs)
-        cursor = connection.cursor()
-        q = "select tag from sys.queue()"
-        cursor.execute(q)
-        cursor.fetchall()
+        with connect(uri, **kwargs) as connection:
+            self.to_close.append(connection)
+            cursor = connection.cursor()
+            q = "select tag from sys.queue()"
+            cursor.execute(q)
+            cursor.fetchall()
 
     def test_no_uri(self):
         # test setUp and attempt_connect themselves

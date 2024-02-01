@@ -127,19 +127,21 @@ class BaseTestCases(TestCase):
     def setUp(self):
         self.cur = 0
         self.rowcount = 0
-        self.close_connection()
+        self.to_close = []
 
     def close_connection(self):
         if self.cursor:
             self.cursor.close()
             self.cursor = None
-        if self.conn:
-            self.conn.close()
-            self.conn = None
 
     def tearDown(self):
         if self.cursor:
             self.cursor.execute("ROLLBACK")
+        for c in self.to_close:
+            try:
+                c.close()
+            except Exception:
+                pass
 
     def connect_with_args(self, **kw_args) -> pymonetdb.Connection:
         try:
@@ -149,6 +151,7 @@ class BaseTestCases(TestCase):
             conn = pymonetdb.connect(**args)
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
+        self.to_close.append(conn)
         return conn
 
     @abstractmethod

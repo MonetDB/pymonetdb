@@ -40,6 +40,7 @@ class DatabaseAPI20Test(unittest.TestCase):
         cursor.execute(self.ddl2)
 
     def setUp(self):
+        self.to_close = []
         pass
 
     def tearDown(self):
@@ -56,10 +57,17 @@ class DatabaseAPI20Test(unittest.TestCase):
                     pass
         finally:
             con.close()
+        for c in self.to_close:
+            try:
+                c.close()
+            except Exception:
+                pass
 
     def _connect(self):
         try:
-            return pymonetdb.connect(**test_args)
+            conn = pymonetdb.connect(**test_args)
+            self.to_close.append(conn)
+            return conn
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
 
