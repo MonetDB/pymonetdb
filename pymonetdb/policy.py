@@ -15,8 +15,10 @@ class BatchPolicy:
     DEFAULT_NUMBER = 100
     BIG_NUMBER = 2_500
 
+    MAX_BINARY_LEVEL = 1
+
     # To be set by the user
-    binary_level = 1
+    binary_level = MAX_BINARY_LEVEL
     replysize = DEFAULT_NUMBER
     maxprefetch = BIG_NUMBER
 

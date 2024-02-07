@@ -22,6 +22,8 @@ from tests.util import (
     test_tls_tester_sys_store,
 )
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class TestTLS(TestCase):
     _name: Optional[str]
@@ -51,7 +53,7 @@ class TestTLS(TestCase):
         if not have_host:
             raise SkipTest("TSTTLSTESTERHOST and TSTTLSTESTERPORT not set")
 
-    def try_connect(self, port_name: str, use_tls=True, server_cert=None, expect=None, **kwargs):
+    def try_connect(self, port_name: str, tls=True, cert=None, expect=None, **kwargs):
         """Try to connect to the named port, looking it up in tlstester.py's portmap.
 
         Returns succesfully if pymonetdb.connect raised a DatabaseError containing
@@ -66,8 +68,8 @@ class TestTLS(TestCase):
                 "banana",
                 hostname=test_tls_tester_host,
                 port=port,
-                use_tls=use_tls,
-                server_cert=server_cert,
+                tls=tls,
+                cert=cert,
                 **kwargs,
             )
             self.fail("Expected connection to tlstester.py to fail but it didn't")
@@ -123,44 +125,44 @@ class TestTLS(TestCase):
         return file.name
 
     def test_connect_plain(self):
-        self.try_connect("plain", use_tls=False)
+        self.try_connect("plain", tls=False)
 
     def test_connect_tls(self):
-        self.try_connect("server1", server_cert=self.download_file("/ca1.crt"))
+        self.try_connect("server1", cert=self.download_file("/ca1.crt"))
 
     def test_refuse_no_cert(self):
         with self.assertRaisesRegex(
             SSLError, "self[- ]signed certificate in certificate chain"
         ):
-            self.try_connect("server1", server_cert=None)
+            self.try_connect("server1", cert=None)
 
     def test_refuse_wrong_cert(self):
         with self.assertRaisesRegex(
             SSLError, "self[- ]signed certificate in certificate chain"
         ):
-            self.try_connect("server1", server_cert=self.download_file("/ca2.crt"))
+            self.try_connect("server1", cert=self.download_file("/ca2.crt"))
 
     def test_refuse_tls12(self):
         with self.assertRaisesRegex(SSLError, "version"):
-            self.try_connect("tls12", server_cert=self.download_file("/ca1.crt"))
+            self.try_connect("tls12", cert=self.download_file("/ca1.crt"))
 
     def test_refuse_expired(self):
         with self.assertRaisesRegex(SSLError, "has expired"):
-            self.try_connect("expiredcert", server_cert=self.download_file("/ca1.crt"))
+            self.try_connect("expiredcert", cert=self.download_file("/ca1.crt"))
 
     def test_connect_client_auth(self):
         self.try_connect(
             "clientauth",
-            server_cert=self.download_file("/ca1.crt"),
-            client_key=self.download_file("/client2.key"),
-            client_cert=self.download_file("/client2.crt"),
+            cert=self.download_file("/ca1.crt"),
+            clientkey=self.download_file("/client2.key"),
+            clientcert=self.download_file("/client2.crt"),
         )
 
     def test_connect_client_auth_combined(self):
         self.try_connect(
             "clientauth",
-            server_cert=self.download_file("/ca1.crt"),
-            client_key=self.download_file("/client2.keycrt"),
+            cert=self.download_file("/ca1.crt"),
+            clientkey=self.download_file("/client2.keycrt"),
         )
 
     def test_fail_plain_to_tls(self):
@@ -169,48 +171,31 @@ class TestTLS(TestCase):
 
     def test_fail_tls_to_plain(self):
         with self.assertRaises(ConnectionError):
-            self.try_connect("server1", use_tls=False)
+            self.try_connect("server1", tls=False)
 
-    def get_fingerprint(self, name: str, algo: str, prefix=True, ndigits: Optional[int] = 6) -> str:
+    def get_fingerprint(self, name: str, prefix=True) -> str:
+        algo = 'sha256'
+        ndigits = 6
         file_name = self.download_file(name)
         with open(file_name, "rb") as f:
             der = f.read()
         digest = hashlib.new(algo, der).hexdigest()
         fingerprint = digest[:ndigits]
         if prefix:
-            fingerprint = "{" + algo + "}" + fingerprint
+            fingerprint = algo + ":" + fingerprint
         return fingerprint
 
-    def test_connect_fingerprint_sha1(self):
-        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha1"))
-
-    def test_connect_fingerprint_default(self):
-        # leaves the "{sha1}" out of the fingerprint
-        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha1", prefix=False))
-
-    def test_connect_fingerprint_sha256(self):
-        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha256"))
-
-    def test_connect_fingerprint_sha512(self):
-        self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server1.der", "sha512"))
+    def test_connect_certhash(self):
+        self.try_connect("server1", certhash=self.get_fingerprint("/server1.der"))
 
     def test_fail_connect_wrong_fingerprint(self):
         # we connect to server1 but use the fingerprint of server2's cert
-        with self.assertRaisesRegex(SSLError, "wrong server certificate fingerprint"):
-            self.try_connect("server1", server_fingerprint=self.get_fingerprint("/server2.der", "sha1"))
-
-    def test_connect_multiple_fingerprints(self):
-        print1 = self.get_fingerprint("/server1.der", "sha1")
-        print2 = self.get_fingerprint("/server2.der", "sha512")
-        prints = print1 + "," + print2
-        self.try_connect("server1", server_fingerprint=prints)
-        self.try_connect("server2", server_fingerprint=prints)
-        with self.assertRaises(SSLError):
-            self.try_connect("server3", server_fingerprint=prints)
+        with self.assertRaisesRegex(SSLError, "wrong server certificate hash"):
+            self.try_connect("server1", certhash=self.get_fingerprint("/server2.der"))
 
     def test_connect_redirected(self):
-        self.try_connect("redirect", expect="server2", server_cert=self.download_file("/ca1.crt"))
+        self.try_connect("redirect", expect="server2", cert=self.download_file("/ca1.crt"))
 
     @skipUnless(test_tls_tester_sys_store, "TSTTLSTESTERSYSSTORE not set")
     def test_connect_trusted(self):
-        self.try_connect("server3", server_cert=None)
+        self.try_connect("server3", cert=None)

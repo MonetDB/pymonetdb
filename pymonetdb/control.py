@@ -72,31 +72,30 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
+
+
     def __init__(self, hostname=None, port=None, passphrase=None, **kwargs):
-        target = Target()
 
-        # Backward compatibility.
-
-        target.apply_connect_kwargs(port=port, **kwargs)
-        target.user = 'monetdb'
-        target.password = passphrase
-        target.database = 'merovingian'
-        target.language = 'control'
-        if hostname is not None and looks_like_url(hostname):
-            target.parse_url(hostname)
-        else:
-            target.host = hostname
-
+        # override some settings
+        kwargs['user'] = 'monetdb'
+        kwargs['password'] = passphrase
+        kwargs['database'] = 'merovingian'
+        kwargs['language'] = 'control'
+        kwargs['sockprefix'] = '.s.merovingian.'
+        target = mapi.construct_target_from_args(hostname=hostname, port=port, **kwargs)
         self.target = target
-        self.server = mapi.Connection()
 
         # check connection
-        self.server.connect(target)
+        self.server = mapi.Connection()
+        self._connect()
         self.server.disconnect()
+
+    def _connect(self):
+        self.server.connect(self.target)
 
     def _send_command(self, database_name, command):
         logger.info("sending '{}' command to database {}".format(command, database_name))
-        self.server.connect(self.target)
+        self._connect()
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
         return result

@@ -46,9 +46,12 @@ test_mapi_args = {
     'hostname': test_hostname,
     'username': test_username,
     'password': test_password,
-    'use_tls': test_use_tls,
-    'server_cert': test_tls_server_cert,
+    'tls': test_use_tls,
+    # 'cert': test_tls_server_cert,
 }
+if test_tls_server_cert:
+    test_mapi_args['cert'] = test_tls_server_cert
+
 
 control_test_args = {**test_mapi_args}
 del control_test_args['password']

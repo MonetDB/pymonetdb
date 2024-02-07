@@ -1,11 +1,11 @@
 import unittest
-from pymonetdb import Connection
+import pymonetdb
 from tests.util import test_args
 
 
 class TestNamedTuple(unittest.TestCase):
     def test_namedtuple(self):
-        con = Connection(autocommit=False, **test_args)
+        con = pymonetdb.connect(autocommit=False, **test_args)
 
         cur = con.cursor()
 

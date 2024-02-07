@@ -8,10 +8,9 @@ Utilities for parsing MonetDB URLs
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
-import copy
 import re
-from typing import Any, Callable, Dict, Optional, Union
-from urllib.parse import parse_qsl, urlparse, quote
+from typing import Callable, Union
+from urllib.parse import parse_qsl, urlparse, quote as urlquote
 
 
 def looks_like_url(text: str) -> bool:
@@ -23,35 +22,478 @@ def looks_like_url(text: str) -> bool:
     )
 
 
-def valid_database_name(text: str) -> bool:
-    return not not re.match("^[-a-zA-Z0-9_]+", text)
+# Note that 'valid' is not in VIRTUAL:
+CORE = set(['tls', 'host', 'port', 'database', 'tableschema', 'table'])
+KNOWN = set([
+    'tls', 'host', 'port', 'database', 'tableschema', 'table',
+    'sock', 'sockdir', 'sockprefix', 'cert', 'certhash', 'clientkey', 'clientcert',
+    'user', 'password', 'language', 'autocommit', 'schema', 'timezone',
+    'binary', 'replysize', 'fetchsize', 'maxprefetch',
+    'connect_timeout']
+)
+IGNORED = set(['hash', 'debug', 'logfile'])
+VIRTUAL = set([
+    'connect_scan', 'connect_unix', 'connect_tcp', 'connect_port',
+    'connect_tls_verify', 'connect_certhash_digits',
+    'connect_binary', 'connect_clientkey', 'connect_clientcert',
+])
 
+_BOOLEANS = dict(
+    true=True,
+    false=False,
+    yes=True,
+    no=False,
+    on=True,
+    off=False
+)
 
-BOOL_NAMES: Dict[str, bool] = dict(
-    true=True, yes=True, on=True, false=False, no=False, off=False
+_DEFAULTS = dict(
+    tls=False,
+    host="",
+    port=-1,
+    database="",
+    tableschema="",
+    table="",
+    sock="",
+    sockdir="/tmp",
+    sockprefix=".s.monetdb.",
+    cert="",
+    certhash="",
+    clientkey="",
+    clientcert="",
+    user="monetdb",
+    password="monetdb",
+    language="sql",
+    autocommit=False,
+    schema="",
+    timezone=None,
+    binary="on",
+    replysize=None,
+    fetchsize=None,
+    maxprefetch=None,
+    connect_timeout=0,
+    dangerous_tls_nocheck="",
 )
 
 
-def parse_bool(s: str) -> bool:
-    b = BOOL_NAMES.get(s.lower())
-    if b is None:
-        raise ValueError("invalid bool: " + s)
-    return b
+def parse_bool(x: Union[str, bool]):
+    if isinstance(x, bool):
+        return x
+    try:
+        return _BOOLEANS[x.lower()]
+    except KeyError:
+        raise ValueError("invalid boolean value")
 
 
-def parse_int_bool(s: str) -> Union[int, bool]:
-    try:
-        return parse_bool(s)
-    except ValueError:
-        pass
-    try:
-        return int(s, 10)
-    except ValueError:
-        bools = "/".join(BOOL_NAMES.keys())
-        raise ValueError(f"expected int or {bools}, not: " + s)
+class urlparam:
+    """Decorator to create getter/setter for url parameter on a Target instance"""
+
+    field: str
+    parser: Callable[[Union[str, any]], any]
+
+    def __init__(self, name, typ, doc):
+        self.field = name
+        if typ == 'string' or typ == 'path':
+            self.parser = str
+        elif typ == 'integer':
+            self.parser = int
+        elif typ == 'bool':
+            self.parser = parse_bool
+        else:
+            raise ValueError(f"invalid type '{typ}'")
+        self.__doc__ = doc
+
+    def __get__(self, instance, owner):
+        # don't know the meaning of the owner parameter; irrelevant?
+        return instance._VALUES.get(self.field)
+
+    def __set__(self, instance, value):
+        parsed = (self.parser)(value)
+        instance._VALUES[self.field] = parsed
+        if self.field in instance._TOUCHED:
+            instance._TOUCHED[self.field] = True
+
+    def __delete__(self, instance):
+        raise Exception("cannot delete url parameter")
+
+
+class Target:
+    """Holds all parameters needed to connect to MonetDB."""
+    __slots__ = [
+        '_VALUES',
+        '_OTHERS',
+        '_TOUCHED',
+    ]
+
+    def __init__(self, *, prototype=None):
+        if prototype:
+            self._VALUES = {**prototype._VALUES}
+            self._OTHERS = {**prototype._OTHERS}
+            self._TOUCHED = {**prototype._TOUCHED}
+        else:
+            self._VALUES = dict(**_DEFAULTS)
+            self._OTHERS = {}
+            self._TOUCHED = dict(user=False, password=False)
+
+    def clone(self):
+        return Target(prototype=self)
+
+    tls = urlparam('tls', 'bool', 'secure the connection using TLS')
+    host = urlparam(
+        'host', 'string', 'IP number, domain name or one of the special values `localhost` and `localhost.`')
+    port = urlparam('port', 'integer',
+                    'TCP port, also used to pick Unix Domain socket path')
+    database = urlparam('database', 'string', 'name of database to connect to')
+    tableschema = urlparam('tableschema', 'string', 'only used for REMOTE TABLE, otherwise unused')
+    table = urlparam('table', 'string', 'only used for REMOTE TABLE, otherwise unused')
+    sock = urlparam('sock', 'path', 'path to Unix Domain socket to connect to')
+    sockdir = urlparam('sockdir', 'path', 'directory where implicit Unix domain sockets are created')
+    sockprefix = urlparam('sockprefix', 'string', 'prefix for implicit Unix domain sockets')
+    cert = urlparam(
+        'cert', 'path', 'path to TLS certificate to authenticate server with')
+    certhash = urlparam(
+        'certhash', 'string', 'hash of server TLS certificate must start with these hex digits; overrides cert')
+    clientkey = urlparam(
+        'clientkey', 'path', 'path to TLS key (+certs) to authenticate with as client')
+    clientcert = urlparam(
+        'clientcert', 'path', "path to TLS certs for 'clientkey', if not included there")
+    user = urlparam('user', 'string', 'user name to authenticate as')
+    password = urlparam('password', 'string', 'password to authenticate with')
+    language = urlparam('language', 'string',
+                        'for example, "sql", "mal", "msql", "profiler"')
+    autocommit = urlparam('autocommit', 'bool', 'initial value of autocommit')
+    schema = urlparam('schema', 'string', 'initial schema')
+    timezone = urlparam('timezone', 'integer',
+                        'client time zone as minutes east of UTC')
+    binary = urlparam(
+        'binary', 'string', 'whether to use binary result set format (number or bool)')
+    replysize = urlparam('replysize', 'integer',
+                         'rows beyond this limit are retrieved on demand, <1 means unlimited')
+    maxprefetch = urlparam('maxprefetch', 'integer', 'specific to pymonetdb')
+    connect_timeout = urlparam('connect_timeout', 'integer', 'abort if connect takes longer than this')
+    dangerous_tls_nocheck = urlparam('dangerous_tls_nocheck', 'bool', 'comma separated certificate checks to skip, host: do not verify host, cert: do not verify certificate chain')
+
+    # alias
+    fetchsize = replysize
+
+    def set(self, key: str, value: str):
+        if key in KNOWN:
+            setattr(self, key, value)
+        elif key in IGNORED or '_' in key:
+            self._OTHERS[key] = value
+        else:
+            raise ValueError(f"unknown parameter {key!r}")
+
+    def get(self, key: str):
+        if key in KNOWN or key in VIRTUAL:
+            return getattr(self, key)
+        elif key in IGNORED or '_' in key:
+            return self._OTHERS[key]
+        else:
+            raise KeyError(key)
+
+    def boundary(self):
+        """If user was set and password wasn't, clear password"""
+        if self._TOUCHED['user'] and not self._TOUCHED['password']:
+            self.password = ''
+        self._TOUCHED['user'] = False
+        self._TOUCHED['password'] = False
+
+    def summary_url(self):
+        db = self.database or ''
+        if self.sock:
+            return f"monetdb://localhost/{db}?sock={urlquote(self.sock)}"
+        scheme = "monetdbs" if self.tls else "monetdb"
+        host = self.host or "localhost"
+        if self.port and self.port != 50_000:
+            return f"{scheme}://{host}:{self.port}/{db}"
+        else:
+            return f"{scheme}://{host}/{db}"
+
+    def parse(self, url: str):
+        self.boundary()
+        if url.startswith("monetdb://") or url.startswith("monetdbs://"):
+            self._set_core_defaults()
+            self._parse_monetdb_url(url)
+        elif url.startswith("mapi:monetdb://"):
+            self._set_core_defaults()
+            self._parse_mapi_monetdb_url(url)
+        else:
+            raise ValueError("URL must start with monetdb://, monetdbs:// or mapi:monetdb://")
+        self.boundary()
+
+    def _set_core_defaults(self):
+        self.tls = False
+        self.host = ''
+        self.port = _DEFAULTS['port']
+        self.database = ''
+
+    def _parse_monetdb_url(self, url):
+        parsed = urlparse(url, allow_fragments=True)
+
+        if parsed.scheme == 'monetdb':
+            self.tls = False
+        elif parsed.scheme == 'monetdbs':
+            self.tls = True
+        else:
+            raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+
+        if parsed.hostname is not None:
+            host = strict_percent_decode('host name', parsed.hostname)
+            if host == 'localhost':
+                host = ''
+            elif host == 'localhost.':
+                host = 'localhost'
+            self.host = host
+        if parsed.port is not None:
+            port = parsed.port
+            if port is not None and not 1 <= port <= 65535:
+                raise ValueError(f"Invalid port number: {port}")
+            self.port = port
+
+        path = parsed.path
+        if path:
+            parts = path.split("/")
+            # 0: before leading slash, always empty
+            # 1: database name
+            # 2: schema name, ignored
+            # 3: table name, ignored
+            # more: error
+            assert parts[0] == ""
+            if len(parts) > 4:
+                raise ValueError("invalid table name: " + '/'.join(parts[3:]))
+            self.database = strict_percent_decode('database name', parts[1])
+            if len(parts) > 2:
+                self.tableschema = strict_percent_decode('schema name', parts[2])
+            if len(parts) > 3:
+                self.table = strict_percent_decode('table name', parts[3])
+
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True):
+            if not key:
+                raise ValueError("empty key is not allowed")
+            key = strict_percent_decode(repr(key), key)
+            value = strict_percent_decode(f"value of {key!r}", value)
+            if key in CORE:
+                raise ValueError(
+                    "key {key!r} is not allowed in the query parameters")
+            self.set(key, value)
+
+    def _parse_mapi_monetdb_url(self, url):
+        # mapi urls have no percent encoding at all
+        parsed = urlparse(url[5:])
+        if parsed.scheme != 'monetdb':
+            raise ValueError(f"Invalid scheme {parsed.scheme!r}")
+        self.tls = False
+        if parsed.username is not None:
+            self.user = parsed.username
+        if parsed.password is not None:
+            self.password = parsed.password
+        if parsed.hostname is not None:
+            self.host = parsed.hostname
+        if parsed.port is not None:
+            self.port = parsed.port
+
+        path = parsed.path
+        if path is not None:
+            if parsed.hostname is None and parsed.port is None:
+                self.sock = path
+            else:
+                path = path[1:]
+                self.database = path  # validation will happen later
+
+        # parse query manually, the library functions perform percent decoding
+        if not parsed.query:
+            return
+        for part in parsed.query.split('&'):
+            # language
+            if part.startswith('language='):
+                self.language = part[9:]
+            elif part.startswith('database='):
+                self.database = part[9:]
+            elif part.startswith('user=') or part.startswith('password='):
+                # ignored because libmapi does so
+                pass
+            elif part.startswith('binary='):
+                # pymonetdb-only, backward compat
+                self.binary = part[7:]
+            elif part.startswith('replysize='):
+                # pymonetdb-only, backward compat
+                self.replysize = part[10:]
+            elif part.startswith('maxprefetch='):
+                # pymonetdb-only, backward compat
+                self.maxprefetch = part[12:]
+            else:
+                # unknown parameters are ignored
+                pass
+
+    def _parse_mapi_merovingian_url(self, url):
+        # mapi urls have no percent encoding at all
+        parsed = urlparse(url[5:])
+        if parsed.scheme != 'merovingian':
+            raise ValueError(f"Invalid scheme {parsed.scheme!r}")
+        if parsed.username is not None:
+            self.user = parsed.username
+        if parsed.password is not None:
+            self.password = parsed.password
+        if parsed.hostname is not None:
+            self.host = parsed.hostname
+        if parsed.port is not None:
+            self.port = parsed.port
+
+        path = parsed.path
+        if path is not None:
+            if parsed.hostname is None and parsed.port is None:
+                self.sock = path
+            else:
+                path = path[1:]
+                self.database = path  # validation will happen later
+
+        # parse query manually, the library functions perform percent decoding
+        if not parsed.query:
+            return
+        for part in parsed.query.split('&'):
+            # language
+            if part.startswith('language='):
+                self.language = part[9:]
+            elif part.startswith('database='):
+                self.database = part[9:]
+            elif part.startswith('user=') or part.startswith('password='):
+                # ignored because libmapi does so
+                pass
+            elif part.startswith('binary='):
+                # pymonetdb-only, backward compat
+                self.binary = part[7:]
+            elif part.startswith('replysize='):
+                # pymonetdb-only, backward compat
+                self.replysize = part[10:]
+            elif part.startswith('maxprefetch='):
+                # pymonetdb-only, backward compat
+                self.maxprefetch = part[12:]
+            else:
+                # unknown parameters are ignored
+                pass
+
+    def validate(self):
+        # 1. The parameters have the types listed in the table in [Section
+        #    Parameters](#parameters).
+        #
+        # This has already been checked by the url_param magic.
+
+        # 2. At least one of **sock** and **host** must be empty.
+        if self.sock and self.host:
+            raise ValueError("With sock=, host must be empty or 'localhost'")
+
+        # 3. The string parameter **binary** must either parse as a boolean or as a
+        #    non-negative integer.
+        #
+        # Let connect_binary do all the work.
+        if self.connect_binary(1) < 0:
+            raise ValueError("Parameter 'binary' must be ≥ 0")
+
+        # 4. If **sock** is not empty, **tls** must be 'off'.
+        if self.sock and self.tls:
+            raise ValueError("TLS cannot be used with Unix domain sockets")
+
+        # 5. If **certhash** is not empty, it must be of the form `{sha256}hexdigits`
+        #    where hexdigits is a non-empty sequence of 0-9, a-f, A-F and colons.
+        if self.certhash and not _HASH_PATTERN.match(self.certhash):
+            raise ValueError(f"invalid certhash: {self.certhash}")
+
+        # 6. If **tls** is 'off', **cert** and **certhash** must be 'off' as well.
+        if not self.tls and (self.cert or self.certhash):
+            raise ValueError("'cert' and 'certhash' can only be used with monetdbs:")
+
+        # 7. Parameters **database**, **tableschema** and **table** must consist only of
+        #    upper- and lowercase letters, digits, dashes and underscores. They must not
+        #    start with a dash.
+        if self.database and not _DATABASE_PATTERN.match(self.database):
+            raise ValueError(f"invalid database name {self.database!r}")
+        if self.tableschema and not _DATABASE_PATTERN.match(self.tableschema):
+            raise ValueError(f"invalid schema name {self.tableschema!r}")
+        if self.table and not _DATABASE_PATTERN.match(self.table):
+            raise ValueError(f"invalid table name {self.table!r}")
+
+        # 8. Parameter **port**, if present, must be in the range 1-65535.
+        if self.port != -1 and not 1 <= self.port <= 65535:
+            raise ValueError(f"Invalid port number: {self.port}")
+
+        # 9. If **clientcert** is set, **clientkey** must also be set.
+        if self.clientcert and not self.clientkey:
+            raise ValueError("clientcert can only be used together with clientkey")
+
+    @property
+    def connect_scan(self):
+        if not self.database:
+            return False
+        if self.sock or self.host or self.port != -1:
+            return False
+        if self.tls:
+            return False
+        return True
+
+    @property
+    def connect_unix(self):
+        if self.sock:
+            return self.sock
+        if self.tls:
+            return ""
+        if self.host == "":
+            return f"{self.sockdir}/{self.sockprefix}{self.connect_port}"
+        return ""
+
+    @property
+    def connect_tcp(self):
+        if self.sock:
+            return ""
+        return self.host or "localhost"
+
+    @property
+    def connect_port(self):
+        assert self.port == -1 or 1 <= self.port <= 65535
+        if self.port == -1:
+            return 50000
+        else:
+            return self.port
+
+    @property
+    def connect_tls_verify(self):
+        if not self.tls:
+            return ""
+        if self.certhash:
+            return "hash"
+        if self.cert:
+            return "cert"
+        return "system"
+
+    @property
+    def connect_clientkey(self):
+        return self.clientkey
+
+    @property
+    def connect_clientcert(self):
+        return self.clientcert or self.clientkey
+
+    def connect_binary(self, max: int):
+        try:
+            return int(self.binary)
+        except ValueError:
+            try:
+                return max if parse_bool(self.binary) else 0
+            except ValueError:
+                raise ValueError("invalid value for 'binary': {self.binary}, must be int or bool")
+
+    @property
+    def connect_certhash_digits(self):
+        m = _HASH_PATTERN.match(self.certhash)
+        if m:
+            return m.group(1).lower().replace(':', '')
+        else:
+            return None
 
 
 _UNQUOTE_PATTERN = re.compile(b"[%](.?.?)")
+_DATABASE_PATTERN = re.compile("^[A-Za-z0-9_][-A-Za-z0-9_.]*$")
+_HASH_PATTERN = re.compile(r"^sha256:([0-9a-fA-F:]+)$")
 
 
 def _unquote_fun(m) -> bytes:
@@ -61,424 +503,8 @@ def _unquote_fun(m) -> bytes:
     return bytes([int(digits, 16)])
 
 
-def strict_percent_decode(text: str) -> str:
+def strict_percent_decode(context: str, text: str) -> str:
     try:
         return str(_UNQUOTE_PATTERN.sub(_unquote_fun, bytes(text, "ascii")), "utf-8")
-    except ValueError as e:
-        raise ValueError("invalid percent escape") from e
-
-
-PARSE_PARAM: Dict[str, Optional[Callable[[str], Any]]] = dict(
-    sock=None,
-    cert=None,
-    fingerprint=None,
-    clientkey=None,
-    clientcert=None,
-    clientkeypassword=None,
-    user=None,
-    password=None,
-    language=None,
-    autocommit=parse_bool,
-    schema=None,
-    timezone=int,
-    replysize=int,
-    fetchsize=int,
-    maxprefetch=int,
-    binary=parse_int_bool,
-    # extensions
-    connect_timeout=int,
-    dangerous_tls_nocheck=None,
-)
-
-
-PARSE_OTHER: Dict[str, Optional[Callable[[str], Any]]] = dict(
-    use_tls=parse_bool,
-    host=None,
-    port=int,
-    database=None,
-)
-
-
-IGNORE_PARAM = set(["debug", "logfile"])
-
-
-ALL_FIELDS = set([*PARSE_OTHER.keys(), *PARSE_PARAM.keys()])
-
-
-class Target:
-    _password_set: bool = False
-    use_tls = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    sock: Optional[str] = None
-    cert: Optional[str] = None
-    fingerprint: Optional[str] = None
-    clientkey: Optional[str] = None
-    clientcert: Optional[str] = None
-    clientkeypassword: Optional[str] = None
-    _user: Optional[str] = None
-    _password: Optional[str] = None
-    language: Optional[str] = None
-    autocommit: Optional[bool] = None
-    schema: Optional[str] = None
-    timezone: Optional[str] = None
-    replysize: Optional[int] = None
-    maxprefetch: Optional[int] = None
-    binary: Optional[Union[int, bool]] = None
-    # extensions:
-    connect_timeout: Optional[int] = None
-    dangerous_tls_nocheck: Optional[str] = None
-
-    def get_user(self) -> Optional[str]:
-        return self._user
-
-    def set_user(self, new_user: Optional[str]):
-        if self._user is not None and self._user != new_user and not self._password_set:
-            self._password = None
-        self._user = new_user
-
-    user = property(get_user, set_user)
-
-    def get_password(self) -> Optional[str]:
-        return self._password
-
-    def set_password(self, new_password: Optional[str]):
-        self._password = new_password
-        self._password_set = True
-
-    password = property(get_password, set_password)
-
-    def user_password_barrier(self):
-        self._password_set = False
-
-    def set_fetchsize(self, fetchsize: int):
-        self.replysize = fetchsize
-
-    fetchsize = property(None, set_fetchsize)
-
-    @property
-    def effective_use_tls(self) -> bool:
-        return not not self.use_tls
-
-    @property
-    def effective_tcp_host(self) -> Optional[str]:
-        if self.host is not None:
-            return self.host
-        if self.sock is not None:
-            return None
-        return "localhost"
-
-    @property
-    def effective_port(self) -> Optional[int]:
-        if self.port is not None:
-            return self.port
-        return 50_000
-
-    @property
-    def effective_unix_sock(self) -> Optional[str]:
-        if self.use_tls is True:
-            return None
-        if self.sock is not None:
-            return self.sock
-        if self.host is None or self.host == "localhost":
-            if self.effective_language == 'control':
-                kind = "merovingian"
-            else:
-                kind = "monetdb"
-            return f"/tmp/.s.{kind}.{self.effective_port}"
-        return None
-
-    @property
-    def effective_language(self) -> str:
-        return self.language if self.language is not None else "sql"
-
-    @property
-    def effective_binary(self) -> int:
-        huge_number = 2 << 64
-        b = self.binary
-        if b is None or b is True:
-            return huge_number
-        elif b is False:
-            return 0
-        else:
-            return min(b, huge_number)
-
-    @property
-    def effective_connect_timeout(self):
-        t = self.connect_timeout
-        if t is not None and t >= 0:
-            return t
-        else:
-            return None
-
-    def validate(self):
-        """
-        Raise a ValueError if the combination of fields in this Target object is not valid.
-        """
-        # V1
-        if self.sock is not None and self.host is not None and self.host != "localhost":
-            raise ValueError("sock= is only valid for localhost")
-        # V2
-        if self.port is not None and not (1 <= self.port <= 65535):
-            raise ValueError("port must be between 1 and 65535 (inclusive)")
-        # V3
-        if self.clientcert is not None and self.clientkey is None:
-            raise ValueError("clientcert= does not make sense without clientkey=")
-        if self.clientkeypassword is not None and self.clientkey is None:
-            raise ValueError(
-                "clientkeypassword= does not make sense without clientkey="
-            )
-        # V4
-        if self.password is not None and self.user is None:
-            raise ValueError("cannot have password= without user=")
-        # V5
-        # not implemented yet
-
-        # Also check range of basically every int
-        b = self.binary
-        if b is not None and isinstance(b, int) and b < 0:
-            raise ValueError("binary= must not be negative")
-
-        if self.sock is not None and self.use_tls is True:
-            raise ValueError("can't do TLS on Unix Domain sockets")
-
-        if self.database is not None and not valid_database_name(self.database):
-            raise ValueError("invalid database name")
-
-    def clone(self):
-        return copy.copy(self)
-
-    def parse_url(self, url: str):
-        self.user_password_barrier()
-        self.use_tls = None
-        self.host = None
-        self.port = None
-        self.database = None
-        if url.startswith("mapi:"):
-            self._parse_mapi_monetdb_url(url)
-        else:
-            self._parse_monetdb_url(url)
-        self.user_password_barrier()
-
-    def _parse_monetdb_url(self, url: str):
-        parsed = urlparse(url, allow_fragments=True)
-
-        if parsed.scheme == "monetdb":
-            self.use_tls = False
-        elif parsed.scheme == "monetdbs":
-            self.use_tls = True
-        else:
-            raise ValueError("invalid URL scheme: " + parsed.scheme)
-
-        self.host = parsed.hostname
-        self.port = parsed.port
-        path = parsed.path
-        if path:
-            parts = path.split("/", 3)
-            # 0: always empty
-            # 1: database name
-            # 2: schema name
-            # 3: table name
-            assert parts[0] == ""
-            if len(parts) >= 4 and "/" in parts[3]:
-                raise ValueError("invalid table name: " + parts[3])
-            database = parts[1]
-            try:
-                database = strict_percent_decode(database)
-            except ValueError as e:
-                raise ValueError("database: invalid percent encoding") from e
-            self.database = database or None
-
-        for name, value in parse_qsl(parsed.query):
-            self.set_from_text(name, value, only_params=True)
-
-    def _parse_mapi_monetdb_url(self, url: str, allow_override_database=False):  # noqa: C901
-        # mapi urls have no percent encoding at all.
-        parsed = urlparse(url[5:])
-        if parsed.scheme != "monetdb":
-            raise ValueError("invalid scheme: " + parsed.scheme)
-        self.use_tls = False
-        if parsed.username is not None:
-            self.user = parsed.username
-        if parsed.password is not None:
-            self.password = parsed.password
-        self.host = parsed.hostname
-        self.port = parsed.port
-
-        path = parsed.path
-        if path is not None:
-            if self.host is None and self.port is None:
-                self.sock = path
-            else:
-                path = path[1:]
-                if "/" in path:
-                    raise ValueError("invalid database name")
-                self.database = path
-
-        # do it manually, the library functions perform percent decoding
-        if parsed.query:
-            self.parse_mapi_query(parsed.query)
-
-    def parse_mapi_merovingian_url(self, url: str):
-        if not url.startswith('mapi:merovingian://proxy'):
-            raise ValueError("invalid mapi:merovingian URL: " + url)
-        if len(url) == 24:
-            # prefix is all there was
-            return
-        if url[24] != '?':
-            raise ValueError("invalid mapi:merovingian URL: " + url)
-        self.parse_mapi_query(url[25:])
-
-    def parse_mapi_query(self, query: str):
-        for part in query.split("&"):
-            if part.startswith("language="):
-                self.language = part[9:]
-            elif part.startswith("database="):
-                self.database = part[9:]
-            elif part.startswith('user=') or part.startswith('password='):
-                # ignore
-                pass
-            elif part.startswith('binary='):
-                self.set_from_text('binary', part[7:])
-            elif part.startswith('replysize='):
-                self.set_from_text('replysize', part[10:])
-            elif part.startswith('maxprefetch='):
-                self.set_from_text('maxprefetch', part[12:])
-            else:
-                part = part.split("=", 1)[0]
-                raise ValueError("illegal parameter: " + part)
-
-    def set_from_text(self, name: str, text: Optional[str], only_params=True):
-        if name in PARSE_PARAM:
-            parser = PARSE_PARAM[name]
-        elif name in IGNORE_PARAM:
-            return
-        elif name in PARSE_OTHER:
-            if only_params:
-                raise ValueError(f"field '{name}' cannot be set as a query parameter")
-            parser = PARSE_OTHER[name]
-        else:
-            raise ValueError(f"invalid settings '{name}'")
-
-        try:
-            val = None if text is None else parser(text) if parser else text
-        except ValueError as e:
-            raise ValueError(f"invalid value for {name}: {e}")
-        setattr(self, name, val)
-
-    def get_as_text(self, name: str) -> Optional[str]:
-        if name in ALL_FIELDS or name.startswith("effective_"):
-            val = getattr(self, name)
-        elif name == "valid":
-            try:
-                self.validate()
-                val = True
-            except ValueError:
-                val = False
-        else:
-            raise ValueError(f"field '{name}' does not exist")
-
-        if val is None:
-            return None
-        elif val is True:
-            return "true"
-        elif val is False:
-            return "false"
-        else:
-            return str(val)
-
-    def apply_connect_kwargs(  # noqa C901
-        self,
-        database=None,
-        hostname=None,
-        port=None,
-        username=None,
-        password=None,
-        unix_socket=None,
-        language=None,
-        autocommit=None,
-        host=None,
-        user=None,
-        connect_timeout=None,
-        binary=None,
-        replysize=None,
-        maxprefetch=None,
-        use_tls=False,
-        server_cert=None,
-        server_fingerprint=None,
-        client_key=None,
-        client_cert=None,
-        client_key_password=None,
-        dangerous_tls_nocheck=None,
-    ):
-        """
-        Apply kwargs such as taken by pymonetdb.connect().
-        If 'database' is a URL it is parsed after the other parameters have been
-        processed.
-        Calls user_password_barrier() before and after.
-        """
-
-        # Aliases for host=hostname, user=username, the DB API spec is not specific about this
-        if host:
-            hostname = host
-        if user:
-            username = user
-
-        self.user_password_barrier()
-
-        if hostname is not None:
-            self.host = hostname
-        if port is not None:
-            self.port = port
-        if username is not None:
-            self.user = username
-        if password is not None:
-            self.password = password
-        if unix_socket is not None:
-            self.sock = unix_socket
-        if language is not None:
-            self.language = language
-        if autocommit is not None:
-            self.autocommit = autocommit
-        if connect_timeout is not None:
-            self.connect_timeout = connect_timeout
-        if binary is not None:
-            self.binary = binary
-        if replysize is not None:
-            self.replysize = replysize
-        if maxprefetch is not None:
-            self.maxprefetch = maxprefetch
-        if use_tls is not None:
-            self.use_tls = use_tls
-        if server_cert is not None:
-            self.cert = server_cert
-        if server_fingerprint is not None:
-            self.fingerprint = server_fingerprint
-        if client_key is not None:
-            self.clientkey = client_key
-        if client_cert is not None:
-            self.clientcert = client_cert
-        if client_key_password is not None:
-            self.clientkeypassword = client_key_password
-        if dangerous_tls_nocheck is not None:
-            self.dangerous_tls_nocheck = dangerous_tls_nocheck
-
-        if database is not None:
-            if looks_like_url(database):
-                self.parse_url(database)
-            else:
-                self.database = database
-
-        self.user_password_barrier()
-
-    def summary_url(self):
-        db = self.database or ''
-        if self.sock:
-            return f"monetdb://localhost/{db}?sock={quote(self.sock)}"
-        scheme = "monetdbs" if self.use_tls else "monetdb"
-        host = self.host or "localhost"
-        if self.port and self.port != 50_000:
-            return f"{scheme}://{host}:{self.port}/{db}"
-        else:
-            return f"{scheme}://{host}/{db}"
+    except (ValueError, UnicodeDecodeError) as e:
+        raise ValueError("invalid percent escape in {context}") from e

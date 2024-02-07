@@ -48,10 +48,7 @@ class TestUnicode(unittest.TestCase):
             con.close()
 
     def _connect(self):
-        try:
-            return pymonetdb.connect(**test_args)
-        except AttributeError:
-            self.fail("No connect method found in pymonetdb module")
+        return pymonetdb.connect(**test_args)
 
     def test_unicode_string(self):
         con = self._connect()

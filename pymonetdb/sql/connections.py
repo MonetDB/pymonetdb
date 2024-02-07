@@ -9,10 +9,12 @@ import logging
 import platform
 from typing import List
 
+from pymonetdb.exceptions import DatabaseError
 from pymonetdb.sql import cursors
 from pymonetdb.policy import BatchPolicy
 from pymonetdb import exceptions
 from pymonetdb import mapi
+from pymonetdb.target import Target
 
 logger = logging.getLogger("pymonetdb")
 
@@ -21,51 +23,29 @@ class Connection:
     """A MonetDB SQL database connection, use pymonetdb.connect() to create one."""
     default_cursor = cursors.Cursor
 
-    def __init__(self,   # noqa C901
-                 database, hostname=None, port=50000, username="monetdb",
-                 password="monetdb", unix_socket=None, autocommit=False,
-                 host=None, user=None, connect_timeout=-1,
-                 binary=1, replysize=None, maxprefetch=None,
-                 use_tls=False, server_cert=None, server_fingerprint=None,
-                 client_key=None, client_cert=None, client_key_password=None,
-                 dangerous_tls_nocheck=None,
-                 ):
+    def __init__(self, target: Target):
         """ Set up a connection to a MonetDB SQL database.
 
         Do not call this directly, call pymonetdb.connect() instead.
         """
 
-        # Aliases for host=hostname, user=username, the DB API spec is not specific about this
-        if host:
-            hostname = host
-        if user:
-            username = user
+        try:
+            target.validate()
+        except ValueError as e:
+            raise DatabaseError(str(e))
 
         policy = BatchPolicy()
-        policy.binary_level = binary
-        if replysize is not None:
-            policy.replysize = replysize
-        if maxprefetch is not None:
-            policy.maxprefetch = maxprefetch
+        policy.binary_level = target.connect_binary(BatchPolicy.MAX_BINARY_LEVEL)
+        if target.replysize is not None:
+            policy.replysize = target.replysize
+        if target.maxprefetch is not None:
+            policy.maxprefetch = target.maxprefetch
 
-        url_options = mapi.mapi_url_options(database)
-        if 'binary' in url_options:
-            val = url_options['binary']
-            val = dict(true='1', on='1', false='0', off='0').get(val, val)
-            policy.binary_level = int(val)
-        if 'replysize' in url_options:
-            policy.replysize = int(url_options['replysize'])
-        if 'maxprefetch' in url_options:
-            policy.maxprefetch = int(url_options['maxprefetch'])
-
-        self.autocommit = autocommit
+        self.autocommit = target.autocommit
         self.sizeheader = True
         self._policy = policy
         self._current_replysize = 100     # server default, will be updated after handshake
         self._current_timezone_seconds_east = 0   # server default, will be updated
-
-        if platform.system() == "Windows" and not hostname:
-            hostname = "localhost"
 
         handshake_timezone_offset = _local_timezone_offset_seconds()
 
@@ -73,21 +53,14 @@ class Connection:
             policy.server_binexport_level = server_binexport_level
             return [
                 # Level numbers taken from mapi.h.
-                mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, autocommit),
+                mapi.HandshakeOption(1, "auto_commit", self.set_autocommit, target.autocommit),
                 mapi.HandshakeOption(2, "reply_size", self._change_replysize, policy.handshake_reply_size()),
                 mapi.HandshakeOption(3, "size_header", self.set_sizeheader, True),
                 mapi.HandshakeOption(5, "time_zone", self.set_timezone, handshake_timezone_offset),
             ]
 
         self.mapi = mapi.Connection()
-        self.mapi.connect(hostname=hostname, port=int(port), username=username,
-                          password=password, database=database, language="sql",
-                          unix_socket=unix_socket, connect_timeout=connect_timeout,
-                          use_tls=use_tls, server_cert=server_cert, server_fingerprint=server_fingerprint,
-                          client_key=client_key, client_cert=client_cert,
-                          client_key_password=client_key_password,
-                          dangerous_tls_nocheck=dangerous_tls_nocheck,
-                          handshake_options_callback=handshake_options_callback)
+        self.mapi.connect(target, handshake_options_callback=handshake_options_callback)
 
         self._current_replysize = policy.handshake_reply_size()
         self._current_timezone_seconds_east = handshake_timezone_offset

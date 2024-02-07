@@ -104,8 +104,6 @@ class Connection(object):
 
     def connect(self, database: Optional[Union[Target, str]] = None, *args, **kwargs):  # noqa C901
         """ setup connection to MAPI server
-
-        unix_socket is used if hostname is not defined.
         """
 
         # Ideally we'd just take the Target as a parameter, but we want to
@@ -115,13 +113,13 @@ class Connection(object):
         if callback is not None:
             self.handshake_options_callback = callback
             del kwargs['handshake_options_callback']
+
         # Create Target or use given
         if isinstance(database, Target):
             self.target = database.clone()
             assert not args and not kwargs
         else:
-            self.target = Target()
-            self.target.apply_connect_kwargs(database, *args, **kwargs)
+            self.target = construct_target_from_args(database, *args, **kwargs)
 
         # Validate the target parameters
         try:
@@ -164,7 +162,7 @@ class Connection(object):
                 self.try_connect()
                 assert self.socket is not None
 
-                if self.target.effective_connect_timeout is not None:
+                if self.target.connect_timeout:
                     # The new socket's timeout was overridden during the
                     # connect. Put it back.
                     self.socket.settimeout(socket.getdefaulttimeout())
@@ -175,7 +173,7 @@ class Connection(object):
                 self.is_raw_control = False
                 if self.is_tcp:
                     self.prime_or_wrap_connection()
-                elif self.target.effective_language == 'control':
+                elif self.target.language == 'control':
                     self.is_raw_control = True
                 else:
                     # Send a '0' (0x48) to let the other side know we're not
@@ -199,9 +197,9 @@ class Connection(object):
 
     def try_connect(self):  # noqa C901
         err = None
-        timeout = self.target.effective_connect_timeout
+        timeout = self.target.connect_timeout
 
-        sock = self.target.effective_unix_sock
+        sock = self.target.connect_unix
         if sock is not None and hasattr(socket, 'AF_UNIX'):
             s = socket.socket(socket.AF_UNIX)
             if timeout:
@@ -217,9 +215,9 @@ class Connection(object):
                 s.close()
                 err = e
 
-        host = self.target.effective_tcp_host
+        host = self.target.connect_tcp
         if host is not None:
-            port = self.target.effective_port
+            port = self.target.connect_port
             addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
             for fam, typ, proto, cname, addr in addrs:
                 s = socket.socket(fam, typ, proto)
@@ -243,7 +241,7 @@ class Connection(object):
         raise DatabaseError("endpoint not found")
 
     def prime_or_wrap_connection(self):  # noqa: C901
-        if not self.target.effective_use_tls:
+        if not self.target.tls:
             # Prime the connection with some NUL bytes.
             # We expect the remote server to be a MAPI server, in which
             # case it will ignore them.
@@ -259,36 +257,34 @@ class Connection(object):
             disabled_checks = set(target.dangerous_tls_nocheck.split(','))
         else:
             disabled_checks = set()
-        if target.fingerprint:
+        if target.certhash:
             disabled_checks.add('host')
             disabled_checks.add('cert')
 
         # Create the context and load the trusted certificates
-        if not target.cert and not target.fingerprint:
+        if not target.cert and not target.certhash:
             # This one uses the system trusted root certificate store
             ssl_context = ssl.create_default_context()
         else:
             # Arrange our own.
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            if target.cert and not target.fingerprint and 'cert' not in disabled_checks:
+            if target.cert and not target.certhash and 'cert' not in disabled_checks:
                 ssl_context.load_verify_locations(target.cert)
 
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
         ssl_context.set_alpn_protocols(["mapi/9"])
         if target.clientkey:
-            ssl_context.load_cert_chain(
-                certfile=target.clientcert if target.clientcert is not None else target.clientkey,
-                keyfile=target.clientkey,
-                password=target.clientkeypassword,
-            )
+            certfile=target.clientcert if target.clientcert else target.clientkey
+            keyfile=target.clientkey
+            ssl_context.load_cert_chain(certfile, keyfile)
         if 'host' in disabled_checks:
             ssl_context.check_hostname = False
         if 'cert' in disabled_checks:
             ssl_context.verify_mode = ssl.CERT_NONE
-        self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.effective_tcp_host)
-        if target.fingerprint:
-            self._verify_fingerprint(target.fingerprint)
-            logger.debug(f"TLS certificate matches fingerprint {target.fingerprint}")
+        self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.connect_tcp)
+        if target.certhash:
+            self._verify_fingerprint(target.certhash)
+            logger.debug(f"TLS certificate matches hash {target.certhash}")
         else:
             peercert = self.socket.getpeercert()
             if peercert:
@@ -328,15 +324,13 @@ class Connection(object):
 
     def _handle_redirect(self, redirect: str):
         if redirect.startswith('mapi:merovingian:'):
+            if not redirect.startswith('mapi:merovingian://proxy'):
+                raise DatabaseError(f"Invalid redirect: {redirect}")
             logger.debug("Local redirect, restarting authentication")
-            try:
-                self.target.parse_mapi_merovingian_url(redirect)
-            except ValueError as e:
-                raise DatabaseError(str(e))
         else:
             logger.debug("Redirected to " + redirect)
             try:
-                self.target.parse_url(redirect)
+                self.target.parse(redirect)
             except ValueError as e:
                 raise DatabaseError(str(e))
             # close the socket so the next iteration will reconnect based on the
@@ -347,25 +341,19 @@ class Connection(object):
 
     def _verify_fingerprint(self, fingerprint: str):
         assert self.socket and isinstance(self.socket, ssl.SSLSocket)
+
+        m = re.match(r'sha256:([0-9a-fA-F:]+)$', fingerprint)
+        if not m:
+            raise ssl.SSLError(f"invalid certificate hash {print!r}")
+        digits = m.group(1).lower().replace(':', '')
+
         der = self.socket.getpeercert(binary_form=True)
         if not der:
             raise ssl.SSLError("server has no certificate")
-        digest_cache = dict()
-        for print in fingerprint.lower().split(','):
-            m = re.match(r'({(\w+)})?([0-9a-fA-F:]+)$', print)
-            if not m:
-                raise ssl.SSLError(f"invalid fingerprint {print!r}")
-            algo = (m.group(2) or 'sha1').lower()
-            if algo not in hashlib.algorithms_available:
-                raise ssl.SSLError(f"unknown fingerprint algorithm {algo!r}")
-            digits = m.group(3).lower().replace(':', '')
-            if algo not in digest_cache:
-                digest_cache[algo] = hashlib.new(algo, der).hexdigest()
-            if digest_cache[algo].startswith(digits):
-                # Yay!
-                return
-        all_fingerprints = ", ".join([f"{{{a}}}{d}" for a, d in digest_cache.items()])
-        raise ssl.SSLError(f"wrong server certificate fingerprint: {all_fingerprints}")
+
+        digest = hashlib.sha256(der).hexdigest()
+        if not digest.startswith(digits):
+            raise ssl.SSLError(f"wrong server certificate hash: {fingerprint}")
 
     def disconnect(self):
         """ disconnect from the monetdb server """
@@ -473,7 +461,7 @@ class Connection(object):
 
         salt, server_type, protocol, hashes, endian = challenges[:5]
 
-        if server_type == 'merovingian' and self.target.effective_language != 'control':
+        if server_type == 'merovingian' and self.target.language != 'control':
             # we want to be forwarded, hide real credentials
             user = 'merovingian'
             password = ''
@@ -517,7 +505,7 @@ class Connection(object):
             "BIG",
             user,
             pwhash,
-            self.target.effective_language,
+            self.target.language,
             self.target.database or ''
         ]) + ":"
 
@@ -734,12 +722,35 @@ class HandshakeOption:
         self.sent = False
 
 
-def mapi_url_options(possible_mapi_url: str) -> Dict[str, str]:
-    """Try to parse the argument as a MAPI URL and return a Dict of url options
+def construct_target_from_args(database: str, username: str, password: str, language: str,  # noqa: C901
+            hostname: Optional[str] = None, port: Optional[int] = None, unix_socket: Optional[str]=None,
+            connect_timeout: Optional[Union[float,int]]=None,
+            **kwargs):
+    """Construct a Target from the other args"""
 
-    Return empty dict if it's not a MAPI URL.
-    """
-    if not possible_mapi_url.startswith('mapi:monetdb:'):
-        return {}
-    url = possible_mapi_url[5:]
-    return dict(parse_qsl(urlparse(url).query))
+    target = Target()
+
+    if database is not None:
+        assert isinstance(database, str)
+        target.database = database
+    if username is not None:
+        target.user = username
+    if password is not None:
+        target.password = password
+    if language is not None:
+        target.language = language
+    if hostname is not None:
+        target.host = hostname
+    if port is not None:
+        target.port = port
+    if unix_socket is not None:
+        target.sock = unix_socket
+    if connect_timeout is not None:
+        target.connect_timeout = connect_timeout
+    for key, value in kwargs.items():
+        try:
+            target.set(key, value)
+        except ValueError as e:
+            raise DatabaseError(f"{key}={value}: {e}")
+
+    return target
