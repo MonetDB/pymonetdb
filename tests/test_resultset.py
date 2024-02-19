@@ -152,6 +152,8 @@ class BaseTestCases(TestCase):
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
         self.to_close.append(conn)
+        with conn.cursor() as c:
+            c.execute("SELECT %s", f"This connection is for test {self.id()!r}")
         return conn
 
     @abstractmethod
