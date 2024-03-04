@@ -14,7 +14,7 @@ from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
 from uuid import UUID
 import pymonetdb
-from tests.util import test_args
+from tests.util import have_monetdb_version_at_least, test_args
 
 QUERY_TEMPLATE = """\
 WITH resultset AS (
@@ -111,6 +111,9 @@ class BaseTestCases(TestCase):
     def have_binary(self, at_least=1):
         self.probe_server()
         return self._server_binexport_level >= at_least
+
+    def server_has_new_time_conversion(self):
+        return have_monetdb_version_at_least(11, 50, 0)
 
     def have_huge(self):
         self.probe_server()
@@ -442,13 +445,17 @@ class BaseTestCases(TestCase):
         self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
         self.assertEqual(tz, x.tzinfo)
 
-    def test_temporal_timestamp_without_timezone(self):
+    def test_temporal_timestamp_without_timezone_old(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to old MonetDB versions")
+
         (tz, values) = self.prepare_temporal_tests('ts_without')
         self.assertIsNone(values['null'])
 
         # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
         # stored in ts_with as 1970-04-17 18:07:41 UTC,
-        # then stored in ts_without as 1970-04-17 18:07:41,
+        # then stored in ts_without as 1970-04-17 18:07:41,   <---
         # rendered on the wire as 1970-04-17 18:07:41,
         # converted to a DateTime of 18:07 without timezone
         x = values['apollo13_utc']
@@ -457,11 +464,37 @@ class BaseTestCases(TestCase):
 
         # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
         # stored in ts_with as 1970-04-17 18:07:41 UTC,
-        # then stored in ts_without as 1970-04-17 18:07:41,
+        # then stored in ts_without as 1970-04-17 18:07:41,   <---
         # rendered on the wire as 1970-04-17 18:07:41,
         # converted to a DateTime of 18:07 without timezone
         x = values['apollo13_pacific']
         self.assertEqual('1970-04-17T18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+    def test_temporal_timestamp_without_timezone_new(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to new MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('ts_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 19:37:41,   <---
+        # rendered on the wire as 1970-04-17 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('1970-04-17T19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 19:37:41,   <---
+        # rendered on the wire as 1970-04-17 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('1970-04-17T19:37:41', x.isoformat())
         self.assertIsNone(x.tzinfo)
 
     def test_temporal_date(self):
@@ -506,13 +539,17 @@ class BaseTestCases(TestCase):
         self.assertEqual('19:37:41+01:30', x.isoformat())
         self.assertEqual(tz, x.tzinfo)
 
-    def test_temporal_time_without_timezone(self):
+    def test_temporal_time_without_timezone_old(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to old MonetDB versions")
+
         (tz, values) = self.prepare_temporal_tests('t_without')
         self.assertIsNone(values['null'])
 
         # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
         # stored in ts_with as 1970-04-17 18:07:41 UTC,
-        # then stored in t_without as 18:07:41,
+        # then stored in t_without as 18:07:41,          <---
         # rendered on the wire as 18:07:41,
         # converted to a DateTime of 18:07 without timezone
         x = values['apollo13_utc']
@@ -521,11 +558,37 @@ class BaseTestCases(TestCase):
 
         # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
         # stored in ts_with as 1970-04-17 18:07:41 UTC,
-        # then stored in t_without as 18:07:41,
+        # then stored in t_without as 18:07:41,          <---
         # rendered on the wire as 18:07:41,
         # converted to a DateTime of 18:07 without timezone
         x = values['apollo13_pacific']
         self.assertEqual('18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+    def test_temporal_time_without_timezone_new(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to new MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('t_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 19:37:41,          <---
+        # rendered on the wire as 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 19:37:41,          <---
+        # rendered on the wire as 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('19:37:41', x.isoformat())
         self.assertIsNone(x.tzinfo)
 
     def test_interval_second(self):
