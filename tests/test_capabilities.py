@@ -13,6 +13,7 @@
 
 import datetime
 from time import time
+from typing import List
 import unittest
 
 from pymonetdb.exceptions import ProgrammingError
@@ -29,7 +30,7 @@ class DatabaseTest(unittest.TestCase):
 
     local_tzinfo = datetime.datetime.now().astimezone().tzinfo
 
-    tables_to_drop = []
+    tables_to_drop: List[str] = []
 
     def setUp(self):
         db = pymonetdb.connect(autocommit=False, **test_args)
