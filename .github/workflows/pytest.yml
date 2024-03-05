@@ -1,11 +1,11 @@
-name: Linux Test all Pythons
+name: Run Tests
 on:
   push:
     branches: [ master ]
   pull_request:
 
 jobs:
-  build:
+  linux:
     runs-on: ubuntu-20.04
     env:
       DBFARM: /var/lib/monetdb
@@ -14,7 +14,7 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Debian packages
         run: |
           sudo apt-get update -qq
@@ -48,3 +48,67 @@ jobs:
         run: make test
       - name: Test wheel
         run: make testwheel
+      - name: Build docs
+        run: make doc
+
+  windows:
+    runs-on: windows-latest
+    env:
+      uri: https://www.monetdb.org/downloads/Windows/Jun2023-SP2/MonetDB5-SQL-Installer-x86_64-20230929.msi
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install MonetDB
+        run: |
+          $msifile="c:\monetdb.msi"
+          #New-Item -Path 'C:\test.log' -ItemType File
+          (New-Object System.Net.WebClient).DownloadFile("${{ env.uri }}","$msifile");
+          $procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2' -Wait
+          #$procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2 /L*xv c:\test.log' 
+          #$procLog = Start-Process powershell 'Get-Content -Path c:\test.log -Wait' -NoNewWindow -PassThru
+          #$procMain.WaitForExit()
+          #$procLog.Kill()
+      - name: Setup virtual environment
+        run: |
+          python -m venv venv
+          venv\Scripts\Activate.ps1
+          python -m pip install -r tests/requirements.txt
+
+      - name: test network
+        run: |
+          netsh interface ipv4 show excludedportrange tcp
+
+      # Script tests/windows_tests.py starts an mserver in the background
+      # and runs pytest, excluding the Control tests.
+      - name: run the tests
+        run: |
+          venv\Scripts\Activate.ps1
+          mkdir ${{ runner.temp }}\dbfarm
+          python tests/windows_tests.py "C:\Program Files\MONETDB\MonetDB5" ${{ runner.temp }}\dbfarm demo 50000
+          echo ""; echo ""; echo "================ SERVER STDERR: ==================="; echo ""
+          type ${{ runner.temp }}\dbfarm\errlog
+
+  macos:
+    runs-on: macos-12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install monetdb
+        run: brew install monetdb
+      - name: Start MonetDB
+        run: |
+          monetdbd create /usr/local/var/lib/monetdb
+          monetdbd set control=yes /usr/local/var/lib/monetdb/
+          monetdbd set passphrase=testdb /usr/local/var/lib/monetdb
+          monetdbd start /usr/local/var/lib/monetdb
+          monetdb create demo
+          monetdb release demo
+          monetdb start demo
+      - name: Run tests
+        run: make test
