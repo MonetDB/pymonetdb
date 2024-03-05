@@ -15,9 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         monetdbversion:
+          # at some point we'll have to start removing some of these..
           - "monetdb/dev-builds:Jan2022"
           - "monetdb/dev-builds:Sep2022"
           - "monetdb/dev-builds:Jun2023"
+          - "monetdb/dev-builds:Dec2023"
           - "monetdb/dev-builds:default"
     env:
       TSTHOSTNAME: "monetdb"
