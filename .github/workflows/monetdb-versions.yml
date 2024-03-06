@@ -1,4 +1,4 @@
-name: Test against various MonetDB versions
+name: Test MonetDB versions
 on:
   push:
     branches: [ master, monetdbs ]
@@ -8,17 +8,19 @@ on:
     - cron:  '5 0 * * *'
 
 jobs:
-  run_tests:
+  pytest:
     runs-on: ubuntu-latest
     container: python:3.11
     strategy:
       fail-fast: false
       matrix:
         monetdbversion:
-          - "monetdb/dev-builds:Jan2022"
-          - "monetdb/dev-builds:Sep2022"
-          - "monetdb/dev-builds:Jun2023"
-          - "monetdb/dev-builds:default"
+          # at some point we'll have to start removing some of these..
+          - Jan2022
+          - Sep2022
+          - Jun2023
+          - Dec2023
+          - default
     env:
       TSTHOSTNAME: "monetdb"
       TSTDB: "monetdb"
@@ -26,7 +28,7 @@ jobs:
       TSTCONTROL: "tcp"
     services:
       monetdb:
-        image: ${{ matrix.monetdbversion }}
+        image: "monetdb/dev-builds:${{ matrix.monetdbversion }}"
         env:
           MDB_DAEMON_PASS: monetdb
           MDB_DB_ADMIN_PASS: monetdb
@@ -34,7 +36,7 @@ jobs:
           - 50000:50000
     steps:
       - name: Check out
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up tests
         run: make setup
       - name: Run tests

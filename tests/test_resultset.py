@@ -14,7 +14,7 @@ from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
 from uuid import UUID
 import pymonetdb
-from tests.util import test_args
+from tests.util import have_monetdb_version_at_least, test_args
 
 QUERY_TEMPLATE = """\
 WITH resultset AS (
@@ -112,6 +112,9 @@ class BaseTestCases(TestCase):
         self.probe_server()
         return self._server_binexport_level >= at_least
 
+    def server_has_new_time_conversion(self):
+        return have_monetdb_version_at_least(11, 50, 0)
+
     def have_huge(self):
         self.probe_server()
         return self._server_has_huge
@@ -152,6 +155,8 @@ class BaseTestCases(TestCase):
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
         self.to_close.append(conn)
+        with conn.cursor() as c:
+            c.execute("SELECT %s", f"This connection is for test {self.id()!r}")
         return conn
 
     @abstractmethod
@@ -369,7 +374,7 @@ class BaseTestCases(TestCase):
         self.do_fetchall()
         self.verifyBinary()
 
-    def test_time_temporal(self):
+    def prepare_temporal_tests(self, col):
         self.do_connect()
         minutes_east = 60 + 30  # easily recognizable
         self.conn.set_timezone(60 * minutes_east)
@@ -380,11 +385,11 @@ class BaseTestCases(TestCase):
         self.cursor.execute("DROP TABLE IF EXISTS foo")
         cols = [
             "name TEXT",
-            "tsz TIMESTAMPTZ",
-            "tsn TIMESTAMP",
+            "ts_with TIMESTAMPTZ",
+            "ts_without TIMESTAMP",
             "d DATE",
-            "tz TIMETZ",
-            "tn TIME",
+            "t_with TIMETZ",
+            "t_without TIME",
         ]
         create_statement = f"CREATE TABLE foo ({(', '.join(cols))})"
         self.cursor.execute(create_statement)
@@ -397,129 +402,194 @@ class BaseTestCases(TestCase):
             ('apollo13_pacific', "TIMESTAMPTZ '1970-04-17 10:07:41-08:00'"),
         ]
         insert_statement = (
-            "INSERT INTO foo(name, tsz) VALUES "
+            "INSERT INTO foo(name, ts_with) VALUES "
             + ", ".join(f"('{name}', {expr})" for name, expr in interesting_times)
         )
         self.cursor.execute(insert_statement)
-        self.cursor.execute("UPDATE foo set tsn = tsz, d = tsz, tz = tsz, tn = tsz")
+        self.cursor.execute("UPDATE foo set ts_without = ts_with, d = ts_with, t_with = ts_with, t_without = ts_with")
 
-        tsz = dict()
-        tsn = dict()
-        d = dict()
-        tz = dict()
-        tn = dict()
-        self.cursor.execute("SELECT name, tsz, tsn, d, tz, tn FROM foo")
+        self.cursor.execute(f"SELECT name, {col} FROM foo")
         rows = self.cursor.fetchall()
 
+        # needed by verifyBinary
         # update cur manually because it is set by do_fetchall but not
         # by cursor.fetchall
         self.cur = self.cursor.rowcount
 
+        values = dict()
         for row in rows:
             name = row[0]
             # make REALLY REALLY sure the indices match the order in the SELECT clause!
-            tsz[name] = row[1]
-            tsn[name] = row[2]
-            d[name] = row[3]
-            tz[name] = row[4]
-            tn[name] = row[5]
-
-        self.assertIsNone(tsn['null'])
-        self.assertIsNone(tsz['null'])
-
-        # TSZ:
-
-        # apollo13_utc was given as 18:07+00:00,
-        # stored as 18:07 UTC,
-        # rendered on the wire as 19:37+01:30
-        # converted to a DateTime of 19:37 in the +01:30 time zone
-        x = tsz['apollo13_utc']
-        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
-        self.assertEqual(our_timezone, x.tzinfo)
-
-        # apollo13_pacific was given as 10:07:41-08:00,
-        # stored as 18:07 UTC,
-        # rendered on the wire as 19:37+01:30
-        # converted to a DateTime of 19:37 in the +01:30 time zone
-        x = tsz['apollo13_pacific']
-        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
-        self.assertEqual(our_timezone, x.tzinfo)
-
-        # TSN:
-
-        # apollo13_utc was originally given as 18:07+00:00,
-        # stored in tsz as 18:07 UTC,
-        # then stored in tsn as 18:07,
-        # rendered on the wire as 18:07
-        # converted to a DateTime of 18:07 without timezone
-        x = tsn['apollo13_utc']
-        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
-        self.assertIsNone(x.tzinfo)
-
-        # apollo13_utc was originally given as 10:07:41-08:00,
-        # stored in tsz as 18:07 UTC,
-        # then stored in tsn as 18:07,
-        # rendered on the wire as 18:07
-        # converted to a DateTime of 18:07 without timezone
-        x = tsn['apollo13_pacific']
-        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
-        self.assertIsNone(x.tzinfo)
-
-        # D
-
-        # apollo13_utc was originally given as 1970-04-17 18:07+00:00,
-        # then stored in d as as 1970-04-17,
-        # rendered on the wire as 1970-04-17
-        # converted to a DateTime of 18:07 without timezone
-        x = d['apollo13_utc']
-        self.assertEqual('1970-04-17', x.isoformat())
-
-        # apollo13_utc was originally given as 1970-04-17 10:07:41-08:00,
-        # then stored in d as as 1970-04-17,
-        # rendered on the wire as 1970-04-17
-        # converted to a DateTime of 18:07 without timezone
-        x = d['apollo13_pacific']
-        self.assertEqual('1970-04-17', x.isoformat())
-
-        # TZ:
-
-        # apollo13_utc was given as 18:07+00:00,
-        # stored as 18:07 UTC,
-        # rendered on the wire as 19:37+01:30
-        # converted to a Time of 19:37 in the +01:30 time zone
-        x = tz['apollo13_utc']
-        self.assertEqual('19:37:41+01:30', x.isoformat())
-        self.assertEqual(our_timezone, x.tzinfo)
-
-        # apollo13_pacific was given as 10:07:41-08:00,
-        # stored as 18:07 UTC,
-        # rendered on the wire as 19:37+01:30
-        # converted to a Time of 19:37 in the +01:30 time zone
-        x = tz['apollo13_pacific']
-        self.assertEqual('19:37:41+01:30', x.isoformat())
-        self.assertEqual(our_timezone, x.tzinfo)
-
-        # TN:
-
-        # apollo13_utc was originally given as 18:07+00:00,
-        # stored in tsz as 18:07 UTC,
-        # then stored in tn as 18:07,
-        # rendered on the wire as 18:07
-        # converted to a Time of 18:07 without timezone
-        x = tn['apollo13_utc']
-        self.assertEqual('18:07:41', x.isoformat())
-        self.assertIsNone(x.tzinfo)
-
-        # apollo13_utc was originally given as 10:07:41-08:00,
-        # stored in tsz as 18:07 UTC,
-        # then stored in tsn as 18:07,
-        # rendered on the wire as 18:07
-        # converted to a Time of 18:07 without timezone
-        x = tn['apollo13_pacific']
-        self.assertEqual('18:07:41', x.isoformat())
-        self.assertIsNone(x.tzinfo)
+            values[name] = row[1]
 
         self.verifyBinary()
+        return (our_timezone, values)
+
+    def test_temporal_timestamp_with_timezone(self):
+        (tz, values) = self.prepare_temporal_tests('ts_with')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # rendered on the wire as 1970-04-17 19:37+01:30,
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = values['apollo13_utc']
+        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
+        self.assertEqual(tz, x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC
+        # rendered on the wire as 1970-04-17 19:37+01:30
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = values['apollo13_pacific']
+        self.assertEqual('1970-04-17T19:37:41+01:30', x.isoformat())
+        self.assertEqual(tz, x.tzinfo)
+
+    def test_temporal_timestamp_without_timezone_old(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to old MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('ts_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 18:07:41,   <---
+        # rendered on the wire as 1970-04-17 18:07:41,
+        # converted to a DateTime of 18:07 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 18:07:41,   <---
+        # rendered on the wire as 1970-04-17 18:07:41,
+        # converted to a DateTime of 18:07 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('1970-04-17T18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+    def test_temporal_timestamp_without_timezone_new(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to new MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('ts_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 19:37:41,   <---
+        # rendered on the wire as 1970-04-17 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('1970-04-17T19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in ts_without as 1970-04-17 19:37:41,   <---
+        # rendered on the wire as 1970-04-17 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('1970-04-17T19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+    def test_temporal_date(self):
+        (tz, values) = self.prepare_temporal_tests('d')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in d as 1970-04-17,
+        # rendered on the wire as 1970-04-17,
+        # converted to a Date of 1970-04-17
+        x = values['apollo13_utc']
+        self.assertEqual('1970-04-17', x.isoformat())
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in d as 1970-04-17,
+        # rendered on the wire as 1970-04-17,
+        # converted to a Date of 1970-04-17
+        x = values['apollo13_pacific']
+        self.assertEqual('1970-04-17', x.isoformat())
+
+    def test_temporal_time_with_timezone(self):
+        (tz, values) = self.prepare_temporal_tests('t_with')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_with as 18:07:41 UTC,
+        # rendered on the wire as 19:37+01:30,
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = values['apollo13_utc']
+        self.assertEqual('19:37:41+01:30', x.isoformat())
+        self.assertEqual(tz, x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC
+        # then stored in t_with as 18:07:41 UTC,
+        # rendered on the wire as 19:37+01:30,
+        # converted to a DateTime of 19:37 in the +01:30 time zone
+        x = values['apollo13_pacific']
+        self.assertEqual('19:37:41+01:30', x.isoformat())
+        self.assertEqual(tz, x.tzinfo)
+
+    def test_temporal_time_without_timezone_old(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to old MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('t_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 18:07:41,          <---
+        # rendered on the wire as 18:07:41,
+        # converted to a DateTime of 18:07 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 18:07:41,          <---
+        # rendered on the wire as 18:07:41,
+        # converted to a DateTime of 18:07 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('18:07:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+    def test_temporal_time_without_timezone_new(self):
+        # the difference between _old and _new is marked with an arrow <---
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to new MonetDB versions")
+
+        (tz, values) = self.prepare_temporal_tests('t_without')
+        self.assertIsNone(values['null'])
+
+        # apollo13_utc was given as 1970-04-17 18:07:41+00:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 19:37:41,          <---
+        # rendered on the wire as 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_utc']
+        self.assertEqual('19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
+
+        # apollo13_pacific was given as 1970-04-17 10:07:41-08:00,
+        # stored in ts_with as 1970-04-17 18:07:41 UTC,
+        # then stored in t_without as 19:37:41,          <---
+        # rendered on the wire as 19:37:41,
+        # converted to a DateTime of 19:37 without timezone
+        x = values['apollo13_pacific']
+        self.assertEqual('19:37:41', x.isoformat())
+        self.assertIsNone(x.tzinfo)
 
     def test_interval_second(self):
         self.do_query(250, ['seconds_col'])

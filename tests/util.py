@@ -7,6 +7,8 @@ Module containing shared utilities only used for testing MonetDB
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+import pymonetdb
+
 from importlib import import_module
 from os import environ
 from urllib.parse import ParseResult, urlencode
@@ -84,6 +86,20 @@ else:
         query=urlencode(query),
         fragment=""
     ).geturl()
+
+
+_MONETDB_VERSION = None
+
+
+def have_monetdb_version_at_least(major, minor, patch):
+    global _MONETDB_VERSION
+    if _MONETDB_VERSION is None:
+        with pymonetdb.connect(**test_args) as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT value FROM environment WHERE name = 'monet_version'")
+            _MONETDB_VERSION = tuple(int(part) for part in cursor.fetchone()[0].split('.'))
+
+    return _MONETDB_VERSION >= (major, minor, patch)
+
 
 try:
     import_module('lz4.frame')

@@ -13,6 +13,7 @@
 
 import datetime
 from time import time
+from typing import List
 import unittest
 
 from pymonetdb.exceptions import ProgrammingError
@@ -29,6 +30,8 @@ class DatabaseTest(unittest.TestCase):
 
     local_tzinfo = datetime.datetime.now().astimezone().tzinfo
 
+    tables_to_drop: List[str] = []
+
     def setUp(self):
         db = pymonetdb.connect(autocommit=False, **test_args)
         self.connection = db
@@ -38,6 +41,16 @@ class DatabaseTest(unittest.TestCase):
         self.BLOBUText = ''.join([chr(i) for i in range(1, 16384)])
 
     def tearDown(self):
+        if self.tables_to_drop:
+            self.connection.rollback()
+            with self.connection.cursor() as c:
+                for t in self.tables_to_drop:
+                    try:
+                        c.execute(f'drop table {t}')
+                        self.connection.commit()
+                    except pymonetdb.exceptions.Error:
+                        self.connection.rollback()
+            self.tables_to_drop = []
         self.connection.close()
 
     def table_exists(self, name):
@@ -54,10 +67,11 @@ class DatabaseTest(unittest.TestCase):
         return '"%s"' % ident
 
     def new_table_name(self):
-        i = id(self.cursor)
+        i = 1
         while True:
-            name = self.quote_identifier('tb%08x' % i)
+            name = self.quote_identifier('captest%02d' % i)
             if not self.table_exists(name):
+                self.tables_to_drop.append(name)
                 return name
             i = i + 1
 
