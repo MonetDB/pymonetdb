@@ -15,8 +15,7 @@ import struct
 import hashlib
 import ssl
 import typing
-from typing import Callable, Dict, List, Optional, Tuple, Union
-from urllib.parse import parse_qsl, urlparse
+from typing import Callable, List, Optional, Tuple, Union
 
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
@@ -274,8 +273,8 @@ class Connection(object):
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
         ssl_context.set_alpn_protocols(["mapi/9"])
         if target.clientkey:
-            certfile=target.clientcert if target.clientcert else target.clientkey
-            keyfile=target.clientkey
+            certfile = target.clientcert if target.clientcert else target.clientkey
+            keyfile = target.clientkey
             ssl_context.load_cert_chain(certfile, keyfile)
         if 'host' in disabled_checks:
             ssl_context.check_hostname = False
@@ -714,6 +713,7 @@ class HandshakeOption:
     value (not converted to an integer) as a parameter.
     Field `sent` can be used to keep track of whether the option has been sent.
     """
+
     def __init__(self, level, name, fallback, value):
         self.level = level
         self.name = name
@@ -722,10 +722,10 @@ class HandshakeOption:
         self.sent = False
 
 
-def construct_target_from_args(database: str, username: str, password: str, language: str,  # noqa: C901
-            hostname: Optional[str] = None, port: Optional[int] = None, unix_socket: Optional[str]=None,
-            connect_timeout: Optional[Union[float,int]]=None,
-            **kwargs):
+def construct_target_from_args(database: Optional[str], username: str, password: str, language: str,  # noqa: C901
+                               hostname: Optional[str] = None, port: Optional[int] = None, unix_socket: Optional[str] = None,
+                               connect_timeout: Optional[Union[float, int]] = None,
+                               **kwargs):
     """Construct a Target from the other args"""
 
     target = Target()

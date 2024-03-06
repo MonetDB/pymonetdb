@@ -2,8 +2,7 @@
 
 import os
 import re
-import sys
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest import TestCase
 import unittest
 
@@ -41,8 +40,8 @@ def read_lines(f, filename: str, start_line=0) -> List[Line]:
 
 
 def split_tests(lines: List[Line]) -> List[Tuple[str, List[Line]]]:
-    tests = []
-    cur = None
+    tests: List[Tuple[str, List[Line]]] = []
+    cur: Optional[List[Line]] = None
     header = None
     count = 0
     location = None
@@ -102,7 +101,7 @@ class TargetTests(TestCase):
                     e.add_note(f"At {line.location}")
                     raise
 
-    def apply_line(self, target: Target, line: Line):
+    def apply_line(self, target: Target, line: Line):  # noqa C901
         if not line:
             return
 
@@ -155,15 +154,7 @@ class TargetTests(TestCase):
 
     def apply_expect(self, target: Target, key, expected_value):
         if key == 'valid':
-            should_succeed = parse_bool(expected_value)
-            try:
-                target.validate()
-                if not should_succeed:
-                    self.fail("Expected valid=false")
-            except ValueError as e:
-                if should_succeed:
-                    self.fail(f"Expected valid=true, got error {e}")
-            return
+            return self.apply_expect_valid(target, key, expected_value)
 
         if key in VIRTUAL:
             target.validate()
@@ -173,6 +164,9 @@ class TargetTests(TestCase):
         else:
             actual_value = target.get(key)
 
+        self.verify_expected_value(key, expected_value, actual_value)
+
+    def verify_expected_value(self, key, expected_value, actual_value):
         if isinstance(actual_value, bool):
             expected_value = parse_bool(expected_value)
         elif isinstance(actual_value, int):
@@ -183,6 +177,17 @@ class TargetTests(TestCase):
                 pass
         if actual_value != expected_value:
             self.fail(f"Expected {key}={expected_value!r}, found {actual_value!r}")
+
+    def apply_expect_valid(self, target, key, expected_value):
+        should_succeed = parse_bool(expected_value)
+        try:
+            target.validate()
+            if not should_succeed:
+                self.fail("Expected valid=false")
+        except ValueError as e:
+            if should_succeed:
+                self.fail(f"Expected valid=true, got error {e}")
+        return
 
 
 # Magic alert!

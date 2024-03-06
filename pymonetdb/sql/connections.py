@@ -6,7 +6,6 @@
 
 from datetime import datetime, timedelta, timezone
 import logging
-import platform
 from typing import List
 
 from pymonetdb.exceptions import DatabaseError

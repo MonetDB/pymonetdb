@@ -7,7 +7,6 @@
 import logging
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
-from pymonetdb.target import Target, looks_like_url
 
 
 logger = logging.getLogger(__name__)
@@ -72,7 +71,6 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
-
 
     def __init__(self, hostname=None, port=None, passphrase=None, **kwargs):
 

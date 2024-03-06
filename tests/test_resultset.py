@@ -151,7 +151,7 @@ class BaseTestCases(TestCase):
             args = dict()
             args.update(test_args)
             args.update(kw_args)
-            conn = pymonetdb.connect(**args)
+            conn = pymonetdb.connect(**args)   # type: ignore
         except AttributeError:
             self.fail("No connect method found in pymonetdb module")
         self.to_close.append(conn)

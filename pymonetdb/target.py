@@ -9,7 +9,7 @@ Utilities for parsing MonetDB URLs
 
 
 import re
-from typing import Callable, Union
+from typing import Any, Callable, Union
 from urllib.parse import parse_qsl, urlparse, quote as urlquote
 
 
@@ -89,7 +89,7 @@ class urlparam:
     """Decorator to create getter/setter for url parameter on a Target instance"""
 
     field: str
-    parser: Callable[[Union[str, any]], any]
+    parser: Callable[[Union[str, Any]], Any]
 
     def __init__(self, name, typ, doc):
         self.field = name
@@ -171,7 +171,9 @@ class Target:
                          'rows beyond this limit are retrieved on demand, <1 means unlimited')
     maxprefetch = urlparam('maxprefetch', 'integer', 'specific to pymonetdb')
     connect_timeout = urlparam('connect_timeout', 'integer', 'abort if connect takes longer than this')
-    dangerous_tls_nocheck = urlparam('dangerous_tls_nocheck', 'bool', 'comma separated certificate checks to skip, host: do not verify host, cert: do not verify certificate chain')
+    dangerous_tls_nocheck = urlparam(
+        'dangerous_tls_nocheck', 'bool',
+        'comma separated certificate checks to skip, host: do not verify host, cert: do not verify certificate chain')
 
     # alias
     fetchsize = replysize
@@ -228,7 +230,7 @@ class Target:
         self.port = _DEFAULTS['port']
         self.database = ''
 
-    def _parse_monetdb_url(self, url):
+    def _parse_monetdb_url(self, url):    # noqa C901
         parsed = urlparse(url, allow_fragments=True)
 
         if parsed.scheme == 'monetdb':
@@ -278,7 +280,7 @@ class Target:
                     "key {key!r} is not allowed in the query parameters")
             self.set(key, value)
 
-    def _parse_mapi_monetdb_url(self, url):
+    def _parse_mapi_monetdb_url(self, url):    # noqa C901
         # mapi urls have no percent encoding at all
         parsed = urlparse(url[5:])
         if parsed.scheme != 'monetdb':
@@ -326,7 +328,7 @@ class Target:
                 # unknown parameters are ignored
                 pass
 
-    def _parse_mapi_merovingian_url(self, url):
+    def _parse_mapi_merovingian_url(self, url):    # noqa C901
         # mapi urls have no percent encoding at all
         parsed = urlparse(url[5:])
         if parsed.scheme != 'merovingian':
@@ -373,7 +375,7 @@ class Target:
                 # unknown parameters are ignored
                 pass
 
-    def validate(self):
+    def validate(self):    # noqa C901
         # 1. The parameters have the types listed in the table in [Section
         #    Parameters](#parameters).
         #

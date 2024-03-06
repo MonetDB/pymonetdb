@@ -10,7 +10,7 @@ To set up a connection use pymonetdb.connect()
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-from typing import Optional, Union
+from typing import Optional
 from pymonetdb import sql
 from pymonetdb import mapi
 from pymonetdb import exceptions
@@ -41,7 +41,7 @@ __all__ = ['sql', 'mapi', 'exceptions', 'BINARY', 'Binary', 'connect', 'Connecti
            'TimeTzFromTicks', 'TimestampTzFromTicks']
 
 
-def connect(
+def connect(    # noqa C901
         database: str,
         hostname: Optional[str] = None,
         port: Optional[int] = None,
