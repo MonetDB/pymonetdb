@@ -19,7 +19,7 @@ jobs:
         ports:
           - 50000:50000
       tlstester:
-        image: monetdb/tlstester:0.3.0
+        image: monetdb/tlstester:0.3.1
         env:
           TLSTEST_DOMAIN: "tlstester"
         ports:
