@@ -250,38 +250,44 @@ class Connection(object):
             # appear to make connection setup a little faster rather than slower.
             self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
             return
+
         target = self.target
+        verification_mode = target.connect_tls_verify
 
         if target.dangerous_tls_nocheck:
             disabled_checks = set(target.dangerous_tls_nocheck.split(','))
         else:
             disabled_checks = set()
-        if target.certhash:
+
+        # Set up the SSL context. How to do that depends on the verification mode
+        if verification_mode == 'system':
+            ssl_context = ssl.create_default_context()
+        elif verification_mode == 'cert':
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ssl_context.load_verify_locations(target.cert)
+        else:
+            assert verification_mode == 'hash'
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             disabled_checks.add('host')
             disabled_checks.add('cert')
 
-        # Create the context and load the trusted certificates
-        if not target.cert and not target.certhash:
-            # This one uses the system trusted root certificate store
-            ssl_context = ssl.create_default_context()
-        else:
-            # Arrange our own.
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            if target.cert and not target.certhash and 'cert' not in disabled_checks:
-                ssl_context.load_verify_locations(target.cert)
-
+        # The following is common between all verification modes
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
         ssl_context.set_alpn_protocols(["mapi/9"])
         if target.clientkey:
-            certfile = target.clientcert if target.clientcert else target.clientkey
+            certfile = (target.clientcert or target.clientkey)
             keyfile = target.clientkey
             ssl_context.load_cert_chain(certfile, keyfile)
         if 'host' in disabled_checks:
             ssl_context.check_hostname = False
         if 'cert' in disabled_checks:
             ssl_context.verify_mode = ssl.CERT_NONE
+
+        # Perform the SSL handshake and switch to the encrypted connection
         self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.connect_tcp)
-        if target.certhash:
+
+        # In hash mode, verify the identity of the server. Otherwise, just log a message about it
+        if verification_mode == 'hash':
             self._verify_fingerprint(target.certhash)
             logger.debug(f"TLS certificate matches hash {target.certhash}")
         else:
