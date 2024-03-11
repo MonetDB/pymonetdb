@@ -199,7 +199,7 @@ class Connection(object):
         timeout = self.target.connect_timeout
 
         sock = self.target.connect_unix
-        if sock is not None and hasattr(socket, 'AF_UNIX'):
+        if sock and hasattr(socket, 'AF_UNIX'):
             s = socket.socket(socket.AF_UNIX)
             if timeout:
                 s.settimeout(float(timeout))
@@ -215,7 +215,7 @@ class Connection(object):
                 err = e
 
         host = self.target.connect_tcp
-        if host is not None:
+        if host:
             port = self.target.connect_port
             addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
             for fam, typ, proto, cname, addr in addrs:
