@@ -46,7 +46,10 @@ class Connection:
         self._current_replysize = 100     # server default, will be updated after handshake
         self._current_timezone_seconds_east = 0   # server default, will be updated
 
-        handshake_timezone_offset = _local_timezone_offset_seconds()
+        if target.timezone is None:
+            handshake_timezone_offset = _local_timezone_offset_seconds()
+        else:
+            handshake_timezone_offset = 60 * target.timezone
 
         def handshake_options_callback(server_binexport_level: int) -> List[mapi.HandshakeOption]:
             policy.server_binexport_level = server_binexport_level
@@ -63,6 +66,11 @@ class Connection:
 
         self._current_replysize = policy.handshake_reply_size()
         self._current_timezone_seconds_east = handshake_timezone_offset
+
+        if target.schema:
+            quoted = target.schema.replace('"', '""')
+            with self.cursor() as c:
+                c.execute("SET SCHEMA " + quoted)
 
     def close(self):
         """ Close the connection.
