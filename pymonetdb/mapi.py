@@ -8,6 +8,7 @@ This is the python implementation of the mapi protocol.
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 
+import os
 import re
 import socket
 import logging
@@ -125,6 +126,10 @@ class Connection(object):
             self.target.validate()
         except ValueError as e:
             raise DatabaseError(str(e))
+
+        if self.target.connect_scan:
+            self.scan_sockdir()
+            return
 
         # Close any remainders of previous attempts
         if self.socket:
@@ -359,6 +364,58 @@ class Connection(object):
         digest = hashlib.sha256(der).hexdigest()
         if not digest.startswith(digits):
             raise ssl.SSLError(f"wrong server certificate hash: {fingerprint}")
+
+    def scan_sockdir(self):   # noqa C901
+        try:
+            my_uid = os.getuid()
+        except AttributeError:
+            # Windows
+            my_uid = -1
+
+        # Scan the sockdir and put candidate sockets in
+        # my_socks if they are owned by me and strange_socks otherwise
+        my_socks = []
+        strange_socks = []
+        prefix = self.target.sockprefix
+        try:
+            logger.debug(f"scanning {self.target.sockdir!r} for Unix domain sockets")
+            entries = [e for e in os.scandir(self.target.sockdir) if e.name.startswith(prefix)]
+        except OSError:
+            entries = []
+        for entry in entries:
+            try:
+                portno = int(entry.name[len(prefix):])
+                if portno < 1 or portno > 65535:
+                    continue
+            except ValueError:
+                continue
+
+            try:
+                st = entry.stat()
+            except OSError:
+                continue
+            if st.st_uid == my_uid:
+                my_socks.append(entry.path)
+            else:
+                strange_socks.append(entry.path)
+
+        # Try to connect to each of them
+        for sock in my_socks + strange_socks:
+
+            self.target.sock = sock
+            try:
+                logger.debug(f"Trying {sock!r}")
+                self.connect(self.target)
+                # If it works, use this
+                return
+            except Exception:
+                pass
+        self.target.sock = ''
+
+        # last resort
+        logger.debug("Trying a TCP connection to localhost")
+        self.target.host = 'localhost'
+        self.connect(self.target)
 
     def disconnect(self):
         """ disconnect from the monetdb server """
