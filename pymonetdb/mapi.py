@@ -354,7 +354,7 @@ class Connection(object):
 
         m = re.match(r'sha256:([0-9a-fA-F:]+)$', fingerprint)
         if not m:
-            raise ssl.SSLError(f"invalid certificate hash {print!r}")
+            raise ssl.SSLError(f"invalid certificate hash {fingerprint!r}")
         digits = m.group(1).lower().replace(':', '')
 
         der = self.socket.getpeercert(binary_form=True)
