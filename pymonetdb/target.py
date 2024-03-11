@@ -207,7 +207,7 @@ class Target:
             return f"monetdb://localhost/{db}?sock={urlquote(self.sock)}"
         scheme = "monetdbs" if self.tls else "monetdb"
         host = self.host or "localhost"
-        if self.port and self.port != 50_000:
+        if self.port and self.port > 0 and self.port != 50_000:
             return f"{scheme}://{host}:{self.port}/{db}"
         else:
             return f"{scheme}://{host}/{db}"
