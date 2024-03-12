@@ -36,7 +36,7 @@ class Cursor(object):
     """Default value for the size parameter of :func:`~pymonetdb.sql.cursors.Cursor.fetchmany`. """
 
     rowcount: int
-    description: Optional[Description]
+    description: Optional[List[Description]]
     _can_bindecode: Optional[bool]
     _bindecoders: Optional[List['pythonizebin.BinaryDecoder']]
     rownumber: int
@@ -47,6 +47,9 @@ class Cursor(object):
     _query_id: int
     messages: List[str]
     lastrowid: Optional[int]
+    _unpack_int64: str
+
+    _next_result_sets: List[Tuple[int, int, List[Description], List[Tuple]]]
 
     def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
@@ -142,6 +145,8 @@ class Cursor(object):
         # using INSERT with .executemany().
         self.lastrowid = None
 
+        self._next_result_sets = []
+
         # This is used to unpack binary result sets
         server_endian = self.connection.mapi.server_endian
         if server_endian == 'little':
@@ -200,8 +205,6 @@ class Cursor(object):
         self.messages = []
 
         self._close_earlier_resultsets()
-        self._can_bindecode = None
-        self._bindecoders = None
 
         # set the number of rows to fetch
         desired_replysize = self._policy.new_query()
@@ -240,8 +243,8 @@ class Cursor(object):
             query = operation
 
         block = self.connection.execute(query)
-        self._store_result(block)
-        self.rownumber = 0
+        self._store_result(block, update_existing=False)
+        self.nextset()
         self._executed = operation
         return self.rowcount if self.rowcount >= 0 else None
 
@@ -334,6 +337,21 @@ class Cursor(object):
 
         return self.fetchmany(self.rowcount)
 
+    def nextset(self) -> Optional[bool]:
+        if not self._next_result_sets:
+            return None
+
+        (self._query_id, self.rowcount, self.description, self._rows) = self._next_result_sets[0]
+        del self._next_result_sets[0]
+
+        self._policy.new_query()
+        self._offset = 0
+        self.rownumber = 0
+        self._can_bindecode = None
+        self._bindecoders = None
+
+        return True
+
     def _populate_cache(self, already_used, requested_end):
         del self._rows[:]
         self._offset = self.rownumber
@@ -352,7 +370,7 @@ class Cursor(object):
         else:
             command = 'Xexport %s %s %s' % (self._query_id, self.rownumber, rows_to_fetch)
             block = self.connection.command(command)
-            self._store_result(block)
+            self._store_result(block, update_existing=True)
 
     def _check_bindecode_possible(self):
         self._can_bindecode = False
@@ -395,8 +413,11 @@ class Cursor(object):
     def __next__(self):
         return self.next()
 
-    def _store_result(self, block):  # noqa: C901
+    def _store_result(self, block, *, update_existing: bool):  # noqa: C901
         """ parses the mapi result into a resultset"""
+
+        if not update_existing:
+            self._next_result_sets = []
 
         if not block:
             block = ""
@@ -443,7 +464,8 @@ class Cursor(object):
                     logger.warning(msg)
                     self.messages.append((Warning, msg))
 
-                description = []
+                description = self.description
+                description[:] = []
                 for i in range(columns):
                     description.append(Description(column_name[i], type_[i], display_size[i], internal_size[i],
                                                    precision[i], scale[i], null_ok[i]))
@@ -458,11 +480,15 @@ class Cursor(object):
                 self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
 
                 columns = int(columns)  # number of columns in result
-                self.rowcount = int(rowcount)  # total number of rows
                 tuples = int(tuples)     # number of rows in this set
                 if tuples < self.rowcount:
                     self._resultsets_to_close.append(self._query_id)
+
+                self.description = []
+                self.rowcount = int(rowcount)  # total number of rows
                 self._rows = []
+                if not update_existing:
+                    self._next_result_sets.append((self._query_id, self.rowcount, self.description, self._rows))
 
                 # set up fields for description
                 # table_name = [None] * columns

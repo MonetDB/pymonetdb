@@ -431,8 +431,11 @@ class DatabaseTest(unittest.TestCase):
         self.cursor.execute("insert into %s VALUES (50, 50)" % table2)
         self.cursor.execute('select * from %s; select * from %s;' %
                             (table1, table2))
-        result = self.cursor.fetchall()
-        self.assertEqual(result, [(50, 50)])
+        result1 = self.cursor.fetchall()
+        self.assertEqual(result1, [(100,)])
+        self.assertTrue(self.cursor.nextset())
+        result2 = self.cursor.fetchall()
+        self.assertEqual(result2, [(50, 50)])
 
     def test_temporal_operations(self):
         dt = datetime.datetime(2017, 12, 6, 12, 30)

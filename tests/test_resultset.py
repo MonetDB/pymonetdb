@@ -172,7 +172,7 @@ class BaseTestCases(TestCase):
             self.conn, self.expect_binary_after = self.setup_connection()
             self.cursor = self.conn.cursor()
 
-    def do_query(self, n, cols=('int_col',)):
+    def construct_query(self, n, cols):
         if isinstance(cols, dict):
             test_columns = cols
         else:
@@ -192,14 +192,22 @@ class BaseTestCases(TestCase):
             count=n
         )
 
-        self.do_connect()
-        self.cursor.execute(query)
+        return query, colnames, verifiers
 
-        self.assertEqual(n, self.cursor.rowcount)
-
-        self.rowcount = n
+    def set_expected_results(self, rowcount, colnames, verifiers):
+        self.cur = 0
+        self.rowcount = rowcount
         self.colnames = colnames
         self.verifiers = verifiers
+
+    def do_query(self, n, cols=('int_col',)):
+        query, colnames, verifiers = self.construct_query(n, cols)
+
+        self.do_connect()
+        self.cursor.execute(query)
+        self.set_expected_results(n, colnames, verifiers)
+
+        self.assertEqual(n, self.cursor.rowcount)
 
     def verifyRow(self, n, row):
         # two dummy columns because of the outer join
@@ -251,7 +259,8 @@ class BaseTestCases(TestCase):
         self.cur += len(rows)
         self.verifyBinary()
 
-    def do_fetchall(self):
+    def do_fetchall(self) -> int:
+        oldcur = self.cur
         rows = self.cursor.fetchall()
         expectedRows = self.rowcount - self.cur
         self.assertEqual(expectedRows, len(rows))
@@ -260,6 +269,7 @@ class BaseTestCases(TestCase):
         self.cur += len(rows)
         self.verifyBinary()
         self.assertAtEnd()
+        return self.cur - oldcur
 
     def do_scroll(self, n, mode):
         self.cursor.scroll(n, mode)
@@ -330,6 +340,34 @@ class BaseTestCases(TestCase):
             else:
                 self.do_scroll(x - self.cur, 'relative')
             self.do_fetchmany(y - x)
+
+    def test_multiple(self):
+        self.do_connect()
+
+        nrows = 20
+        query1, colnames1, verifiers1 = self.construct_query(nrows, ['int_col'])
+        query2, colnames2, verifiers2 = self.construct_query(2 * nrows, ['tinyint_col', 'text_col'])
+
+        def access_pattern(self, n):
+            self.do_fetchone()
+            self.do_fetchmany(n // 2)
+            self.do_scroll(n // 4, 'absolute')
+            remaining = self.do_fetchall()
+            self.assertEqual(remaining, n // 4 * 3)
+            self.verifyBinary()
+            self.assertAtEnd()
+
+        query = f"{query1};\n{query2}"
+        self.cursor.execute(query)
+
+        self.set_expected_results(nrows, colnames1, verifiers1)
+        access_pattern(self, nrows)
+
+        self.assertTrue(self.cursor.nextset())
+        self.set_expected_results(2 * nrows, colnames2, verifiers2)
+        access_pattern(self, 2 * nrows)
+
+        self.assertFalse(self.cursor.nextset())
 
     def test_huge(self):
         self.skip_unless_have_huge()
