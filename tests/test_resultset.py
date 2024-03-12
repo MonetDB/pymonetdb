@@ -261,6 +261,7 @@ class BaseTestCases(TestCase):
 
     def do_fetchall(self) -> int:
         oldcur = self.cur
+        assert self.cursor
         rows = self.cursor.fetchall()
         expectedRows = self.rowcount - self.cur
         self.assertEqual(expectedRows, len(rows))

@@ -44,12 +44,12 @@ class Cursor(object):
     _offset: int
     _rows: List[Tuple]
     _resultsets_to_close: List[str]
-    _query_id: int
-    messages: List[str]
+    _query_id: Optional[str]
+    messages: List[Tuple[type[Exception], str]]
     lastrowid: Optional[int]
     _unpack_int64: str
 
-    _next_result_sets: List[Tuple[int, int, List[Description], List[Tuple]]]
+    _next_result_sets: List[Tuple[str, int, List[Description], List[Tuple]]]
 
     def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
@@ -117,7 +117,7 @@ class Cursor(object):
 
         # used to identify a query during server contact.
         # Only select queries have query ID
-        self._query_id = -1
+        self._query_id = None
 
         # This is a Python list object to which the interface appends
         # tuples (exception class, exception value) for all messages
@@ -277,7 +277,7 @@ class Cursor(object):
         single sequence, or None when no more data is available."""
 
         self._check_executed()
-        if self._query_id == -1:
+        if self._query_id is None:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
@@ -305,7 +305,7 @@ class Cursor(object):
         call was issued yet."""
 
         self._check_executed()
-        if self._query_id == -1:
+        if self._query_id is None:
             msg = "query didn't result in a resultset"
             self._exception_handler(ProgrammingError, msg)
 
@@ -423,10 +423,13 @@ class Cursor(object):
             block = ""
 
         columns = 0
-        column_name = ""
-        scale = display_size = internal_size = precision = 0
-        null_ok = False
-        type_ = []
+        column_name: List[Optional[str]] = []
+        scale: List[Optional[int]] = []
+        display_size: List[Optional[int]] = []
+        internal_size: List[Optional[int]] = []
+        precision: List[Optional[int]] = []
+        null_ok: List[Optional[bool]] = []
+        type_: List[Optional[str]] = []
 
         msg_tuple = mapi.MSG_TUPLE
         assert len(msg_tuple) == 1
@@ -464,7 +467,7 @@ class Cursor(object):
                     logger.warning(msg)
                     self.messages.append((Warning, msg))
 
-                description = self.description
+                description = self.description if self.description is not None else []
                 description[:] = []
                 for i in range(columns):
                     description.append(Description(column_name[i], type_[i], display_size[i], internal_size[i],
@@ -477,18 +480,19 @@ class Cursor(object):
                 self.messages.append((Warning, line[1:]))
 
             elif line.startswith(mapi.MSG_QTABLE) or line.startswith(mapi.MSG_QPREPARE):
-                self._query_id, rowcount, columns, tuples = line[2:].split()[:4]
+                query_id, rowcount, columns, tuples = line[2:].split()[:4]
+                self._query_id = query_id
 
                 columns = int(columns)  # number of columns in result
                 tuples = int(tuples)     # number of rows in this set
                 if tuples < self.rowcount:
-                    self._resultsets_to_close.append(self._query_id)
+                    self._resultsets_to_close.append(query_id)
 
                 self.description = []
                 self.rowcount = int(rowcount)  # total number of rows
                 self._rows = []
                 if not update_existing:
-                    self._next_result_sets.append((self._query_id, self.rowcount, self.description, self._rows))
+                    self._next_result_sets.append((query_id, self.rowcount, self.description, self._rows))
 
                 # set up fields for description
                 # table_name = [None] * columns
@@ -503,7 +507,7 @@ class Cursor(object):
 
                 self._offset = 0
                 if line.startswith(mapi.MSG_QPREPARE):
-                    self.lastrowid = int(self._query_id)
+                    self.lastrowid = int(query_id)
                 else:
                     self.lastrowid = None
 
@@ -527,7 +531,7 @@ class Cursor(object):
                 self.description = None
                 self.rowcount = int(affected)
                 self.lastrowid = int(identity)
-                self._query_id = -1
+                self._query_id = None
 
             elif line.startswith(mapi.MSG_QTRANS):
                 self._offset = 0
