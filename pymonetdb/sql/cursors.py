@@ -7,7 +7,7 @@
 import logging
 from collections import namedtuple
 import struct
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Type
 from pymonetdb.policy import BatchPolicy
 import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
@@ -45,7 +45,7 @@ class Cursor(object):
     _rows: List[Tuple]
     _resultsets_to_close: List[str]
     _query_id: Optional[str]
-    messages: List[Tuple[type[Exception], str]]
+    messages: List[Tuple[Type[Exception], str]]
     lastrowid: Optional[int]
     _unpack_int64: str
 
