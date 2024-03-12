@@ -1,0 +1,79 @@
+name: Test TLS support
+on:
+  pull_request:
+  push:
+    branches: master, monetdbs
+
+
+jobs:
+
+  test_tls:
+    runs-on: ubuntu-latest
+    container: python:3.11
+    services:
+      monetdb:
+        image: "monetdb/dev-builds:Jun2023"
+        env:
+          MDB_DAEMON_PASS: monetdb
+          MDB_DB_ADMIN_PASS: monetdb
+        ports:
+          - 50000:50000
+      tlstester:
+        image: monetdb/tlstester:0.3.1
+        env:
+          TLSTEST_DOMAIN: "tlstester"
+        ports:
+          - 4300-4309:4300-4309
+    env:
+      TSTDB: monetdb
+      TSTHOSTNAME: localhost.localdomain
+      MAPIPORT: 43000
+      TSTPASSPHRASE: monetdb
+      TSTTLS: true
+      TSTSERVERCERT: proxy.crt
+      TSTCONTROL: tcp
+      TSTTLSTESTERHOST: tlstester
+      TSTTLSTESTERPORT: 4300
+      TSTTLSTESTERSYSSTORE: "true"
+    steps:
+
+      - name: Check out
+        uses: actions/checkout@v3
+
+      - name: Set up
+        run: |
+          pip3 install -r tests/requirements.txt
+          apt-get update -q && apt-get install -y stunnel
+
+      - name: Extract custom root certificate
+        run: wget http://tlstester:4300/ca3.crt
+
+      - name: Generate key and certificate for stunnel, install in system trusted roots
+        run: |
+          openssl req -newkey rsa:2048 -nodes -keyout proxy.key -out proxy.tmp -subj "/CN=localhost.localdomain/subjectAltName=localhost.localdomain" -verbose -batch
+          openssl x509 -signkey proxy.key -in proxy.tmp -req -days 7 -out proxy.crt
+
+      - name: Install custom root certificate in system trusted roots
+        run: |
+          cp ca3.crt /usr/local/share/ca-certificates/
+          cp proxy.crt /usr/local/share/ca-certificates/
+          update-ca-certificates
+
+      - name: Start stunnel
+        run: |
+          echo >stunnel.conf
+          echo "output = /dev/stderr" >>stunnel.conf
+          echo "pid = /var/run/stunnel.pid" >>stunnel.conf
+          echo "[prox]" >>stunnel.conf
+          echo "accept = 43000" >>stunnel.conf
+          echo "connect = monetdb:50000" >>stunnel.conf
+          echo "debug = 7" >>stunnel.conf
+          echo "cert = proxy.crt" >>stunnel.conf
+          echo "key = proxy.key" >>stunnel.conf
+          stunnel stunnel.conf
+
+      - name: Run all tests over TLS
+        run: pytest
+
+
+

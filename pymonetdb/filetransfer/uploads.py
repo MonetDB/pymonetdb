@@ -127,6 +127,7 @@ class Upload:
                 server_wants_more = self._send_and_get_prompt(chunk)
                 if not server_wants_more:
                     self.cancelled = True
+                    assert self.mapi.uploader
                     self.mapi.uploader.cancel()
                     self.mapi = None
                     break

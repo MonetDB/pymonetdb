@@ -4,7 +4,6 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-import platform
 import logging
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
@@ -72,37 +71,29 @@ class Control:
     Use this module to manage your MonetDB databases. You can create, start,
     stop, lock, unlock, destroy your databases and request status information.
     """
-    def __init__(self, hostname=None, port=50000, passphrase=None,
-                 unix_socket=None, connect_timeout=-1):
 
-        if not unix_socket:
-            unix_socket = "/tmp/.s.merovingian.%i" % port
+    def __init__(self, hostname=None, port=None, passphrase=None, **kwargs):
 
-        if platform.system() == "Windows" and not hostname:
-            hostname = "localhost"
-
-        self.server = mapi.Connection()
-        self.hostname = hostname
-        self.port = port
-        self.passphrase = passphrase
-        self.unix_socket = unix_socket
-        self.connect_timeout = connect_timeout
+        # override some settings
+        kwargs['user'] = 'monetdb'
+        kwargs['password'] = passphrase
+        kwargs['database'] = 'merovingian'
+        kwargs['language'] = 'control'
+        kwargs['sockprefix'] = '.s.merovingian.'
+        target = mapi.construct_target_from_args(hostname=hostname, port=port, **kwargs)
+        self.target = target
 
         # check connection
-        self.server.connect(hostname=hostname, port=port, username='monetdb',
-                            password=passphrase,
-                            database='merovingian', language='control',
-                            unix_socket=unix_socket,
-                            connect_timeout=connect_timeout)
+        self.server = mapi.Connection()
+        self._connect()
         self.server.disconnect()
+
+    def _connect(self):
+        self.server.connect(self.target)
 
     def _send_command(self, database_name, command):
         logger.info("sending '{}' command to database {}".format(command, database_name))
-        self.server.connect(hostname=self.hostname, port=self.port,
-                            username='monetdb', password=self.passphrase,
-                            database='merovingian', language='control',
-                            unix_socket=self.unix_socket,
-                            connect_timeout=self.connect_timeout)
+        self._connect()
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
         return result

@@ -2,7 +2,7 @@ import socket
 import unittest
 from pymonetdb.exceptions import DatabaseError
 from socket import gethostbyname
-from unittest import TestCase
+from unittest import SkipTest, TestCase
 from pymonetdb import connect
 from tests.util import test_args
 
@@ -10,6 +10,8 @@ from tests.util import test_args
 class TestMapiUri(TestCase):
 
     def setUp(self):
+        if test_args.get('tls'):
+            raise SkipTest("mapi:monetdb: URI's do not support TLS")
         self.hostname = test_args['hostname']
         self.port = test_args['port']
         self.database = test_args['database']

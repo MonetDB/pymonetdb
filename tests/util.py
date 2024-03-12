@@ -25,13 +25,38 @@ test_replysize = environ.get('TSTREPLYSIZE')
 test_maxprefetch = environ.get('TSTMAXPREFETCH')
 test_binary = environ.get('TSTBINARY')
 
+test_use_tls = environ.get('TSTTLS', 'false').lower() == 'true'
+test_tls_server_cert = environ.get('TSTSERVERCERT')
+
+# Configuration for tlstester.py:
+#
+# Hostname to connect to, must match exactly what tsltester.py is signing the
+# certificates for.
+test_tls_tester_host = environ.get('TSTTLSTESTERHOST')
+# Main port to connect to, tlstester.py will redirect the test cases to other
+# ports as well.
+test_tls_tester_port = environ.get('TSTTLSTESTERPORT')
+# Set to true if tlstester.py's ca3.crt has been inserted into the system
+# trusted root certificate store.
+test_tls_tester_sys_store = environ.get('TSTTLSTESTERSYSSTORE', 'false').lower() == 'true'
+
 test_mapi_args = {
     'port': test_port,
     'database': test_database,
     'hostname': test_hostname,
     'username': test_username,
     'password': test_password,
+    'tls': test_use_tls,
+    # 'cert': test_tls_server_cert,
 }
+if test_tls_server_cert:
+    test_mapi_args['cert'] = test_tls_server_cert
+
+
+control_test_args = {**test_mapi_args}
+del control_test_args['password']
+control_test_args['passphrase'] = test_passphrase
+
 test_args = test_mapi_args.copy()
 if test_replysize is not None:
     test_args['replysize'] = int(test_replysize)
