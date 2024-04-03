@@ -1,3 +1,23 @@
+# unreleased
+
+changes since 1.7.2
+
+* Incompatible change: If multiple queries are executed at once, the first
+  result set is returned rather than the last.
+  For example, `Cursor.execute("SELECT 1; SELECT 2")` used to return 2
+  but now returns 1.
+
+* Add support for [Cursor.nextset](https://peps.python.org/pep-0249/#nextset)
+  to allow retrieving result sets other than the first.
+
+* Add support for encrypted connections using TLS.
+
+* Add support for `monetdb://` and `monetdbs://` URLs.
+  The `mapi:monetdb://` URLs are now deprecated.
+
+* Support for Python 3.6 has been dropped
+
+
 # 1.7.1
 
 changes since 1.7.0
