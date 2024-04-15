@@ -72,7 +72,8 @@ def connect(    # noqa C901
     Can connect using TCP or using a Unix Domain socket.
 
     database : str
-        name of the database, or a URI
+        name of the database, or a
+        `MonetDB URL <https://www.monetdb.org/documentation/user-guide/client-interfaces/monetdb-urls/>`_
     hostname : str
         host name to make TCP connection to
     port : int
@@ -122,7 +123,7 @@ def connect(    # noqa C901
     dangerous_tls_nocheck : str
         comma-separated list of certificate checks to skip during connecting:
         'host': ignore host name mismatch,
-        'cert': ignore bad certificat chain
+        'cert': ignore bad certificate chain
     """
 
     target = Target()

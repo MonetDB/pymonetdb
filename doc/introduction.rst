@@ -34,7 +34,7 @@ There are also some options you can set, for example :code:`autocommit=True`.
 
 It is also possible to combine everything in a URL::
 
-  url = 'mapi:monetdb://yours:truly@dbhost:50001/demo?autocommit=true'
+  url = 'monetdb://dbhost:50001/demo?autocommit=true&user=yours&password=truly'
   conn = pymonetdb.connect(url)
 
 For more details see the documentation of :func:`pymonetdb.connect`.

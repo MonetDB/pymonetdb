@@ -61,7 +61,7 @@ however, the subsequent batches can be transferred much more efficiently with
 the binary format. By default, pymonetdb will automatically use it when
 possible unless configured otherwise using the `binary` setting, e.g.
 `pymonetdb.connect('demo', binary=0)` or
-`pymonetdb.connect('mapi:monetdb://localhost/demo?binary=0')`.
+`pymonetdb.connect('monetdb://localhost/demo?binary=0')`.
 
 Normally, the binary result set transfer is transparent to the user
 applications. The result set fetching functions automatically do the necessary
