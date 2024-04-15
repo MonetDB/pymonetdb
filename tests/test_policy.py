@@ -6,11 +6,11 @@
 
 
 from typing import List, Optional
-from unittest import TestCase, skipIf
+from unittest import TestCase
 from urllib.parse import parse_qsl, urlencode, urlparse
 import pymonetdb
 from pymonetdb.policy import BatchPolicy
-from tests.util import test_args, test_url, test_use_tls
+from tests.util import test_args, test_url
 
 
 def run_scenario(rowcount: int,
@@ -439,7 +439,6 @@ class TestPolicySetting(TestCase):
         u = u._replace(query=urlencode(opts))
         return u.geturl()
 
-    @skipIf(test_use_tls, "URLs don't have TLS support yet")
     def test_url_parameters1(self):
         updated_url = self.update_url(replysize='99', maxprefetch='444', binary='1')
         with pymonetdb.connect(updated_url) as conn:
@@ -447,7 +446,6 @@ class TestPolicySetting(TestCase):
             self.assertEqual(99, conn._policy.replysize)
             self.assertEqual(444, conn._policy.maxprefetch)
 
-    @skipIf(test_use_tls, "URLs don't have TLS support yet")
     def test_url_parameters2(self):
         updated_url = self.update_url(replysize='999', maxprefetch='44', binary='0')
         with pymonetdb.connect(updated_url) as conn:
