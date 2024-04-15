@@ -1,5 +1,8 @@
 # unreleased
 
+
+# 1.8.0
+
 changes since 1.7.2
 
 * Incompatible change: If multiple queries are executed at once, the first
