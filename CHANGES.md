@@ -7,15 +7,19 @@ changes since 1.7.2
   For example, `Cursor.execute("SELECT 1; SELECT 2")` used to return 2
   but now returns 1.
 
-* Add support for [Cursor.nextset](https://peps.python.org/pep-0249/#nextset)
+* Add support for [Cursor.nextset][nextset]
   to allow retrieving result sets other than the first.
 
-* Add support for encrypted connections using TLS.
+* Add support for encrypted connections using TLS. This can be enabled using the
+  `tls` parameter of `pymonetdb.connect()` or by using a `monetdbs://` URL.
 
-* Add support for `monetdb://` and `monetdbs://` URLs.
-  The `mapi:monetdb://` URLs are now deprecated.
+* Add support for `monetdb://` and `monetdbs://` URLs. See [MonetDB URLs] for
+  details. The `mapi:monetdb://` URLs are now deprecated.
 
 * Support for Python 3.6 has been dropped
+
+[nextset]: https://peps.python.org/pep-0249/#nextset
+[MonetDB URLs]: https://www.monetdb.org/documentation/user-guide/client-interfaces/monetdb-urls/
 
 
 # 1.7.1
