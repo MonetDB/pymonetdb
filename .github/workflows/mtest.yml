@@ -1,0 +1,44 @@
+name: Try the MonetDB test suite
+on:
+  push:
+    branches: [ master, monetdbs ]
+  pull_request:
+
+  schedule:
+    - cron:  '5 0 * * *'
+
+jobs:
+  mtest:
+    runs-on: ubuntu-20.04
+    env:
+      SRC_URL: "https://www.monetdb.org/downloads/sources/Dec2023-SP2/MonetDB-11.49.7.tar.xz"
+      SRC_SUM: "94db6d9c8627cbac793663db20368adb2db62fc2675bb8d20695a269305aaa10"
+      TESTS_URL: "https://www.monetdb.org/downloads/sources/Dec2023-SP2/MonetDB-tests-11.49.7.tar.xz"
+      TESTS_SUM: "a0cc0bce256f9d8d38e91260c698bdf526f8f9902c891e7f2691d576e339af40"
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
+    steps:
+
+      - name: Install packages
+        run: sudo apt-get -qq update && sudo apt-get -qq install -y tzdata python3 python3-venv curl xz-utils bison cmake gcc pkg-config ninja-build
+
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Create venv with pymonetdb
+        run: python3 -m venv venv &&  ./venv/bin/pip install setuptools wheel && ./venv/bin/pip install .
+
+      - name: Download MonetDB sources
+        run: |
+          curl -s "$SRC_URL" -o monetdb.tar.xz
+          curl -s "$TESTS_URL" -o monetdb-tests.tar.xz
+          ( echo "$SRC_SUM" monetdb.tar.xz; echo "$TESTS_SUM" monetdb-tests.tar.xz ) | sha256sum -c
+          mkdir monetdb && cd monetdb && xzcat ../monetdb.tar.xz | tar xf - --strip-components=1 && xzcat ../monetdb-tests.tar.xz | tar xf - --strip-components=1
+
+      - name: Build MonetDB
+        run: . ./venv/bin/activate && cmake -GNinja -S monetdb -B BUILD --install-prefix="$PWD/INST" -DCMAKE_INSTALL_MESSAGE=NEVER && echo && cmake --build BUILD --target install
+
+      - name: Test MonetDB
+        run: PATH="$PWD/INST/bin:$PATH"; . ./venv/bin/activate && cd monetdb && time Mtest.py -v sql/test/BugTracker-2014
+
+
