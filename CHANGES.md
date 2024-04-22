@@ -1,5 +1,10 @@
 # unreleased
 
+changes since 1.8.0
+
+* Restore behavior where 'sockdir' can be changed by setting 'host'
+  to something that starts with a slash. Mtest.py relies on this.
+
 
 # 1.8.0
 

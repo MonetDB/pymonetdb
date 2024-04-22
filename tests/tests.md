@@ -291,9 +291,11 @@ EXPECT sock=C:\TEMP\sock
 ### sockdir
 
 ```test
-EXPECT sockdir=/tmp
+EXPECT sockdir=
+EXPECT connect_sockdir=/tmp
 ACCEPT monetdb:///demo?sockdir=/tmp/nonstandard
 EXPECT sockdir=/tmp/nonstandard
+EXPECT connect_sockdir=/tmp/nonstandard
 EXPECT connect_unix=/tmp/nonstandard/.s.monetdb.50000
 ```
 
@@ -1193,21 +1195,82 @@ EXPECT connect_tcp=not.localhost
 REJECT monetdbs://not.localhost/?sock=/a/path
 ```
 
-### sock and sockdir
+### sock, sockdir and host
 
 Sockdir only applies to implicit Unix domain sockets,
 not to ones that are given explicitly
 
 ```test
-EXPECT sockdir=/tmp
+EXPECT connect_sockdir=/tmp
 EXPECT port=-1
 EXPECT host=
 EXPECT connect_unix=/tmp/.s.monetdb.50000
 SET sockdir=/somewhere/else
+EXPECT connect_sockdir=/somewhere/else
 EXPECT connect_unix=/somewhere/else/.s.monetdb.50000
 SET port=12345
 EXPECT connect_unix=/somewhere/else/.s.monetdb.12345
 ```
+
+Mtest.py and maybe other software expects to be able to set **sockdir** by passing a path
+in **host**.
+
+```test
+EXPECT connect_sockdir=/tmp
+SET host=banana
+EXPECT connect_sockdir=/tmp
+SET host=/somewhere/else
+EXPECT connect_sockdir=/somewhere/else
+EXPECT connect_tcp=localhost
+```
+
+Setting **sockdir** takes precedence over **host**.
+
+```test
+EXPECT connect_sockdir=/tmp
+SET sockdir=/xyz
+EXPECT connect_sockdir=/xyz
+SET host=banana
+EXPECT connect_sockdir=/xyz
+SET host=/somewhere/else
+EXPECT connect_sockdir=/xyz
+EXPECT connect_unix=/xyz/.s.monetdb.50000
+```
+
+**connect_tcp** behaves as if **host** is empty.
+
+```test
+SET host=/somewhere/else
+EXPECT connect_unix=/somewhere/else/.s.monetdb.50000
+EXPECT connect_tcp=localhost
+```
+
+```test
+SET host=/somewhere/else
+SET sock=/tmp/foo.sock
+EXPECT valid=false
+```
+
+*connect_scan** behavior does not change when setting **sockdir** through **host**.
+
+```test
+EXPECT database=
+EXPECT connect_scan=off
+EXPECT connect_tcp=localhost
+SET host=/somewhere/else
+EXPECT connect_scan=off
+EXPECT connect_tcp=localhost
+```
+
+```test
+SET database=demo
+EXPECT connect_scan=on
+EXPECT connect_tcp=localhost
+SET host=/somewhere/else
+EXPECT connect_scan=on
+EXPECT connect_tcp=localhost
+```
+
 
 ## Legacy URL's
 

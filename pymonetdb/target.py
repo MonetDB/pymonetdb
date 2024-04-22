@@ -33,7 +33,8 @@ KNOWN = set([
 )
 IGNORED = set(['hash', 'debug', 'logfile'])
 VIRTUAL = set([
-    'connect_scan', 'connect_unix', 'connect_tcp', 'connect_port',
+    'connect_scan', 'connect_sockdir',
+    'connect_unix', 'connect_tcp', 'connect_port',
     'connect_tls_verify', 'connect_certhash_digits',
     'connect_binary', 'connect_clientkey', 'connect_clientcert',
 ])
@@ -55,7 +56,7 @@ _DEFAULTS = dict(
     tableschema="",
     table="",
     sock="",
-    sockdir="/tmp",
+    sockdir="",
     sockprefix=".s.monetdb.",
     cert="",
     certhash="",
@@ -427,11 +428,24 @@ class Target:
     def connect_scan(self):
         if not self.database:
             return False
-        if self.sock or self.host or self.port != -1:
+        if self.sock:
+            return False
+        if self.host and not self.host.startswith('/'):
+            return False
+        if self.port != -1:
             return False
         if self.tls:
             return False
         return True
+
+    @property
+    def connect_sockdir(self):
+        if self.sockdir:
+            return self.sockdir
+        elif self.host and self.host.startswith('/'):
+            return self.host
+        else:
+            return "/tmp"
 
     @property
     def connect_unix(self):
@@ -439,15 +453,17 @@ class Target:
             return self.sock
         if self.tls:
             return ""
-        if self.host == "":
-            return f"{self.sockdir}/{self.sockprefix}{self.connect_port}"
+        if self.host == "" or self.host.startswith('/'):
+            return f"{self.connect_sockdir}/{self.sockprefix}{self.connect_port}"
         return ""
 
     @property
     def connect_tcp(self):
         if self.sock:
             return ""
-        return self.host or "localhost"
+        if self.host and not self.host.startswith('/'):
+            return self.host
+        return "localhost"
 
     @property
     def connect_port(self):
