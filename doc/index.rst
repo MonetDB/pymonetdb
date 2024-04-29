@@ -17,6 +17,7 @@ Besides the functionality required by DBAPI 2.0, pymonetdb also provides some
 MonetDB-specific functionality, in particular file transfers. These are detailed
 in the API section.
 
+This documentation covers pymonetdb version |version|.
 
 Contents
 ========

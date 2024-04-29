@@ -97,7 +97,8 @@ def connect(    # noqa C901
     binary : int
         enable binary result sets when possible if > 0 (default: 1)
     replysize : str
-        number of rows to retrieve immediately after query execution (default: 100, -1 means everything)
+        number of rows to retrieve immediately after query execution,
+        the rest will be fetched on demand (default: 100, -1 means everything)
     maxprefetch : str
         max. number of additional rows to fetch during Cursor.fetchone() or Cursor.fetchmany()
     sock : str
@@ -121,7 +122,7 @@ def connect(    # noqa C901
     timezone : int
         the time zone to use, in minutes east of UTC
     dangerous_tls_nocheck : str
-        comma-separated list of certificate checks to skip during connecting:
+        comma-separated list of TLS certificate checks to skip during connecting:
         'host': ignore host name mismatch,
         'cert': ignore bad certificate chain
     """
