@@ -26,7 +26,7 @@ from pymonetdb.filetransfer.uploads import Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 from pymonetdb.target import Target, looks_like_url
 
-__version__ = '1.8.1'
+__version__ = '1.8.2a0'
 
 apilevel = "2.0"
 threadsafety = 1
