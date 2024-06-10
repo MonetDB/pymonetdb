@@ -377,9 +377,10 @@ class Connection(object):
         my_socks = []
         strange_socks = []
         prefix = self.target.sockprefix
+        sockdir = self.target.connect_sockdir
         try:
-            logger.debug(f"scanning {self.target.sockdir!r} for Unix domain sockets")
-            entries = [e for e in os.scandir(self.target.sockdir) if e.name.startswith(prefix)]
+            logger.debug(f"scanning {sockdir!r} for Unix domain sockets")
+            entries = [e for e in os.scandir(sockdir) if e.name.startswith(prefix)]
         except OSError:
             entries = []
         for entry in entries:
