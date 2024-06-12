@@ -10,6 +10,10 @@ To set up a connection use pymonetdb.connect()
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
+# Set __version__ first, so the imported modules can access it.
+__version__ = '1.8.2a0'
+
+
 from typing import Optional
 from pymonetdb import sql
 from pymonetdb import mapi
@@ -26,7 +30,6 @@ from pymonetdb.filetransfer.uploads import Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler
 from pymonetdb.target import Target, looks_like_url
 
-__version__ = '1.8.2a0'
 
 apilevel = "2.0"
 threadsafety = 1
@@ -65,6 +68,9 @@ def connect(    # noqa C901
         clientcert: Optional[str] = None,
         schema: Optional[str] = None,
         timezone: Optional[int] = None,
+        client_info: Optional[bool] = None,
+        client_application: Optional[str] = None,
+        client_remark: Optional[str] = None,
         dangerous_tls_nocheck: Optional[str] = None,
 ):
     """Set up a connection to a MonetDB SQL database
@@ -121,6 +127,12 @@ def connect(    # noqa C901
         the schema to select after connecting
     timezone : int
         the time zone to use, in minutes east of UTC
+    client_info : bool
+        whether to send client details when connecting
+    client_application : str
+        application name to send in the  client details
+    client_remark : str
+        additional info to send in the  client details
     dangerous_tls_nocheck : str
         comma-separated list of TLS certificate checks to skip during connecting:
         'host': ignore host name mismatch,
@@ -171,6 +183,12 @@ def connect(    # noqa C901
         target.schema = schema
     if timezone is not None:
         target.timezone = timezone
+    if client_info is not None:
+        target.client_info = client_info
+    if client_application is not None:
+        target.client_application = client_application
+    if client_remark is not None:
+        target.client_remark = client_remark
     if dangerous_tls_nocheck is not None:
         target.dangerous_tls_nocheck = dangerous_tls_nocheck
 

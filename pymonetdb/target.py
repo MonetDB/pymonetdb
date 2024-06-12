@@ -29,8 +29,9 @@ KNOWN = set([
     'sock', 'sockdir', 'sockprefix', 'cert', 'certhash', 'clientkey', 'clientcert',
     'user', 'password', 'language', 'autocommit', 'schema', 'timezone',
     'binary', 'replysize', 'fetchsize', 'maxprefetch',
-    'connect_timeout']
-)
+    'connect_timeout',
+    'client_info', 'client_application', 'client_remark',
+])
 IGNORED = set(['hash', 'debug', 'logfile'])
 VIRTUAL = set([
     'connect_scan', 'connect_sockdir',
@@ -73,6 +74,9 @@ _DEFAULTS = dict(
     fetchsize=None,
     maxprefetch=None,
     connect_timeout=0,
+    client_info=True,
+    client_application="",
+    client_remark="",
     dangerous_tls_nocheck="",
 )
 
@@ -172,6 +176,9 @@ class Target:
                          'rows beyond this limit are retrieved on demand, <1 means unlimited')
     maxprefetch = urlparam('maxprefetch', 'integer', 'specific to pymonetdb')
     connect_timeout = urlparam('connect_timeout', 'integer', 'abort if connect takes longer than this')
+    client_info = urlparam('client_info', 'bool', 'whether to send client details when connecting')
+    client_application = urlparam('client_application', 'string', 'application name to send in client details')
+    client_remark = urlparam('client_remark', 'string', 'application name to send in client details')
     dangerous_tls_nocheck = urlparam(
         'dangerous_tls_nocheck', 'bool',
         'comma separated certificate checks to skip, host: do not verify host, cert: do not verify certificate chain')

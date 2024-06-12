@@ -9,18 +9,22 @@ This is the python implementation of the mapi protocol.
 
 
 import os
+import platform
 import re
 import socket
 import logging
 import struct
 import hashlib
 import ssl
+import sys
 import typing
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
+# import pymonetdb
 from pymonetdb.exceptions import OperationalError, DatabaseError, \
     ProgrammingError, NotSupportedError, IntegrityError
 from pymonetdb.target import Target
+from pymonetdb import __version__
 
 if typing.TYPE_CHECKING:
     from pymonetdb.filetransfer.downloads import Downloader
@@ -98,6 +102,7 @@ class Connection(object):
     is_raw_control: Optional[bool] = None
     handshake_options_callback: Optional[Callable[[int], List['HandshakeOption']]] = None
     remaining_handshake_options: List['HandshakeOption'] = []
+    clientinfo: Optional[Dict[str, Optional[str]]] = None
     uploader: Optional['Uploader'] = None
     downloader: Optional['Downloader'] = None
     stashed_buffer: Optional[bytearray] = None
@@ -153,6 +158,18 @@ class Connection(object):
         # We have a working connection now. Take care of the options we couldn't
         # handle during the handshake
         self.state = STATE_READY
+
+        if self.clientinfo:
+            info = "".join(
+                f"{k}={v or ''}\n"
+                for k, v in self.clientinfo.items()
+                if v is None or '\n' not in v
+            )
+            if info:
+                try:
+                    self.cmd(f"Xclientinfo {info}")
+                except OperationalError as e:
+                    logger.warn(f"Server rejected clientinfo: {e}")
 
         for opt in self.remaining_handshake_options:
             opt.fallback(opt.value)
@@ -577,6 +594,21 @@ class Connection(object):
             part = challenges[7]
             assert part.startswith('BINARY=')
             self.binexport_level = int(part[7:])
+
+        if len(challenges) >= 10:
+            part = challenges[9]
+            assert part == "CLIENTINFO"
+            if self.target.client_info:
+                application_name = self.target.client_application
+                if not application_name and sys.argv:
+                    application_name = os.path.basename(sys.argv[0])
+                self.clientinfo = dict(
+                    ClientHostName=platform.node() or None,
+                    ApplicationName=application_name or None,
+                    ClientLibrary=f"pymonetdb {__version__}",
+                    ClientRemark=self.target.client_remark or None,
+                    ClientPid=str(os.getpid()),
+                )
 
         callback = self.handshake_options_callback
         handshake_options = callback(self.binexport_level) if callback else []

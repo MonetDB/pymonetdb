@@ -2,6 +2,12 @@
 
 changes since 1.8.1
 
+* Tell the server more about the connecting client: hostname,
+  application name, pymonetdb version, process id and an optional remark.
+  This information will show up in the `sys.sessions` table.
+  Configurable with the new settings `client_info`, `client_application`
+  and `client_remark`.
+
 
 # 1.8.1
 
