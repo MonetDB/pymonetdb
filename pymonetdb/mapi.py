@@ -603,7 +603,7 @@ class Connection(object):
                 if not application_name and sys.argv:
                     application_name = os.path.basename(sys.argv[0])
                 self.clientinfo = dict(
-                    ClientHostName=platform.node() or None,
+                    ClientHostname=platform.node() or None,
                     ApplicationName=application_name or None,
                     ClientLibrary=f"pymonetdb {__version__}",
                     ClientRemark=self.target.client_remark or None,
