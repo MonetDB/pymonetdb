@@ -50,7 +50,7 @@ class TestClientInfo(TestCase):
         self.assertGreater(d['clientpid'], 0)
         self.assertIsNone(d['remark'])
 
-    def test_suppressed_clientinfo(self):
+    def test_suppressed_default_clientinfo(self):
         d = self.get_clientinfo(client_info=False)
         self.assertEqual(d['language'], 'sql')
         self.assertIsNotNone(d['peer'])
@@ -70,4 +70,14 @@ class TestClientInfo(TestCase):
         d = self.get_clientinfo(client_remark='banana')
         self.assertEqual(d['remark'], 'banana')
         d = self.get_clientinfo(client_info=False, client_remark='banana')
+        self.assertIsNone(d['remark'])
+
+    def test_suppressed_configured_clientinfo(self):
+        d = self.get_clientinfo(client_info=False, client_application='a', client_remark='b')
+        self.assertEqual(d['language'], 'sql')
+        self.assertIsNotNone(d['peer'])
+        self.assertIsNone(d['hostname'])
+        self.assertIsNone(d['application'])
+        self.assertIsNone(d['client'])
+        self.assertIsNone(d['clientpid'])
         self.assertIsNone(d['remark'])
