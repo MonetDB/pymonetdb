@@ -64,6 +64,7 @@ TEST_COLUMNS = dict(
     bigint_col=("CAST(value AS bigint)", lambda n: n),
     # hugeint_col=("CAST(value AS hugeint)", lambda n: n),    text_col=("'v' || value", lambda n: f"v{n}"),
     text_col=("'v' || value", lambda n: f"v{n}"),
+    varchar_col=("CAST('v' || value AS VARCHAR(10))", lambda n: f"v{n}"),
     bool_col=("(value % 2 = 0)", lambda n: (n % 2) == 0),
     decimal_col=decimal_column(5, 2),
     real_col=("CAST(value AS REAL) / 2", lambda x: x / 2),
@@ -644,6 +645,27 @@ class BaseTestCases(TestCase):
         self.do_query(250, ['months_col'])
         self.do_fetchall()
         self.verifyBinary()
+
+    def do_test_wide(self, ncols):
+        i = 0
+        cols = []
+        while len(cols) < ncols:
+            cols += [
+                (f'int{i}', TEST_COLUMNS['int_col']),
+                (f'text{i}', TEST_COLUMNS['varchar_col']),
+                (f'dbl{i}', TEST_COLUMNS['double_col']),
+            ]
+            i += 1
+        coldict = dict(cols[:ncols])
+        self.do_query(10, coldict)
+        self.do_fetchall()
+        self.verifyBinary()
+
+    def test_wide300(self):
+        self.do_test_wide(300)
+
+    def test_wide3000(self):
+        self.do_test_wide(3000)
 
 
 class TestResultSet(BaseTestCases):
