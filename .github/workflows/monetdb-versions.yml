@@ -20,6 +20,7 @@ jobs:
           - Sep2022
           - Jun2023
           - Dec2023
+          - Aug2024
           - default
     env:
       TSTHOSTNAME: "monetdb"
