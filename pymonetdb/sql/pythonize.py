@@ -149,6 +149,7 @@ mapping = {
     types.CHAR: strip,
     types.VARCHAR: strip,
     types.CLOB: strip,
+    types.STR: strip,
     types.BLOB: py_bytes,
     types.TINYINT: int,
     types.SMALLINT: int,

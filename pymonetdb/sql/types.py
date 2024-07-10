@@ -13,6 +13,7 @@ CHAR = 'char'                      # (L) character string with length L
 VARCHAR = 'varchar'                # (L) string with atmost length L
 CLOB = 'clob'                      # string with no limit on size
 BLOB = 'blob'                      # binary data
+STR = 'str'                        # character string with unspecified length
 
 TINYINT = 'tinyint'                # 8 bit integer
 SMALLINT = 'smallint'              # 16 bit integer
