@@ -613,8 +613,8 @@ class Connection(object):
         callback = self.handshake_options_callback
         handshake_options = callback(self.binexport_level) if callback else []
 
+        response += "FILETRANS:"
         if len(challenges) >= 7:
-            response += "FILETRANS:"
             options_level = 0
             for part in challenges[6].split(","):
                 if part.startswith("sql="):
