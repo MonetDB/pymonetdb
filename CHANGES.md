@@ -1,6 +1,6 @@
 # unreleased
 
-changes since 1.8.1
+new features since 1.8.1
 
 * Tell the server more about the connecting client: hostname,
   application name, pymonetdb version, process id and an optional remark.
@@ -8,6 +8,15 @@ changes since 1.8.1
   Configurable with the new settings `client_info`, `client_application`
   and `client_remark`.
 
+bug fixes
+
+* Use the right directory when scanning for Unix Domain sockets
+
+* Announce FILETRANS capability even with older MonetDB versions.
+  The announcement was unnecessarily suppressed.
+
+* Support result set format of PREPARE statements on older MonetDB
+  versions.
 
 # 1.8.1
 
