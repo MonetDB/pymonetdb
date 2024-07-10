@@ -28,7 +28,9 @@ from pymonetdb.exceptions import OperationalError, ProgrammingError
 from pymonetdb import Download, Downloader, Upload, Uploader
 from pymonetdb.filetransfer.directoryhandler import SafeDirectoryHandler, lookup_compression_algorithm
 from pymonetdb.filetransfer.uploads import NormalizeCrLf
-from tests.util import test_have_lz4, test_args, test_full
+from tests.util import have_monetdb_version_at_least, test_have_lz4, test_args, test_full
+
+SERVER_HAS_COPY_BINARY = have_monetdb_version_at_least(11, 41, 0)
 
 
 class MyException(Exception):
@@ -169,11 +171,11 @@ class Common:
 
     defaultencoding = None
 
-    def file(self, filename):
+    def file(self, *components):
         """Resolve the given relative path within our temp directory."""
         if not self.tmpdir:
             self.tmpdir = Path(mkdtemp(prefix="filetrans_"))
-        return self.tmpdir.joinpath(filename)
+        return self.tmpdir.joinpath(*components)
 
     def open(self, filename, mode, **kwargs):
         """Open the given filename, resolved within our temp directory"""
@@ -204,10 +206,15 @@ class Common:
     def commonTearDown(self):
         deadman.cancel()
         try:
-            self.cursor.close()
-            self.conn.rollback()
-            self.conn.close()
-        except MonetError:
+            if self.cursor:
+                self.cursor.close()
+        except (MonetError, IOError):
+            pass
+        try:
+            if self.conn:
+                self.conn.rollback()
+                self.conn.close()
+        except (MonetError, IOError):
             pass
 
     def fill_foo(self, nrows):
@@ -310,6 +317,15 @@ class TestFileTransfer(TestCase, Common):
         with self.assertRaises(OperationalError):
             self.execute("COPY (SELECT * FROM foo) INTO 'foo' ON CLIENT")
         # connection still alive
+        # note: older server versions close the connection if this happens, not sure exactly when this was fixed
+        if not have_monetdb_version_at_least(11, 41, 0):
+            try:
+                self.conn.close()
+            except (MonetError, BrokenPipeError):
+                pass
+            self.conn = None
+            self.cursor = None
+            return
         self.conn.rollback()
         self.execute("SELECT 42")
         self.expect1(42)
@@ -454,6 +470,7 @@ class TestFileTransfer(TestCase, Common):
         with self.assertRaisesRegex(ProgrammingError, "ot connected"):
             self.execute("SELECT COUNT(*) FROM foo")
 
+    @skipUnless(SERVER_HAS_COPY_BINARY, "server does not support COPY BIG ENDIAN BINARY")
     def test_binary_upload(self):
         items = [1, 2, 3, 0x1234_5678]
 
@@ -512,32 +529,43 @@ class TestSafeDirectoryHandler(TestCase, Common):
                 self.execute("SELECT MAX(i) FROM foo")
                 self.expect1(30)
 
-    def test_download_handler_security(self):
+    def do_test_download_handler_security(self, path, valid: bool):
+        # fill the table
         self.execute("INSERT INTO foo SELECT * FROM sys.generate_series(0, 10)")
-        outside = self.file('')
+
+        # configure the handler for a directory INSIDE our scratch directory
         inside = self.file('inside')
         inside.mkdir()
-        #
         handler = SafeDirectoryHandler(inside)
         self.conn.set_downloader(handler)
-        #
-        testcases = [
-            ('foo.csv', True),
-            ('./foo.csv', True),
-            (inside.joinpath('foo.csv'), True),
-            ('../foo.csv', False),
-            (outside.joinpath('foo.csv'), False),
-        ]
-        for path, valid in testcases:
-            with self.subTest(dir=str(inside), path=str(path), expect_valid=valid):
-                self.conn.rollback()
-                path = str(path)
-                if valid:
-                    self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
-                else:
-                    with self.assertRaises(OperationalError):
-                        self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
-                    continue
+
+        # try to write to the path
+        self.execute("COPY (SELECT * FROM foo) INTO %s ON CLIENT", [path])
+
+    def test_download_handler_security1(self):
+        self.do_test_download_handler_security('foo.csv', True)
+        path = self.file('inside', 'foo.csv')
+        self.assertTrue(os.path.exists(path))
+
+    def test_download_handler_security2(self):
+        # ./ works
+        self.do_test_download_handler_security('./foo.csv', True)
+        path = self.file('inside', 'foo.csv')
+        self.assertTrue(os.path.exists(path))
+
+    def test_download_handler_security3(self):
+        # ../ does not work
+        with self.assertRaisesRegex(OperationalError, "Forbidden"):
+            self.do_test_download_handler_security('../foo.csv', True)
+        path = self.file('foo.csv')
+        self.assertFalse(os.path.exists(path))
+
+    def test_download_handler_security4(self):
+        # absolute path doesn't work either
+        path = str(self.file('foo.csv'))
+        with self.assertRaisesRegex(OperationalError, "Forbidden"):
+            self.do_test_download_handler_security(path, True)
+        self.assertFalse(os.path.exists(path))
 
     def get_testdata_name(self,
                           enc_name: str, newline: str,

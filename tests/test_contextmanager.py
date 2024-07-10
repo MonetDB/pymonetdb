@@ -54,13 +54,13 @@ class TestContextManager(TestCase):
         y = x.cursor()
         self.assertIsNotNone(x.mapi)
         self.assertIsNotNone(y.connection)
-        with self.assertRaisesRegex(OperationalError, expected_regex="Unexpected symbol"):
+        with self.assertRaisesRegex(OperationalError, expected_regex="syntax error"):
             with x as conn:
                 # suppress warning about unused 'conn'
                 if conn:
                     pass
                 with y as cursor:
-                    cursor.execute("SELECT 42zzz")   # This fails
+                    cursor.execute("SELECT SELECT SELECT")   # This fails
                     self.fail("the statement above should have raised an exception")
         # check cursor and conn have been closed
         self.assertIsNone(y.connection)

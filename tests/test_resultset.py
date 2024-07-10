@@ -632,11 +632,15 @@ class BaseTestCases(TestCase):
         self.assertIsNone(x.tzinfo)
 
     def test_interval_second(self):
-        self.do_query(250, ['seconds_col'])
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to newer MonetDB versions")
+        self.do_query(3, ['seconds_col'])
         self.do_fetchall()
         self.verifyBinary()
 
     def test_interval_day(self):
+        if not self.server_has_new_time_conversion():
+            raise SkipTest("test only applies to newer MonetDB versions")
         self.do_query(250, ['days_col'])
         self.do_fetchall()
         self.verifyBinary()
