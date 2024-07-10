@@ -16,12 +16,13 @@ jobs:
       matrix:
         monetdbversion:
           # at some point we'll have to start removing some of these..
-          - Jan2022
-          - Sep2022
-          - Jun2023
-          - Dec2023
-          - Aug2024
           - default
+          - Aug2024
+          - Dec2023
+          - Jun2023
+          - Sep2022
+          - Jan2022
+          - Jun2020
     env:
       TSTHOSTNAME: "monetdb"
       TSTDB: "monetdb"
