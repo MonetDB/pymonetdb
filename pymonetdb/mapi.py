@@ -193,11 +193,6 @@ class Connection(object):
                 self.try_connect()
                 assert self.socket is not None
 
-                if self.target.connect_timeout:
-                    # The new socket's timeout was overridden during the
-                    # connect. Put it back.
-                    self.socket.settimeout(socket.getdefaulttimeout())
-
                 # Once connected, deal with the file handle passing protocol,
                 # AND with TLS. Note that these are necessarily exclusive, we
                 # can't do TLS over unix domain sockets.
@@ -228,17 +223,32 @@ class Connection(object):
 
     def try_connect(self):  # noqa C901
         err = None
-        timeout = self.target.connect_timeout
+
+        default_timeout = socket.getdefaulttimeout()
+        if default_timeout == 0:
+            raise ProgrammingError('Global socket timeout set to non-blocking, pymonetdb does not support that')
+        t = self.target.connect_timeout
+        if t == -1:
+            # This is the only negative value allowed by Target.validate().
+            # It means 'leave it alone'
+            set_timeout = False
+        else:
+            set_timeout = True
+            # Our settings and and socket.settimeout() assign different meanings to
+            # value '0'
+            custom_timeout = None if t == 0 else t
 
         sock = self.target.connect_unix
         if sock and hasattr(socket, 'AF_UNIX'):
             s = socket.socket(socket.AF_UNIX)
-            if timeout:
-                s.settimeout(float(timeout))
             try:
+                if set_timeout:
+                    s.settimeout(custom_timeout)
                 s.connect(sock)
                 # it worked!
                 logger.debug(f"Connected to {sock}")
+                if set_timeout:
+                    s.settimeout(default_timeout)
                 self.socket = s
                 self.is_tcp = False
                 return
@@ -252,14 +262,16 @@ class Connection(object):
             addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
             for fam, typ, proto, cname, addr in addrs:
                 s = socket.socket(fam, typ, proto)
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                if timeout:
-                    s.settimeout(float(timeout))
                 try:
+                    if set_timeout:
+                        s.settimeout(custom_timeout)
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     s.connect(addr)
                     # it worked!
                     logger.debug(f"Connected to {addr[0]} port {addr[1]}")
+                    if set_timeout:
+                        s.settimeout(default_timeout)
                     self.socket = s
                     self.is_tcp = True
                     return

@@ -99,7 +99,9 @@ def connect(    # noqa C901
     user : str
         alias for username
     connect_timeout : float
-        socket timeout when connecting, in seconds
+        socket timeout when connecting, in seconds, 0=block indefinitely,
+        -1=system default which usually also is 'block indefinitely'
+        (default: -1)
     binary : int
         enable binary result sets when possible if > 0 (default: 1)
     replysize : str

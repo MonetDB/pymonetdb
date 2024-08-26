@@ -1,6 +1,6 @@
 # unreleased
 
-new features since 1.8.1
+New features since 1.8.1
 
 * Tell the server more about the connecting client: hostname,
   application name, pymonetdb version, process id and an optional remark.
@@ -8,7 +8,7 @@ new features since 1.8.1
   Configurable with the new settings `client_info`, `client_application`
   and `client_remark`.
 
-bug fixes
+Bug fixes
 
 * Use the right directory when scanning for Unix Domain sockets
 
@@ -17,6 +17,10 @@ bug fixes
 
 * Support result set format of PREPARE statements on older MonetDB
   versions.
+
+* Allow connect_timeout=-1 again, the way it was before 1.8.0.
+  However, avoid setting the socket to non-blocking mode.
+  See [Issue #127](https://github.com/MonetDB/pymonetdb/issues/127).
 
 # 1.8.1
 

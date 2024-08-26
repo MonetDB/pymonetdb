@@ -73,7 +73,7 @@ _DEFAULTS = dict(
     replysize=None,
     fetchsize=None,
     maxprefetch=None,
-    connect_timeout=0,
+    connect_timeout=-1,
     client_info=True,
     client_application="",
     client_remark="",
@@ -104,6 +104,8 @@ class urlparam:
             self.parser = int
         elif typ == 'bool':
             self.parser = parse_bool
+        elif typ == 'float':
+            self.parser = float
         else:
             raise ValueError(f"invalid type '{typ}'")
         self.__doc__ = doc
@@ -175,7 +177,8 @@ class Target:
     replysize = urlparam('replysize', 'integer',
                          'rows beyond this limit are retrieved on demand, <1 means unlimited')
     maxprefetch = urlparam('maxprefetch', 'integer', 'specific to pymonetdb')
-    connect_timeout = urlparam('connect_timeout', 'integer', 'abort if connect takes longer than this')
+    connect_timeout = urlparam('connect_timeout', 'float',
+                               'abort if connect takes longer than this; 0=block indefinitely; -1=system default')
     client_info = urlparam('client_info', 'bool', 'whether to send client details when connecting')
     client_application = urlparam('client_application', 'string', 'application name to send in client details')
     client_remark = urlparam('client_remark', 'string', 'application name to send in client details')
@@ -430,6 +433,10 @@ class Target:
         # 9. If **clientcert** is set, **clientkey** must also be set.
         if self.clientcert and not self.clientkey:
             raise ValueError("clientcert can only be used together with clientkey")
+
+        # 10. pymonetdb-specific
+        if self.connect_timeout < 0 and self.connect_timeout != -1:
+            raise ValueError("connection_timeout must either be >= 0 or -1")
 
     @property
     def connect_scan(self):
