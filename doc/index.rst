@@ -28,6 +28,7 @@ Contents
    introduction
    examples
    filetransfers
+   prepared_statements
    batchsize
    api
    development
