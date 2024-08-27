@@ -160,16 +160,26 @@ class Connection(object):
         self.state = STATE_READY
 
         if self.clientinfo:
-            info = "".join(
-                f"{k}={v or ''}\n"
-                for k, v in self.clientinfo.items()
-                if v is None or '\n' not in v
-            )
-            if info:
+            lang = self.target.language
+            if lang == 'sql':
+                cmd = "Xclientinfo " + "".join(
+                    f"{k}={v or ''}\n"
+                    for k, v in self.clientinfo.items()
+                    if v is None or '\n' not in v
+                )
+            elif lang == 'mal' or lang == 'msql':
+                cmd = "\n".join(
+                    f'clients.setinfo("{mal_escape(k)}", "{mal_escape(v or "")}");'
+                    for k, v in self.clientinfo.items()
+                    if v is None or '\n' not in v
+                )
+            else:
+                cmd = None
+            if cmd:
                 try:
-                    self.cmd(f"Xclientinfo {info}")
+                    self.cmd(cmd)
                 except OperationalError as e:
-                    logger.warn(f"Server rejected clientinfo: {e}")
+                    logger.warning(f"Server rejected clientinfo: {e}")
 
         for opt in self.remaining_handshake_options:
             opt.fallback(opt.value)
@@ -796,6 +806,11 @@ class Connection(object):
     def set_downloader(self, downloader: "Downloader"):
         """Register the given Downloader, or None to deregister"""
         self.downloader = downloader
+
+
+def mal_escape(s):
+    mapping = {'\n': r'\n', '\t': r'\t', '"': r'\"', '\\': r'\\'}
+    return "".join(mapping.get(c, c) for c in s)
 
 
 # When all supported Python versions support it we can enable @dataclass here.
