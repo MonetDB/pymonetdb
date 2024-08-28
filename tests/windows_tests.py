@@ -79,7 +79,7 @@ try:
         print("The encoding for 'w' files is", f.encoding)
     with open(os.path.join(farm_dir, 'w.txt'), 'wt') as f:
         print("The encoding for 'wt files is", f.encoding)
-    ret = pytest.main(args=['-k', 'not test_control'])
+    ret = pytest.main(args=['-v', '-k', 'not test_control'])
     exit(ret)
 finally:
     if proc.returncode is None:

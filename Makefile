@@ -21,14 +21,14 @@ venv/installed: venv/
 setup: venv/installed
 
 test: setup
-	venv/bin/pytest
+	venv/bin/pytest -v
 
 testwheel: wheel
 	rm -rf testvenv
 	python3 -m venv testvenv
 	./testvenv/bin/pip install dist/*.whl
 	./testvenv/bin/pip install pytest
-	cd tests && ../testvenv/bin/pytest
+	cd tests && ../testvenv/bin/pytest -v
 
 clean: venv/
 	venv/bin/python3 setup.py clean
