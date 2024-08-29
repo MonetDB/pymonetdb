@@ -3,6 +3,9 @@ on:
   push:
     branches: [ master, monetdbs ]
   pull_request:
+env:
+  # connections to this address should hang so we can test connect_timeout
+  TSTDEADADDRESS: "10.0.0.0:9999"
 
 jobs:
   linux:
