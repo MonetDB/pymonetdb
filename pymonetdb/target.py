@@ -281,6 +281,8 @@ class Target:
             if len(parts) > 3:
                 self.table = strict_percent_decode('table name', parts[3])
 
+        if not parsed.query:
+            return
         for key, value in parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True):
             if not key:
                 raise ValueError("empty key is not allowed")
