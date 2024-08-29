@@ -3,7 +3,7 @@ Prepared Statements
 
 MonetDB offers a PREPARE_ statement, which precompiles a SQL statement for
 later execution. If the statement is going to be executed frequently,
-precompiling will safe time.
+precompiling will save time.
 
 The PREPARE statement yields a numeric prepared-sql-id which can then be passed
 to the EXECUTE statement to execute it. For example,
@@ -13,7 +13,7 @@ to the EXECUTE statement to execute it. For example,
 > sql>PREPARE SELECT ? + 42;
 > execute prepared statement using: EXEC 0(...)
 > ...
-> sql>execute 0(100);
+> sql>EXECUTE 0(100);
 > +------+
 > | %2   |
 > +======+

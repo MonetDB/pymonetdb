@@ -79,14 +79,13 @@ class ConnectTimeoutTests(unittest.TestCase):
         url = f'{scheme}://{self.addr}/'
         if socket_timeout is not None:
             url += f'?connect_timeout={socket_timeout}'
-        cmd = [sys.executable, '-m', 'tests.connect_timeout_helper', url]
+        cmd = [sys.executable, '-m', 'tests.timeout_helper', url]
         if global_timeout is not None:
             cmd += ['-g', str(global_timeout)]
         if expected_exception:
             cmd += ['-e', expected_exception]
         logging.info(cmd)
 
-        print(f'running [kill after {kill_timeout}] {cmd!r}', file=sys.stderr)
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,

@@ -4,8 +4,11 @@
 #
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
-# This file is intended to be run as
-#      .../path/to/python3 -m tests.connect_timeout_helper URL GLOBAL_TIMEOUT EXPECTED_EXCEPTION...
+# This file is used by test_connect_timeout.py. It should be run as
+#      .../path/to/python3 -m tests.timeout_helper
+#           URL
+#           [-g GLOBAL_TIMEOUT]
+#           [-e EXPECTED_EXCEPTION...]
 
 #
 # It will try to connect to the monetdb url passed as a parameter.

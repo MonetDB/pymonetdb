@@ -2,24 +2,25 @@
 
 New features since 1.8.1
 
-* Tell the server more about the connecting client: hostname,
-  application name, pymonetdb version, process id and an optional remark.
-  This information will show up in the `sys.sessions` table.
-  Configurable with the new settings `client_info`, `client_application`
-  and `client_remark`.
+* CLIENTINFO: At connect time, tell the server more about the connecting client:
+  hostname, application name, pymonetdb version, process id and an optional
+  remark. This information will show up in the `sys.sessions` table.
+  Configurable with the new settings `client_info`, `client_application` and
+  `client_remark`.
 
 Bug fixes
 
-* Use the right directory when scanning for Unix Domain sockets
+* Use the right directory when scanning for Unix Domain sockets.
 
-* Announce FILETRANS capability even with older MonetDB versions.
-  The announcement was unnecessarily suppressed.
+* Minor fixes to make the test suite pass with MonetDB Jun2020:
 
-* Support result set format of PREPARE statements on older MonetDB
-  versions.
+  * Always announce FILETRANS capability, allowing it to work with older MonetDB
+    versions.
 
-* Allow connect_timeout=-1 again, the way it was before 1.8.0.
-  However, avoid setting the socket to non-blocking mode.
+  * Support result set format of PREPARE statements on older MonetDB versions.
+
+* Restore connect_timeout=-1 to how it was before 1.8.0. However, avoid setting
+  the socket to non-blocking mode. 
   See [Issue #127](https://github.com/MonetDB/pymonetdb/issues/127).
 
 # 1.8.1

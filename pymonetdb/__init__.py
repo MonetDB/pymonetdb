@@ -132,9 +132,9 @@ def connect(    # noqa C901
     client_info : bool
         whether to send client details when connecting
     client_application : str
-        application name to send in the  client details
+        application name to send in the client details
     client_remark : str
-        additional info to send in the  client details
+        additional info to send in the client details
     dangerous_tls_nocheck : str
         comma-separated list of TLS certificate checks to skip during connecting:
         'host': ignore host name mismatch,
