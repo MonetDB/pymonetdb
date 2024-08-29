@@ -1,5 +1,12 @@
 # unreleased
 
+New features since 1.8.2
+
+Bug fixes
+
+
+# 1.8.2
+
 New features since 1.8.1
 
 * CLIENTINFO: At connect time, tell the server more about the connecting client:
@@ -22,6 +29,7 @@ Bug fixes
 * Restore connect_timeout=-1 to how it was before 1.8.0. However, avoid setting
   the socket to non-blocking mode. 
   See [Issue #127](https://github.com/MonetDB/pymonetdb/issues/127).
+
 
 # 1.8.1
 
