@@ -290,7 +290,7 @@ class Target:
             value = strict_percent_decode(f"value of {key!r}", value)
             if key in CORE:
                 raise ValueError(
-                    "key {key!r} is not allowed in the query parameters")
+                    f"key {key!r} is not allowed in the query parameters")
             self.set(key, value)
 
     def _parse_mapi_monetdb_url(self, url):    # noqa C901
