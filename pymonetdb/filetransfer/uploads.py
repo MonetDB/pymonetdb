@@ -161,8 +161,10 @@ class Upload:
         if self.error:
             return
         if self.twriter:
+            self.twriter.flush()
             self.twriter.close()
         if self.writer:
+            self.writer.flush()
             self.writer.close()
         if self.mapi:
             server_wants_more = False
@@ -194,6 +196,9 @@ class UploadIO(RawIOBase):
             return n
         self.upload._send_data(b)
         return n
+
+    def flush(self):
+        pass
 
 
 class NormalizeCrLf(BufferedIOBase):

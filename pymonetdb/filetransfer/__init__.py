@@ -51,6 +51,7 @@ def handle_upload(mapi: "Connection", filename: str, text_mode: bool, offset: in
     upload = Upload(mapi)
     try:
         mapi.uploader.handle_upload(upload, filename, text_mode, skip_amount)
+        upload.close()
     except Exception as e:
         # We must make sure the server doesn't think this is a succesful upload.
         # The protocol does not allow us to flag an error after the upload has started,
@@ -59,7 +60,7 @@ def handle_upload(mapi: "Connection", filename: str, text_mode: bool, offset: in
         mapi._sabotage()
         raise e
     finally:
-        upload.close()
+        upload.cancelled = True
     if not upload.has_been_used():
         raise ProgrammingError("Upload handler didn't do anything")
 
