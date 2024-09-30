@@ -33,7 +33,7 @@ class Upload:
     """
 
     mapi: Optional["MapiConnection"]
-    error = False
+    error: Optional[str] = None
     cancelled = False
     bytes_sent = 0
     chunk_size = 1024 * 1024
@@ -46,8 +46,8 @@ class Upload:
         self.mapi = mapi
 
     def _check_usable(self):
-        if self.error:
-            raise ProgrammingError("Upload handle has had an error, cannot be used anymore")
+        if self.error is not None:
+            raise ProgrammingError(f"Upload handle has had an error, cannot be used anymore ({self.error})")
         if not self.mapi:
             raise ProgrammingError("Upload handle has been closed, cannot be used anymore")
 
@@ -57,7 +57,7 @@ class Upload:
 
     def has_been_used(self) -> bool:
         """Returns true if .send_error(), .text_writer() or .binary_writer() have been called."""
-        return self.error or (self.rawio is not None)
+        return (self.error is not None) or (self.rawio is not None)
 
     def set_chunk_size(self, size: int):
         """
@@ -77,7 +77,7 @@ class Upload:
             raise ProgrammingError("Cannot send error after data has been sent")
         if not message.endswith("\n"):
             message += "\n"
-        self.error = True
+        self.error = message
         assert self.mapi
         self.mapi._putblock(message)
         self.mapi = None
@@ -158,7 +158,7 @@ class Upload:
         """
         End the upload succesfully
         """
-        if self.error:
+        if self.error is not None:
             return
         if self.twriter:
             self.twriter.flush()
