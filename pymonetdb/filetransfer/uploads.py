@@ -213,7 +213,7 @@ class NormalizeCrLf(BufferedIOBase):
 
     def write(self, data) -> int:
         if not self.inner:
-            return
+            return 0
         if not data:
             return 0
 
