@@ -11,10 +11,10 @@ jobs:
   mtest:
     runs-on: ubuntu-20.04
     env:
-      SRC_URL: "https://www.monetdb.org/downloads/sources/Dec2023-SP2/MonetDB-11.49.7.tar.xz"
-      SRC_SUM: "94db6d9c8627cbac793663db20368adb2db62fc2675bb8d20695a269305aaa10"
-      TESTS_URL: "https://www.monetdb.org/downloads/sources/Dec2023-SP2/MonetDB-tests-11.49.7.tar.xz"
-      TESTS_SUM: "a0cc0bce256f9d8d38e91260c698bdf526f8f9902c891e7f2691d576e339af40"
+      SRC_URL: "https://www.monetdb.org/downloads/sources/Aug2024/MonetDB-11.51.3.tar.xz"
+      SRC_SUM: "2f4499349e7917e12ec5d2d33d477bb50b4a302485cfcce1ca20129c7e791264"
+      TESTS_URL: "https://www.monetdb.org/downloads/sources/Aug2024/MonetDB-tests-11.51.3.tar.xz"
+      TESTS_SUM: "a770b6b8ece0d1f363356d41d358ce143593d5b54382134687e3d4dd9d58f821"
       DEBIAN_FRONTEND: noninteractive
       TZ: Etc/UTC
     steps:
@@ -24,6 +24,9 @@ jobs:
 
       - name: Check out
         uses: actions/checkout@v4
+
+      - name: Which Python do we have today?
+        run: python3 --version
 
       - name: Create venv with pymonetdb
         run: python3 -m venv venv &&  ./venv/bin/pip install setuptools wheel && ./venv/bin/pip install .
@@ -39,6 +42,6 @@ jobs:
         run: . ./venv/bin/activate && cmake -GNinja -S monetdb -B BUILD --install-prefix="$PWD/INST" -DCMAKE_INSTALL_MESSAGE=NEVER && echo && cmake --build BUILD --target install
 
       - name: Test MonetDB
-        run: PATH="$PWD/INST/bin:$PATH"; . ./venv/bin/activate && cd monetdb && time Mtest.py -v sql/test/BugTracker-2014
+        run: PATH="$PWD/INST/bin:$PATH"; . ./venv/bin/activate && cd monetdb && time Mtest.py -v
 
 
