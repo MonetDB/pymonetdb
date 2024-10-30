@@ -29,7 +29,7 @@ jobs:
         run: python3 --version
 
       - name: Create venv with pymonetdb
-        run: python3 -m venv venv &&  ./venv/bin/pip install setuptools wheel && ./venv/bin/pip install .
+        run: python3 -m venv venv &&  ./venv/bin/pip install setuptools wheel cryptography && ./venv/bin/pip install .
 
       - name: Download MonetDB sources
         run: |
