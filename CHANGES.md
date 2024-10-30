@@ -5,6 +5,17 @@ New features since 1.8.2
 Bug fixes
 
 
+# 1.8.3
+
+Bug fixes only.
+
+* Avoid double close of filetransfer `Upload` object.
+  This was always an error but with Python 3.13 it started to cause warnings.
+
+* Fix error message when 'core' attributes like 'host' and 'port' are used
+  as URL query parameters
+
+
 # 1.8.2
 
 New features since 1.8.1
