@@ -212,6 +212,8 @@ class NormalizeCrLf(BufferedIOBase):
         return True
 
     def write(self, data) -> int:
+        if not self.inner:
+            return
         if not data:
             return 0
 
@@ -239,13 +241,19 @@ class NormalizeCrLf(BufferedIOBase):
         return len(data)
 
     def flush(self):
+        if not self.inner:
+            return
         return self.inner.flush()
 
     def close(self):
+        if not self.inner:
+            return
         if self.pending:
             self.inner.write(b"\r")
             self.pending = False
-        return self.inner.close()
+        inner = self.inner
+        self.inner = None
+        return inner.close()
 
 
 class Uploader(ABC):
