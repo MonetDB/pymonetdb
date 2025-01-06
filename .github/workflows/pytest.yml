@@ -98,7 +98,7 @@ jobs:
           type ${{ runner.temp }}\dbfarm\errlog
 
   macos:
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - name: Checkout
         uses: actions/checkout@v4
