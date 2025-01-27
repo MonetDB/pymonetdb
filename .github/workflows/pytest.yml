@@ -8,110 +8,52 @@ env:
   TSTDEADADDRESS: "10.0.0.0:9999"
 
 jobs:
-  linux:
-    runs-on: ubuntu-20.04
-    env:
-      DBFARM: /var/lib/monetdb
+
+  pytest:
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: [ "3.7", "3.13" ]  # oldest and latest supported
+        os: [ ubuntu-20.04, windows-latest, macos-13 ]  # oldest available but old windows runners are scarse
+        include:
+          - python-version: "3.8"
+            os: ubuntu-20.04
+          - python-version: "3.9"
+            os: ubuntu-20.04
+          - python-version: "3.10"
+            os: ubuntu-20.04
+          - python-version: "3.11"
+            os: ubuntu-20.04
+          - python-version: "3.12"
+            os: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Debian packages
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y software-properties-common curl make
-          curl https://www.monetdb.org/downloads/MonetDB-GPG-KEY | sudo apt-key add -
-          sudo add-apt-repository 'deb http://dev.monetdb.org/downloads/deb/ focal monetdb'
-          sudo apt-get update -qq
-          sudo apt-get install -y monetdb5-server
-      - name: Start MonetDB
-        run: |
-          sudo mkdir -p -m 770 ${{ env.DBFARM }}
-          sudo chown -R monetdb.monetdb ${{ env.DBFARM }}
-          sudo -u monetdb monetdbd create ${{ env.DBFARM }}
-          sudo -u monetdb monetdbd set control=yes ${{ env.DBFARM }}
-          sudo -u monetdb monetdbd set passphrase=testdb ${{ env.DBFARM }}
-          sudo -u monetdb monetdbd start ${{ env.DBFARM }}
-          sudo -u monetdb chmod o+rwx /tmp/.s.mero*
-      - name: Create MonetDB test database
-        run: |
-          sudo -u monetdb monetdb create demo
-          sudo -u monetdb monetdb set embedpy3=true demo
-          sudo -u monetdb monetdb release demo
-          sudo -u monetdb monetdb start demo || true
-          sudo cat /var/lib/monetdb/merovingian.log
-          sudo -u monetdb monetdb status
-      - name: Set up Python ${{ matrix.python-version }}
+
+      - name: Install MonetDB
+        id: install-monetdb
+        uses: MonetDB/install-monetdb@v0.6
+
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Check versions
+        run: |
+          python --version
+          echo "MonetDB version ${{ steps.install-monetdb.outputs.versionnumber }}"
+        shell: bash
+
       - name: Run tests
         run: make test
+        shell: bash
+
       - name: Test wheel
         run: make testwheel
+        shell: bash
+
       - name: Build docs
         run: make doc
+        shell: bash
 
-  windows:
-    runs-on: windows-latest
-    env:
-      uri: https://www.monetdb.org/downloads/Windows/Jun2023-SP2/MonetDB5-SQL-Installer-x86_64-20230929.msi
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install MonetDB
-        run: |
-          $msifile="c:\monetdb.msi"
-          #New-Item -Path 'C:\test.log' -ItemType File
-          (New-Object System.Net.WebClient).DownloadFile("${{ env.uri }}","$msifile");
-          $procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2' -Wait
-          #$procMain = Start-Process "$msifile" -ArgumentList '/quiet /passive /qn /norestart INSTALLLEVEL=1000 MSIRMSHUTDOWN=2 /L*xv c:\test.log' 
-          #$procLog = Start-Process powershell 'Get-Content -Path c:\test.log -Wait' -NoNewWindow -PassThru
-          #$procMain.WaitForExit()
-          #$procLog.Kill()
-      - name: Setup virtual environment
-        run: |
-          python -m venv venv
-          venv\Scripts\Activate.ps1
-          python -m pip install -r tests/requirements.txt
-
-      - name: test network
-        run: |
-          netsh interface ipv4 show excludedportrange tcp
-
-      # Script tests/windows_tests.py starts an mserver in the background
-      # and runs pytest, excluding the Control tests.
-      - name: run the tests
-        run: |
-          venv\Scripts\Activate.ps1
-          mkdir ${{ runner.temp }}\dbfarm
-          python tests/windows_tests.py "C:\Program Files\MONETDB\MonetDB5" ${{ runner.temp }}\dbfarm demo 50000
-          echo ""; echo ""; echo "================ SERVER STDERR: ==================="; echo ""
-          type ${{ runner.temp }}\dbfarm\errlog
-
-  macos:
-    runs-on: macos-13
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install monetdb
-        run: brew install monetdb
-      - name: Start MonetDB
-        run: |
-          monetdbd create /usr/local/var/lib/monetdb
-          monetdbd set control=yes /usr/local/var/lib/monetdb/
-          monetdbd set passphrase=testdb /usr/local/var/lib/monetdb
-          monetdbd start /usr/local/var/lib/monetdb
-          monetdb create demo
-          monetdb release demo
-          monetdb start demo
-      - name: Run tests
-        run: make test
