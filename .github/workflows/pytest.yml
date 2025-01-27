@@ -32,7 +32,7 @@ jobs:
 
       - name: Install MonetDB
         id: install-monetdb
-        uses: MonetDB/install-monetdb@v0.6
+        uses: MonetDB/install-monetdb@main
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -45,15 +45,33 @@ jobs:
           echo "MonetDB version ${{ steps.install-monetdb.outputs.versionnumber }}"
         shell: bash
 
+      - name: Configure monetdbd
+        if: steps.install-monetdb.outputs.dbfarm
+        run: |
+          set -x
+          sudo monetdbd set control=yes "${{ steps.install-monetdb.outputs.dbfarm }}"
+          sudo monetdbd set passphrase=testdb "${{ steps.install-monetdb.outputs.dbfarm }}"
+          sudo monetdbd stop "${{ steps.install-monetdb.outputs.dbfarm }}"
+          sudo monetdbd start "${{ steps.install-monetdb.outputs.dbfarm }}" || true  # possibly already started by systemd
+
       - name: Run tests
-        run: make test
+        env:
+          TSTCONTROL: "${{ (steps.install-monetdb.outputs.dbfarm && 'tcp,local') || 'off' }}"
+        run: |
+          pip install -e '.[test]'
+          pytest -v
+
         shell: bash
 
       - name: Test wheel
+        if: runner.os != 'Windows'
+        env:
+          TSTCONTROL: "${{ (steps.install-monetdb.outputs.dbfarm && 'tcp,local') || 'off' }}"
         run: make testwheel
         shell: bash
 
       - name: Build docs
+        if: runner.os != 'Windows'
         run: make doc
         shell: bash
 

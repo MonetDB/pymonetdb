@@ -10,7 +10,7 @@ all: test doc checks build
 build: wheel sdist
 
 venv/:
-	python3 -m venv venv
+	python -m venv venv
 	venv/bin/pip install --upgrade pip wheel
 
 venv/installed: venv/
