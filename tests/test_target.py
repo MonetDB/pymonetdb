@@ -197,7 +197,7 @@ lines = read_lines(open(filename), filename)
 tests = split_tests(lines)
 for name, test in tests:
     if test:
-        line_nr = f"line_{test[0].nr}_"
+        line_nr = f"line_{test[0].nr:04}_"
     else:
         line_nr = ""
 
