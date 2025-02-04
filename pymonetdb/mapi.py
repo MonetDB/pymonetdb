@@ -475,7 +475,7 @@ class Connection(object):
         bad_header = struct.pack('<H', 2 * 8193 + 0)  # larger than allowed, and not the final message
         bad_body = b"ERROR\x80ERROR"  # invalid utf-8, and too small
         try:
-            sock.send(bad_header + bad_body)
+            sock.sendall(bad_header + bad_body)
             # and then we hang up
             sock.close()
         except Exception:
@@ -780,19 +780,13 @@ class Connection(object):
             if length < MAX_PACKAGE_LENGTH:
                 last = 1
             flag = struct.pack('<H', (length << 1) + (last if finish else 0))
-            self.socket.send(flag)
-            self.socket.send(data)
+            self.socket.sendall(flag)
+            self.socket.sendall(data)
             pos += length
 
     def _send_all_and_shutdown(self, block):
         """ put the data into the socket """
-        pos = 0
-        end = len(block)
-        block = memoryview(block)
-        while pos < end:
-            data = block[pos:pos + 8192]
-            nsent = self.socket.send(data)
-            pos += nsent
+        self.socket.sendall(block)
         try:
             self.socket.shutdown(socket.SHUT_WR)
         except OSError:
