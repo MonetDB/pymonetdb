@@ -61,7 +61,7 @@ upload: venv/bin/twine wheel sdist
 	venv/bin/twine upload dist/*.whl dist/*.tar.gz
 
 doc: setup
-	 PATH=$${PATH}:${CURDIR}/venv/bin $(MAKE) -C doc html SPHINXOPTS="-W"
+	 PATH="$$PWD/venv/bin:$$PATH" $(MAKE) -C doc html SPHINXOPTS="-W"
 
 venv/bin/flake8: setup
 	venv/bin/pip install flake8
