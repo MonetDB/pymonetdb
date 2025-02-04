@@ -5,6 +5,17 @@ New features since 1.8.2
 Bug fixes
 
 
+# 1.8.4
+
+Bug fixes
+
+* Fix MAPI protocol corruption bug caused by socket.send() being used in some
+  places rather than socket.sendall().
+
+* When disconnecting, check that the socket hasn't already been closed
+  and dropped, for example by _sabotage().
+
+
 # 1.8.3
 
 Bug fixes only.
