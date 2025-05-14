@@ -485,12 +485,14 @@ class Cursor(object):
 
                 columns = int(columns)  # number of columns in result
                 tuples = int(tuples)     # number of rows in this set
-                if tuples < self.rowcount:
-                    self._resultsets_to_close.append(query_id)
 
                 self.description = []
                 self.rowcount = int(rowcount)  # total number of rows
                 self._rows = []
+
+                if tuples < self.rowcount:
+                    self._resultsets_to_close.append(query_id)
+
                 if not update_existing:
                     self._next_result_sets.append((query_id, self.rowcount, self.description, self._rows))
 
