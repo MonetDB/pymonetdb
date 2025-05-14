@@ -17,6 +17,7 @@ jobs:
         monetdbversion:
           # at some point we'll have to start removing some of these..
           - default
+          - Aug2025
           - Aug2024
           - Dec2023
           - Jun2023
