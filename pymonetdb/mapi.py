@@ -448,8 +448,16 @@ class Connection(object):
                 self.connect(self.target)
                 # If it works, use this
                 return
-            except Exception:
+            except OSError:
+                # just try another one if the socket doesn't work somehow
                 pass
+            except DatabaseError as e:
+                if 'no such database' in str(e):
+                    # just try another one
+                    pass
+                else:
+                    # other errors are a cause for concern
+                    raise
         self.target.sock = ''
 
         # last resort
