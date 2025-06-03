@@ -8,7 +8,7 @@
 import hashlib
 from ssl import SSLError
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 from unittest import SkipTest, TestCase, skipUnless
 from urllib.parse import quote as urlquote
 import urllib.request
@@ -86,8 +86,7 @@ class TestTLS(TestCase):
     def port(self, port_name: str) -> int:
         portmap = dict()
         url = f"/?test={urlquote(self._name)}" if self._name else "/"
-        ports = self.download(url, encoding="utf-8")
-        assert isinstance(ports, str)   # silence mypy
+        ports = str(self.download(url), encoding='utf-8')
         for line in ports.splitlines():
             name_field, port_field = line.split(":", 1)
             portmap[name_field] = int(port_field)
@@ -99,7 +98,7 @@ class TestTLS(TestCase):
             )
         return port
 
-    def download(self, path, encoding=None) -> Union[bytes, str]:
+    def download(self, path) -> bytes:
         if path in self._cache:
             content = self._cache[path]
         else:
@@ -109,16 +108,13 @@ class TestTLS(TestCase):
             self._cache[path] = content
 
         assert isinstance(content, bytes)
-        if encoding:
-            return str(content, encoding=encoding)
-        else:
-            return content
+        return content
 
-    def download_file(self, path: str) -> str:
+    def download_file(self, path: str) -> bytes:
         if path in self._files:
             file = self._files[path]
         else:
-            content = self.download(path, encoding=None)
+            content = self.download(path)
             file = NamedTemporaryFile()
             file.write(content)
             file.flush()
