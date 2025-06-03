@@ -1,8 +1,16 @@
 # unreleased
 
-New features since 1.8.2
+New features since 1.8.4
 
 Bug fixes
+
+* Decision whether a result set needs to be closed was accidentally based
+  on the size of the previous result set, not the current. This could cause
+  unclosed result sets to pile up until the connection was closed.
+
+* When scanning Unix Domain sockets, only ignore OSErrors and 'no such database'.
+  Other errors are interesting and should not be masked by subsequent uninteresting
+  errors such as 'connection refused'.
 
 
 # 1.8.4
