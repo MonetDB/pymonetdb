@@ -6,7 +6,7 @@ on:
 
 jobs:
   mtest:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       SRC_URL: "https://www.monetdb.org/downloads/sources/Aug2024/MonetDB-11.51.3.tar.xz"
       SRC_SUM: "2f4499349e7917e12ec5d2d33d477bb50b4a302485cfcce1ca20129c7e791264"
