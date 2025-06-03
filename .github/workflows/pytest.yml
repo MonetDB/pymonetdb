@@ -32,7 +32,7 @@ jobs:
 
       - name: Install MonetDB
         id: install-monetdb
-        uses: MonetDB/install-monetdb@v0.7
+        uses: MonetDB/install-monetdb@v0.8
 
       - name: Install Python
         uses: actions/setup-python@v5
