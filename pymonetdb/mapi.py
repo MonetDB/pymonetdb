@@ -17,6 +17,7 @@ import struct
 import hashlib
 import ssl
 import sys
+import time
 import typing
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -97,7 +98,9 @@ class Connection(object):
 
     state: int = STATE_INIT
     target: Target = Target()
+    connect_deadline: Optional[float] = None  # +inf forces blocking mode regardless of sys default
     sock: Optional[Union[socket.socket, ssl.SSLSocket]] = None
+    raw_sock: Optional[socket.socket] = None
     is_tcp: Optional[bool] = None
     is_raw_control: Optional[bool] = None
     handshake_options_callback: Optional[Callable[[int], List['HandshakeOption']]] = None
@@ -127,16 +130,69 @@ class Connection(object):
             self.target = construct_target_from_args(database, *args, **kwargs)
 
         self.validate_target()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Connecting to {self.target.summary_url()}")
+
+        self.set_deadline()
+
         if self.target.connect_scan:
             self.scan_sockdir()
         else:
             self.connect_target()
+
+        self.clear_deadline()
 
     def validate_target(self):
         try:
             self.target.validate()
         except ValueError as e:
             raise DatabaseError(str(e))
+
+    def set_deadline(self):
+        # Nothing's ever going to work if the system timeout is set to non-blocking
+        default_timeout = socket.getdefaulttimeout()
+        if default_timeout == 0:
+            raise ProgrammingError('pymonetdb does not support default socket timeout 0 (non-blocking)')
+
+        timeout = self.target.connect_timeout
+        if timeout == -1:
+            # -1 means 'keep system default'
+            self.connect_deadline = None
+        elif timeout < 0:
+            # Apart from -1 above, all negative values are forbidden.
+            raise ProgrammingError("negative socket timeouts are forbidden")
+        elif timeout == 0:
+            # 0 means blocking mode
+            self.connect_deadline = float('inf')
+        else:  # timeout > 0
+            self.connect_deadline = time.time() + timeout
+
+    def update_socket_timeout(self, sock: socket.socket, first_time: bool):
+        if self.connect_deadline is None:
+            return
+        if self.connect_deadline == float('inf'):
+            if not first_time:
+                return
+            timeout = None
+        else:
+            now = time.time()
+            remainder = self.connect_deadline - now
+            timeout = round(remainder, 2) if remainder > 0 else 0
+        self.verbose_set_socket_timeout(sock, timeout)
+
+    def clear_deadline(self):
+        if self.connect_deadline is None:
+            return
+        self.verbose_set_socket_timeout(self.raw_sock, socket.getdefaulttimeout())
+
+    def verbose_set_socket_timeout(self, sock: socket.socket, timeout: Optional[float]):
+        if timeout == sock.gettimeout():
+            return
+        if timeout is None:
+            logger.debug('Clearing socket timeout')
+        else:
+            logger.debug('Setting socket timeout to %.2fs', timeout)
+        sock.settimeout(timeout)
 
     # Called once or more by connect().
     # Assumes the target has already been validated.
@@ -148,17 +204,15 @@ class Connection(object):
             except OSError:
                 pass
             self.sock = None
+            self.raw_sock = None
 
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Connecting to {self.target.summary_url()}")
         # Enter a loop to deal with redirects.
         try:
             self.connect_loop()
         except Exception as e:
             logger.error(f"Could not connect to {self.target.summary_url()}: {e}")
             raise
-        if logger.isEnabledFor(logging.INFO):
-            logger.info(f"Established connection to {self.target.summary_url()}")
+        logger.debug("Login succeeded")
 
         # We have a working connection now. Take care of the options we couldn't
         # handle during the handshake
@@ -197,6 +251,7 @@ class Connection(object):
                 # No, we need to make a new connection
                 self.try_connect()
                 assert self.sock is not None
+                self.raw_sock = self.sock
 
                 # Once connected, deal with the file handle passing protocol,
                 # AND with TLS. Note that these are necessarily exclusive, we
@@ -228,32 +283,15 @@ class Connection(object):
 
     def try_connect(self):  # noqa C901
         err = None
-
-        default_timeout = socket.getdefaulttimeout()
-        if default_timeout == 0:
-            raise ProgrammingError('Global socket timeout set to non-blocking, pymonetdb does not support that')
-        t = self.target.connect_timeout
-        if t == -1:
-            # This is the only negative value allowed by Target.validate().
-            # It means 'leave it alone'
-            set_timeout = False
-        else:
-            set_timeout = True
-            # Our settings and and socket.settimeout() assign different meanings to
-            # value '0'
-            custom_timeout = None if t == 0 else t
-
         sock = self.target.connect_unix
         if sock and hasattr(socket, 'AF_UNIX'):
             s = socket.socket(socket.AF_UNIX)
             try:
-                if set_timeout:
-                    s.settimeout(custom_timeout)
+                logger.debug('Trying %s', sock)
+                self.update_socket_timeout(s, True)
                 s.connect(sock)
                 # it worked!
-                logger.debug(f"Connected to {sock}")
-                if set_timeout:
-                    s.settimeout(default_timeout)
+                logger.debug("Connected")
                 self.sock = s
                 self.is_tcp = False
                 return
@@ -268,15 +306,16 @@ class Connection(object):
             for fam, typ, proto, cname, addr in addrs:
                 s = socket.socket(fam, typ, proto)
                 try:
-                    if set_timeout:
-                        s.settimeout(custom_timeout)
+                    if len(addr) >= 4 and (addr[2] != 0 or addr[3] != 0):
+                        logger.debug('Trying %s port %d flow %d scope %d', *addr)
+                    else:
+                        logger.debug('Trying %s port %d', addr[0], addr[1])
+                    self.update_socket_timeout(s, True)
                     s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                     s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                     s.connect(addr)
                     # it worked!
-                    logger.debug(f"Connected to {addr[0]} port {addr[1]}")
-                    if set_timeout:
-                        s.settimeout(default_timeout)
+                    logger.debug("Connected")
                     self.sock = s
                     self.is_tcp = True
                     return
@@ -351,7 +390,9 @@ class Connection(object):
         everything is okay """
 
         assert self.sock
+        assert self.raw_sock
 
+        self.update_socket_timeout(self.raw_sock, False)
         challenge = self._getblock()
         response = self._challenge_response(challenge)
         self._putblock(response)
