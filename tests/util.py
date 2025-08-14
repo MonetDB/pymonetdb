@@ -112,9 +112,6 @@ test_url = _construct_url()
 test_full = environ.get('TSTFULL', 'false').lower() == 'true'
 test_control = environ.get('TSTCONTROL', 'tcp,local')
 
-# The timeout tests need a 'dead' socket address
-dead_address = environ.get('TSTDEADADDRESS', None)
-
 
 # Configuration for tlstester.py:
 #
