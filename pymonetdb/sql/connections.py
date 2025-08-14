@@ -232,11 +232,11 @@ class Connection:
 
     def settimeout(self, timeout):
         """ set the amount of time before a connection times out """
-        self.mapi.socket.settimeout(timeout)
+        self.mapi.sock.settimeout(timeout)
 
     def gettimeout(self):
         """ get the amount of time before a connection times out """
-        return self.mapi.socket.gettimeout()
+        return self.mapi.sock.gettimeout()
 
     # these are required by the python DBAPI
     Warning = exceptions.Warning

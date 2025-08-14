@@ -261,5 +261,5 @@ class ConnectTimeoutTests(unittest.TestCase):
         our_timeout = 3.1415
         self.assertNotEqual(default_timeout, our_timeout)
         with self.connect_with_timeout(our_timeout) as conn:
-            sock = conn.mapi.socket
+            sock = conn.mapi.sock
             self.assertEqual(default_timeout, sock.gettimeout())

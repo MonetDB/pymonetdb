@@ -97,7 +97,7 @@ class Connection(object):
 
     state: int = STATE_INIT
     target: Target = Target()
-    socket: Optional[Union['socket.socket', ssl.SSLSocket]] = None
+    sock: Optional[Union[socket.socket, ssl.SSLSocket]] = None
     is_tcp: Optional[bool] = None
     is_raw_control: Optional[bool] = None
     handshake_options_callback: Optional[Callable[[int], List['HandshakeOption']]] = None
@@ -142,12 +142,12 @@ class Connection(object):
     # Assumes the target has already been validated.
     def connect_target(self):  # noqa C901
         # Close any remainders of previous attempts
-        if self.socket:
+        if self.sock:
             try:
-                self.socket.close()
+                self.sock.close()
             except OSError:
                 pass
-            self.socket = None
+            self.sock = None
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Connecting to {self.target.summary_url()}")
@@ -193,10 +193,10 @@ class Connection(object):
         for i in range(10):
             # maybe the previous attempt left an open socket that just needs an
             # additional login attempt
-            if self.socket is None:
+            if self.sock is None:
                 # No, we need to make a new connection
                 self.try_connect()
-                assert self.socket is not None
+                assert self.sock is not None
 
                 # Once connected, deal with the file handle passing protocol,
                 # AND with TLS. Note that these are necessarily exclusive, we
@@ -209,7 +209,7 @@ class Connection(object):
                 else:
                     # Send a '0' (0x48) to let the other side know we're not
                     # going to try to pass a file handle.
-                    self.socket.sendall(b'0')
+                    self.sock.sendall(b'0')
 
             # We have a connection now. Try to log in. If it succeeds, we're
             # done. If it fails, _login should either
@@ -254,7 +254,7 @@ class Connection(object):
                 logger.debug(f"Connected to {sock}")
                 if set_timeout:
                     s.settimeout(default_timeout)
-                self.socket = s
+                self.sock = s
                 self.is_tcp = False
                 return
             except OSError as e:
@@ -277,7 +277,7 @@ class Connection(object):
                     logger.debug(f"Connected to {addr[0]} port {addr[1]}")
                     if set_timeout:
                         s.settimeout(default_timeout)
-                    self.socket = s
+                    self.sock = s
                     self.is_tcp = True
                     return
                 except OSError as e:
@@ -297,7 +297,7 @@ class Connection(object):
             # to force an error, avoiding a hang.
             # Also, unexpectedly, in some situations sending the NUL bytes
             # appear to make connection setup a little faster rather than slower.
-            self.socket.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.sock.sendall(b'\x00\x00\x00\x00\x00\x00\x00\x00')
             return
 
         target = self.target
@@ -333,14 +333,14 @@ class Connection(object):
             ssl_context.verify_mode = ssl.CERT_NONE
 
         # Perform the SSL handshake and switch to the encrypted connection
-        self.socket = ssl_context.wrap_socket(self.socket, server_hostname=target.connect_tcp)
+        self.sock = ssl_context.wrap_socket(self.sock, server_hostname=target.connect_tcp)
 
         # In hash mode, verify the identity of the server. Otherwise, just log a message about it
         if verification_mode == 'hash':
             self._verify_fingerprint(target.certhash)
             logger.debug(f"TLS certificate matches hash {target.certhash}")
         else:
-            peercert = self.socket.getpeercert()
+            peercert = self.sock.getpeercert()
             if peercert:
                 logger.debug("Valid TLS certificate")
             else:
@@ -350,7 +350,7 @@ class Connection(object):
         """ Reads challenge from line, generate response and check if
         everything is okay """
 
-        assert self.socket
+        assert self.sock
 
         challenge = self._getblock()
         response = self._challenge_response(challenge)
@@ -389,19 +389,19 @@ class Connection(object):
                 raise DatabaseError(str(e))
             # close the socket so the next iteration will reconnect based on the
             # updated target.
-            if self.socket:
-                self.socket.close()
-                self.socket = None
+            if self.sock:
+                self.sock.close()
+                self.sock = None
 
     def _verify_fingerprint(self, fingerprint: str):
-        assert self.socket and isinstance(self.socket, ssl.SSLSocket)
+        assert self.sock and isinstance(self.sock, ssl.SSLSocket)
 
         m = re.match(r'sha256:([0-9a-fA-F:]+)$', fingerprint)
         if not m:
             raise ssl.SSLError(f"invalid certificate hash {fingerprint!r}")
         digits = m.group(1).lower().replace(':', '')
 
-        der = self.socket.getpeercert(binary_form=True)
+        der = self.sock.getpeercert(binary_form=True)
         if not der:
             raise ssl.SSLError("server has no certificate")
 
@@ -475,14 +475,14 @@ class Connection(object):
         """ disconnect from the monetdb server """
         logger.info("Closing connection")
         self.state = STATE_INIT
-        if self.socket is not None:
-            self.socket.close()
-            self.socket = None
+        if self.sock is not None:
+            self.sock.close()
+            self.sock = None
 
     def _sabotage(self):
         """ Kill the connection in a way that the server is sure to recognize as an error"""
-        sock = self.socket
-        self.socket = None
+        sock = self.sock
+        self.sock = None
         self.state = STATE_INIT
         if not sock:
             return
@@ -734,7 +734,7 @@ class Connection(object):
         Enlarge buffer if necessary.
         Return offset + count if all goes well.
         """
-        assert self.socket
+        assert self.sock
         end = count + offset
         if len(buffer) < end:
             # enlarge
@@ -742,7 +742,7 @@ class Connection(object):
             buffer += bytes(nblocks * 8192)
         while offset < end:
             view = memoryview(buffer)[offset:end]
-            n = self.socket.recv_into(view)
+            n = self.sock.recv_into(view)
             if n == 0:
                 raise BrokenPipeError("Server closed connection")
             offset += n
@@ -754,8 +754,8 @@ class Connection(object):
         """
         parts = []
         while True:
-            assert self.socket
-            received = self.socket.recv(4096)
+            assert self.sock
+            received = self.sock.recv(4096)
             if not received:
                 break
             parts.append(received)
@@ -794,21 +794,21 @@ class Connection(object):
             if length < MAX_PACKAGE_LENGTH:
                 last = 1
             flag = struct.pack('<H', (length << 1) + (last if finish else 0))
-            self.socket.sendall(flag)
-            self.socket.sendall(data)
+            self.sock.sendall(flag)
+            self.sock.sendall(data)
             pos += length
 
     def _send_all_and_shutdown(self, block):
         """ put the data into the socket """
-        self.socket.sendall(block)
+        self.sock.sendall(block)
         try:
-            self.socket.shutdown(socket.SHUT_WR)
+            self.sock.shutdown(socket.SHUT_WR)
         except OSError:
             pass
 
     def __del__(self):
-        if self.socket:
-            self.socket.close()
+        if self.sock:
+            self.sock.close()
 
     def set_reply_size(self, size):
         # type: (int) -> None
