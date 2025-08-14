@@ -35,15 +35,17 @@ class ConnectTimeoutTests(unittest.TestCase):
     port: int
 
     def setUp(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # force ipv4 because ipv6 urls need awkward square brackets
-        self.server_sock = socket.create_server(('127.0.0.1', 0))
-        addr = self.server_sock.getsockname()
+        sock.bind(('127.0.0.1', 0))
+        sock.listen()
+        self.server_sock = sock
+        addr = sock.getsockname()
         self.host = addr[0]
         self.port = addr[1]
 
     def tearDown(self):
         self.server_sock.close()
-
 
     def run_isolated(self, socket_timeout, global_timeout, expected_exception, expected_duration, use_tls=False):  # noqa C901
         epsilon = 0.5
