@@ -107,7 +107,7 @@ class Connection(object):
     downloader: Optional['Downloader'] = None
     stashed_buffer: Optional[bytearray] = None
 
-    def connect(self, database: Optional[Union[Target, str]] = None, *args, **kwargs):  # noqa C901
+    def connect(self, database: Optional[Union[Target, str]] = None, *args, **kwargs):
         """ setup connection to MAPI server
         """
 
@@ -126,16 +126,21 @@ class Connection(object):
         else:
             self.target = construct_target_from_args(database, *args, **kwargs)
 
-        # Validate the target parameters
+        self.validate_target()
+        if self.target.connect_scan:
+            self.scan_sockdir()
+        else:
+            self.connect_target()
+
+    def validate_target(self):
         try:
             self.target.validate()
         except ValueError as e:
             raise DatabaseError(str(e))
 
-        if self.target.connect_scan:
-            self.scan_sockdir()
-            return
-
+    # Called once or more by connect().
+    # Assumes the target has already been validated.
+    def connect_target(self):  # noqa C901
         # Close any remainders of previous attempts
         if self.socket:
             try:
@@ -441,11 +446,11 @@ class Connection(object):
 
         # Try to connect to each of them
         for sock in my_socks + strange_socks:
-
-            self.target.sock = sock
             try:
                 logger.debug(f"Trying {sock!r}")
-                self.connect(self.target)
+                self.target.sock = sock
+                self.validate_target()
+                self.connect_target()
                 # If it works, use this
                 return
             except OSError:
@@ -458,12 +463,13 @@ class Connection(object):
                 else:
                     # other errors are a cause for concern
                     raise
-        self.target.sock = ''
 
         # last resort
         logger.debug("Trying a TCP connection to localhost")
+        self.target.sock = ''
         self.target.host = 'localhost'
-        self.connect(self.target)
+        self.validate_target()
+        self.connect_target()
 
     def disconnect(self):
         """ disconnect from the monetdb server """
