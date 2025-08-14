@@ -1,7 +1,7 @@
 name: Run Tests
 on:
   push:
-    branches: [ master, monetdbs ]
+    branches: [ master ]
   pull_request:
 env:
   # connections to this address should hang so we can test connect_timeout
@@ -34,6 +34,8 @@ jobs:
       - name: Install MonetDB
         id: install-monetdb
         uses: MonetDB/install-monetdb@v0.8
+        with:
+          version: Mar2025   # Homebrew doesn't have Mar2025-SP1
 
       - name: Install Python
         uses: actions/setup-python@v5
