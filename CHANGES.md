@@ -1,5 +1,12 @@
 # unreleased
 
+New features since 1.8.5
+
+Bug fixes
+
+
+# 1.8.5
+
 New features since 1.8.4
 
 * The 'connect_timeout' parameter now applies to the whole process of
@@ -9,20 +16,22 @@ New features since 1.8.4
   This is useful because sometimes socket.connect() may succeed even
   though the server is in fact hanging.
 
-* All logging messages are now at DEBUG level. There used to be one
-  INFO message "Established connection to..." but it was emitted too
-  early, before login. Logging everything as DEBUG seems more consistent.
+* All logging messages are now at DEBUG level. There used to be one INFO
+  message "Established connection to..." but it was emitted too early,
+  before login. Logging everything as DEBUG seems more consistent.
 
 Bug fixes
 
-* The decision whether a result set needs to be closed or not was accidentally
-  based on the size of the previous result set, not the current. This could
-  cause unclosed result sets to pile up until the connection was closed.
+* The decision whether a result set needs to be closed or not was
+  accidentally based on the size of the previous result set, not the
+  current. This could cause unclosed result sets to pile up until the
+  connection was closed.
 
-* When scanning Unix Domain sockets, only OSErrors and 'no such database' errors
-  are now suppressed. The others may be interesting and are passed through so
-  they are no longer masked by subsequent uninteresting errors such as
-  'connection refused'.
+* When scanning Unix Domain sockets, errors are to be expected. Until
+  now, all exceptions were intercepted and if no connection could be
+  made, the last one was rethrown. This caused important errors such as
+  'invalid credentials' to be masked by later less interesting errors.
+  This has been fixed by only posponing OSErrors and 'no such database'.
 
 
 # 1.8.4
