@@ -31,7 +31,7 @@ Bug fixes
   now, all exceptions were intercepted and if no connection could be
   made, the last one was rethrown. This caused important errors such as
   'invalid credentials' to be masked by later less interesting errors.
-  This has been fixed by only posponing OSErrors and 'no such database'.
+  This has been fixed by only postponing OSErrors and 'no such database'.
 
 
 # 1.8.4
