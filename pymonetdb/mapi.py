@@ -514,7 +514,7 @@ class Connection(object):
 
     def disconnect(self):
         """ disconnect from the monetdb server """
-        logger.info("Closing connection")
+        logger.debug("Closing connection")
         self.state = STATE_INIT
         if self.sock is not None:
             self.sock.close()

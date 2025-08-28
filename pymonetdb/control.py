@@ -92,7 +92,7 @@ class Control:
         self.server.connect(self.target)
 
     def _send_command(self, database_name, command):
-        logger.info("sending '{}' command to database {}".format(command, database_name))
+        logger.debug("sending '{}' command to database {}".format(command, database_name))
         self._connect()
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
