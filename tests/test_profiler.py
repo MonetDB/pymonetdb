@@ -11,6 +11,7 @@ from tests import util
 
 SERVER_HAS_PROFILER = not util.have_monetdb_version_at_least(11, 54, 0)
 
+
 @unittest.skipUnless(SERVER_HAS_PROFILER, "server does not support profiler (stethoscope)")
 class ProfilerTest(unittest.TestCase):
     """Test the profiler connection."""
