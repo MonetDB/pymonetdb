@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.7", "3.13" ]  # oldest and latest supported
+        python-version: [ "3.7", "3.14" ]  # oldest and latest supported
         os: [ ubuntu-22.04, windows-latest, macos-13 ]  # oldest available but old windows runners are scarse
         include:
           - python-version: "3.8"
@@ -24,6 +24,8 @@ jobs:
           - python-version: "3.11"
             os: ubuntu-22.04
           - python-version: "3.12"
+            os: ubuntu-22.04
+          - python-version: "3.13"
             os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
