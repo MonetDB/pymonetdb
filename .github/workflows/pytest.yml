@@ -1,7 +1,7 @@
 name: Run Tests
 on:
   push:
-    branches: [ master ]
+    branches: [ master, monetdbs ]
   pull_request:
 env:
   TSTFULL: "true"
@@ -35,8 +35,6 @@ jobs:
       - name: Install MonetDB
         id: install-monetdb
         uses: MonetDB/install-monetdb@v0.8
-        with:
-          version: Mar2025   # Homebrew doesn't have Mar2025-SP1
 
       - name: Install Python
         uses: actions/setup-python@v5
