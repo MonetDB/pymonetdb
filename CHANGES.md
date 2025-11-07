@@ -2,6 +2,11 @@
 
 New features since 1.8.5
 
+* Added support for the inet4 and inet6 types added in the upcoming
+  MonetDB Dec2025 release.
+
+* Added support for Python 3.14.
+
 * All INFO level log messages have been downgraded to DEBUG
   except for info messages sent by the server.
 

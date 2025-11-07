@@ -8,6 +8,7 @@
 functions for converting monetdb SQL fields to Python objects
 """
 
+from ipaddress import IPv4Address, IPv6Address
 import json
 import time
 import datetime
@@ -177,6 +178,8 @@ mapping = {
     types.DAY_INTERVAL: py_day_interval,
     types.URL: strip,
     types.INET: str,
+    types.INET4: IPv4Address,
+    types.INET6: IPv6Address,
     types.UUID: uuid.UUID,
     types.JSON: json.loads,
     types.GEOMETRY: strip,

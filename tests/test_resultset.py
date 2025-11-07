@@ -9,6 +9,7 @@
 from abc import abstractmethod
 import datetime
 from decimal import ROUND_HALF_UP, Decimal
+from ipaddress import IPv4Address, IPv6Address
 from random import Random
 from typing import Any, Callable, List, Optional, Tuple
 from unittest import SkipTest, TestCase
@@ -28,6 +29,39 @@ t AS (SELECT 42 AS dummy UNION SELECT 43)
 SELECT * FROM
     resultset RIGHT OUTER JOIN t
     ON resultset.dummy = t.dummy;
+"""
+
+INET_FUNCTIONS = """
+CREATE OR REPLACE FUNCTION pytest_inet4(val INT)
+RETURNS INET4
+BEGIN
+    DECLARE i BIGINT;
+    DECLARE s STRING;
+    SET i = (val + 1) * 1_001_001_001;
+    SET s = '' || (i>>24) % 256 || '.' || (i>>16) % 256 || '.' || (i>>8) % 256 || '.' || i % 256;
+    RETURN CAST(s AS INET4);
+END;
+
+CREATE OR REPLACE FUNCTION pytest_inet6(val INT)
+RETURNS INET6
+BEGIN
+    DECLARE i0, i1, i2, i3 BIGINT;
+    DECLARE s STRING;
+    SET i0 = (val + 1) * 9_137_989_003;
+    SET i1 = (val + 1) * 6_059_578_913;
+    SET i2 = (val + 1) * 3_389_863_883;
+    SET i3 = (val + 1) * 6_456_747_306;
+    SET s =
+        to_hex((i0 >> 16) & 0xFFFF) || ':' ||
+        to_hex( i0         & 0xFFFF) || ':' ||
+        to_hex((i1 >> 16) & 0xFFFF) || ':' ||
+        to_hex( i1         & 0xFFFF) || ':' ||
+        to_hex((i2 >> 16) & 0xFFFF) || ':' ||
+        to_hex( i2         & 0xFFFF) || ':' ||
+        to_hex((i3 >> 16) & 0xFFFF) || ':' ||
+        to_hex( i3         & 0xFFFF);
+    RETURN s; -- CAST(s AS INET6);
+END;
 """
 
 
@@ -90,7 +124,7 @@ BLACKLIST = set(['months_col', 'days_col', 'seconds_col'])
 
 class BaseTestCases(TestCase):
     _server_binexport_level: Optional[int] = None
-    _server_has_huge: Optional[bool] = None
+    _server_types: Optional[List[str]] = None
     conn: Optional[pymonetdb.Connection] = None
     cursor: Optional[pymonetdb.sql.cursors.Cursor] = None
     cur: int = 0
@@ -101,13 +135,10 @@ class BaseTestCases(TestCase):
     def probe_server(self):
         if self._server_binexport_level is not None:
             return
-        conn = self.connect_with_args()
-        self._server_binexport_level = conn.mapi.binexport_level
-        cursor = conn.cursor()
-        cursor.execute("SELECT sqlname FROM sys.types WHERE sqlname = 'hugeint'")
-        self._server_has_huge = cursor.rowcount > 0
-        cursor.close()
-        conn.close()
+        with self.connect_with_args() as conn, conn.cursor() as cursor:
+            self._server_binexport_level = conn.mapi.binexport_level
+            cursor.execute("SELECT sqlname FROM sys.types")
+            self._server_types = set(row[0] for row in cursor.fetchall())
 
     def have_binary(self, at_least=1):
         self.probe_server()
@@ -116,17 +147,17 @@ class BaseTestCases(TestCase):
     def server_has_new_time_conversion(self):
         return have_monetdb_version_at_least(11, 50, 0)
 
-    def have_huge(self):
+    def have_sqltype(self, sqltype):
         self.probe_server()
-        return self._server_has_huge
+        return sqltype in self._server_types
 
     def skip_unless_have_binary(self):
         if not self.have_binary():
             raise SkipTest("need server with support for binary")
 
-    def skip_unless_have_huge(self):
-        if not self.have_huge():
-            raise SkipTest("need server with support for hugeint")
+    def skip_unless_have_sqltype(self, sqltype):
+        if not self.have_sqltype(sqltype):
+            raise SkipTest(f"need server with support for {sqltype}")
 
     def setUp(self):
         self.cur = 0
@@ -372,7 +403,7 @@ class BaseTestCases(TestCase):
         self.assertFalse(self.cursor.nextset())
 
     def test_huge(self):
-        self.skip_unless_have_huge()
+        self.skip_unless_have_sqltype('hugeint')
         max_value = (1 << 127) - 1
         min_value = - max_value
         columns = dict(
@@ -396,9 +427,40 @@ class BaseTestCases(TestCase):
         self.do_fetchall()
         self.verifyBinary()
 
+    def test_inet4(self):
+        self.skip_unless_have_sqltype('inet4')
+        cols = dict(
+            inet4_col=(
+                'pytest_inet4(value)',
+                lambda n: IPv4Address(((n + 1) * 1_001_001_001) & 0xFF_FF_FF_FF)
+            ))
+        self.do_connect()
+        self.cursor.execute(INET_FUNCTIONS)
+        self.do_query(250, cols)
+        self.do_fetchall()
+        self.verifyBinary()
+
+    def test_inet6(self):
+        self.skip_unless_have_sqltype('inet6')
+        def ref_inet6(val):
+            i0 = ((val + 1) * 9_137_989_003) & 0xff_ff_ff_ff
+            i1 = ((val + 1) * 6_059_578_913) & 0xff_ff_ff_ff
+            i2 = ((val + 1) * 3_389_863_883) & 0xff_ff_ff_ff
+            i3 = ((val + 1) * 6_456_747_306) & 0xff_ff_ff_ff
+            i = (i0 << 96) + (i1 << 64) + (i2 << 32) + i3
+            return IPv6Address(i)
+        cols = dict(
+            inet6_col=('pytest_inet6(value)', ref_inet6)
+        )
+        self.do_connect()
+        self.cursor.execute(INET_FUNCTIONS)
+        self.do_query(250, cols)
+        self.do_fetchall()
+        self.verifyBinary()
+
     def test_decimal_types(self):
         cases = set()
-        widest = 39 if self.have_huge() else 18
+        widest = 39 if self.have_sqltype('hugeint') else 18
         for p in range(1, widest):
             cases.add((p, 0))
             cases.add((p, min(3, p - 1)))

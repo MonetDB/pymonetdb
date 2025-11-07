@@ -34,7 +34,9 @@ SEC_INTERVAL = 'sec_interval'      # number of seconds
 DAY_INTERVAL = 'day_interval'      # number of seconds
 
 URL = 'url'                        # url
-INET = 'inet'                      # ipv4 address
+INET = 'inet'                      # ipv4 address with netmask
+INET4 = 'inet4'                    # ipv4 address
+INET6 = 'inet6'                    # ipv6 address
 UUID = 'uuid'                      # uuid
 JSON = 'json'                      # JSON string
 GEOMETRY = 'geometry'              # geometry string
