@@ -442,6 +442,7 @@ class BaseTestCases(TestCase):
 
     def test_inet6(self):
         self.skip_unless_have_sqltype('inet6')
+
         def ref_inet6(val):
             i0 = ((val + 1) * 9_137_989_003) & 0xff_ff_ff_ff
             i1 = ((val + 1) * 6_059_578_913) & 0xff_ff_ff_ff
@@ -449,6 +450,7 @@ class BaseTestCases(TestCase):
             i3 = ((val + 1) * 6_456_747_306) & 0xff_ff_ff_ff
             i = (i0 << 96) + (i1 << 64) + (i2 << 32) + i3
             return IPv6Address(i)
+
         cols = dict(
             inet6_col=('pytest_inet6(value)', ref_inet6)
         )

@@ -51,4 +51,4 @@ class MultilineResponseTest(unittest.TestCase):
         c.state = pymonetdb.mapi.STATE_READY
 
         # Make sure that cmd raises the correct exception
-        self.assertRaises(pymonetdb.IntegrityError, c.cmd, [query_text])
+        self.assertRaises(pymonetdb.IntegrityError, c.cmd, query_text)

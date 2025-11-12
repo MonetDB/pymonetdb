@@ -158,10 +158,10 @@ class Inet4Decoder(BinaryDecoder):
 
 class Inet6Decoder(BinaryDecoder):
     def decode(self, server_endian: str, data: memoryview) -> List[Any]:
-        result = []
+        result: List[Optional[IPv6Address]] = []
         nil_repr = b'\x00' * 16
         for i in range(0, len(data), 16):
-            slice = data[i:i+16]
+            slice = data[i:i + 16]
             if slice != nil_repr:
                 result.append((IPv6Address(bytes(slice))))
             else:

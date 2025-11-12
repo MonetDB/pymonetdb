@@ -7,7 +7,7 @@
 import logging
 from collections import namedtuple
 import struct
-from typing import List, Optional, Dict, Tuple, Type
+from typing import Any, List, Optional, Dict, Sequence, Tuple, Type, Union
 from pymonetdb.policy import BatchPolicy
 import pymonetdb.sql.connections
 from pymonetdb.sql.debug import debug, export
@@ -192,7 +192,7 @@ class Cursor(object):
         # Propagate any errors
         return False
 
-    def execute(self, operation: str, parameters: Optional[Dict] = None):  # noqa C901
+    def execute(self, operation: str, parameters: Optional[Union[Dict, Sequence[Any]]] = None):  # noqa C901
         """Prepare and execute a database operation (query or
         command).  Parameters may be provided as mapping and
         will be bound to variables in the operation.
