@@ -11,7 +11,7 @@ To set up a connection use pymonetdb.connect()
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 # Set __version__ first, so the imported modules can access it.
-__version__ = '1.8.6a0'
+__version__ = '1.9.0a0'
 
 
 from typing import Optional

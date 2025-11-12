@@ -12,7 +12,12 @@ New features since 1.8.5
 
 * Include py.typed to silence mypy on dependent packages.
 
-Bug fixes
+Version number policy
+
+* From now on pymonetdb version numbers will follow [Semantic
+  Versioning](https://semver.org/). This means the third part of the version
+  number is reserved for bug fixes, the middle part for backward compatible
+  changes and the first for backward incompatible changes.
 
 
 # 1.8.5
