@@ -10,6 +10,8 @@ New features since 1.8.5
 * All INFO level log messages have been downgraded to DEBUG
   except for info messages sent by the server.
 
+* Include py.typed to silence mypy on dependent packages.
+
 Bug fixes
 
 

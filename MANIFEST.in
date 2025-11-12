@@ -1,1 +1,1 @@
-include README.rst *.py CHANGES LICENSE
+include README.rst *.py CHANGES LICENSE py.typed

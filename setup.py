@@ -54,4 +54,5 @@ setup(
     tests_require=tests_require,
     test_suite="tests",
     extras_require=extras_require,
+    include_package_data=True,
 )
