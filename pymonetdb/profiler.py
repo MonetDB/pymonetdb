@@ -34,7 +34,7 @@ class ProfilerConnection:
             # the old way.
             self._mapi.cmd("profiler.openstream(3);\n")
 
-    def read_object(self):
+    def read_object(self) -> str:
         self._buffer = self._mapi._getblock()
         while not self._buffer.endswith("}\n"):
             self._buffer += self._mapi._getblock()

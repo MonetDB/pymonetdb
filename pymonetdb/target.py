@@ -9,7 +9,7 @@ Utilities for parsing MonetDB URLs
 
 
 import re
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional, Union
 from urllib.parse import parse_qsl, urlparse, quote as urlquote
 
 
@@ -81,7 +81,7 @@ _DEFAULTS = dict(
 )
 
 
-def parse_bool(x: Union[str, bool]):
+def parse_bool(x: Union[str, bool]) -> bool:
     if isinstance(x, bool):
         return x
     try:
@@ -96,7 +96,7 @@ class urlparam:
     field: str
     parser: Callable[[Union[str, Any]], Any]
 
-    def __init__(self, name, typ, doc):
+    def __init__(self, name: str, typ: str, doc: str):
         self.field = name
         if typ == 'string' or typ == 'path':
             self.parser = str
@@ -142,7 +142,7 @@ class Target:
             self._OTHERS = {}
             self._TOUCHED = dict(user=False, password=False)
 
-    def clone(self):
+    def clone(self) -> 'Target':
         return Target(prototype=self)
 
     tls = urlparam('tls', 'bool', 'secure the connection using TLS')
@@ -197,7 +197,7 @@ class Target:
         else:
             raise ValueError(f"unknown parameter {key!r}")
 
-    def get(self, key: str):
+    def get(self, key: str) -> Any:
         if key in KNOWN or key in VIRTUAL:
             return getattr(self, key)
         elif key in IGNORED or '_' in key:
@@ -212,7 +212,7 @@ class Target:
         self._TOUCHED['user'] = False
         self._TOUCHED['password'] = False
 
-    def summary_url(self):
+    def summary_url(self) -> str:
         db = self.database or ''
         if self.sock:
             return f"monetdb://localhost/{db}?sock={urlquote(self.sock)}"
@@ -241,7 +241,7 @@ class Target:
         self.port = _DEFAULTS['port']
         self.database = ''
 
-    def _parse_monetdb_url(self, url):    # noqa C901
+    def _parse_monetdb_url(self, url: str):    # noqa C901
         parsed = urlparse(url, allow_fragments=True)
 
         if parsed.scheme == 'monetdb':
@@ -293,7 +293,7 @@ class Target:
                     f"key {key!r} is not allowed in the query parameters")
             self.set(key, value)
 
-    def _parse_mapi_monetdb_url(self, url):    # noqa C901
+    def _parse_mapi_monetdb_url(self, url: str):    # noqa C901
         # mapi urls have no percent encoding at all
         parsed = urlparse(url[5:])
         if parsed.scheme != 'monetdb':
@@ -341,7 +341,7 @@ class Target:
                 # unknown parameters are ignored
                 pass
 
-    def _parse_mapi_merovingian_url(self, url):    # noqa C901
+    def _parse_mapi_merovingian_url(self, url: str):    # noqa C901
         # mapi urls have no percent encoding at all
         parsed = urlparse(url[5:])
         if parsed.scheme != 'merovingian':
@@ -441,7 +441,7 @@ class Target:
             raise ValueError("connection_timeout must either be >= 0 or -1")
 
     @property
-    def connect_scan(self):
+    def connect_scan(self) -> bool:
         if not self.database:
             return False
         if self.sock:
@@ -455,7 +455,7 @@ class Target:
         return True
 
     @property
-    def connect_sockdir(self):
+    def connect_sockdir(self) -> str:
         if self.sockdir:
             return self.sockdir
         elif self.host and self.host.startswith('/'):
@@ -464,7 +464,7 @@ class Target:
             return "/tmp"
 
     @property
-    def connect_unix(self):
+    def connect_unix(self) -> str:
         if self.sock:
             return self.sock
         if self.tls:
@@ -474,7 +474,7 @@ class Target:
         return ""
 
     @property
-    def connect_tcp(self):
+    def connect_tcp(self) -> str:
         if self.sock:
             return ""
         if self.host and not self.host.startswith('/'):
@@ -482,7 +482,7 @@ class Target:
         return "localhost"
 
     @property
-    def connect_port(self):
+    def connect_port(self) -> int:
         assert self.port == -1 or 1 <= self.port <= 65535
         if self.port == -1:
             return 50000
@@ -490,7 +490,7 @@ class Target:
             return self.port
 
     @property
-    def connect_tls_verify(self):
+    def connect_tls_verify(self) -> str:
         if not self.tls:
             return ""
         if self.certhash:
@@ -500,14 +500,14 @@ class Target:
         return "system"
 
     @property
-    def connect_clientkey(self):
+    def connect_clientkey(self) -> str:
         return self.clientkey
 
     @property
-    def connect_clientcert(self):
+    def connect_clientcert(self) -> str:
         return self.clientcert or self.clientkey
 
-    def connect_binary(self, max: int):
+    def connect_binary(self, max: int) -> int:
         try:
             return int(self.binary)
         except ValueError:
@@ -517,7 +517,7 @@ class Target:
                 raise ValueError("invalid value for 'binary': {self.binary}, must be int or bool")
 
     @property
-    def connect_certhash_digits(self):
+    def connect_certhash_digits(self) -> Optional[str]:
         m = _HASH_PATTERN.match(self.certhash)
         if m:
             return m.group(1).lower().replace(':', '')
@@ -530,7 +530,7 @@ _DATABASE_PATTERN = re.compile("^[A-Za-z0-9_][-A-Za-z0-9_.]*$")
 _HASH_PATTERN = re.compile(r"^sha256:([0-9a-fA-F:]+)$")
 
 
-def _unquote_fun(m) -> bytes:
+def _unquote_fun(m: re.Match) -> bytes:
     digits = m.group(1)
     if len(digits) != 2:
         raise ValueError()

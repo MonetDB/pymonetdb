@@ -105,14 +105,14 @@ class Connection:
         # Propagate any errors
         return False
 
-    def set_autocommit(self, autocommit):
+    def set_autocommit(self, autocommit: bool):
         """
         Set auto commit on or off. 'autocommit' must be a boolean
         """
         self.command("Xauto_commit %s" % int(autocommit))
         self.autocommit = autocommit
 
-    def set_sizeheader(self, sizeheader):
+    def set_sizeheader(self, sizeheader: bool):
         """
         Set sizeheader on or off. When enabled monetdb will return
         the size a type. 'sizeheader' must be a boolean.

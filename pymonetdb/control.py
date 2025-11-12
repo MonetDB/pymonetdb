@@ -5,6 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import logging
+from typing import Optional
 from pymonetdb import mapi
 from pymonetdb.exceptions import OperationalError, InterfaceError
 
@@ -72,7 +73,7 @@ class Control:
     stop, lock, unlock, destroy your databases and request status information.
     """
 
-    def __init__(self, hostname=None, port=None, passphrase=None, **kwargs):
+    def __init__(self, hostname: Optional[str] = None, port: Optional[int] = None, passphrase: Optional[str] = None, **kwargs):
 
         # override some settings
         kwargs['user'] = 'monetdb'
@@ -91,14 +92,14 @@ class Control:
     def _connect(self):
         self.server.connect(self.target)
 
-    def _send_command(self, database_name, command):
+    def _send_command(self, database_name: str, command: str):
         logger.debug("sending '{}' command to database {}".format(command, database_name))
         self._connect()
         result = self.server.cmd("%s %s\n" % (database_name, command))
         self.server.disconnect()
         return result
 
-    def create(self, database_name):
+    def create(self, database_name: str):
         """
         Initialises a new database or multiplexfunnel in the MonetDB Server.
         A database created with this command makes it available for use,
@@ -106,7 +107,7 @@ class Control:
         """
         return isempty(self._send_command(database_name, "create"))
 
-    def destroy(self, database_name):
+    def destroy(self, database_name: str):
         """
         Removes the given database, including all its data and
         logfiles.  Once destroy has completed, all data is lost.
@@ -114,7 +115,7 @@ class Control:
         """
         return isempty(self._send_command(database_name, "destroy"))
 
-    def lock(self, database_name):
+    def lock(self, database_name: str):
         """
         Puts the given database in maintenance mode.  A database
         under maintenance can only be connected to by the DBA.
@@ -124,7 +125,7 @@ class Control:
         """
         return isempty(self._send_command(database_name, "lock"))
 
-    def release(self, database_name):
+    def release(self, database_name: str):
         """
         Brings back a database from maintenance mode.  A released
         database is available again for normal use.  Use the
@@ -132,34 +133,34 @@ class Control:
         """
         return isempty(self._send_command(database_name, "release"))
 
-    def status(self, database_name=False):
+    def status(self, database_name: Optional[str] = None):
         """
         Shows the state of a given glob-style database match, or
         all known if none given.  Instead of the normal mode, a
         long and crash mode control what information is displayed.
         """
-        if database_name:
+        if database_name is not None:
             raw = self._send_command(database_name, "status")
             return parse_statusline(raw)
         else:
             raw = self._send_command("#all", "status")
             return [parse_statusline(line) for line in raw.split("\n")]
 
-    def start(self, database_name):
+    def start(self, database_name: str):
         """
         Starts the given database, if the MonetDB Database Server
         is running.
         """
         return isempty(self._send_command(database_name, "start"))
 
-    def stop(self, database_name):
+    def stop(self, database_name: str):
         """
         Stops the given database, if the MonetDB Database Server
         is running.
         """
         return isempty(self._send_command(database_name, "stop"))
 
-    def kill(self, database_name):
+    def kill(self, database_name: str):
         """
         Kills the given database, if the MonetDB Database Server
         is running.  Note: killing a database should only be done
@@ -168,7 +169,7 @@ class Control:
         """
         return isempty(self._send_command(database_name, "kill"))
 
-    def set(self, database_name, property_, value):
+    def set(self, database_name, property_: str, value: str):
         """
         sets property to value for the given database
         for a list of properties, use `pymonetdb get all`
@@ -176,7 +177,7 @@ class Control:
         return isempty(self._send_command(database_name, "%s=%s" % (property_,
                                                                     value)))
 
-    def get(self, database_name):
+    def get(self, database_name: str):
         """
         gets value for property for the given database, or
         retrieves all properties for the given database
@@ -192,14 +193,14 @@ class Control:
                     values[split[0]] = split[1]
         return values
 
-    def inherit(self, database_name, property_):
+    def inherit(self, database_name: str, property_: str):
         """
         unsets property, reverting to its inherited value from
         the default configuration for the given database
         """
         return isempty(self._send_command(database_name, property_ + "="))
 
-    def rename(self, old, new):
+    def rename(self, old: str, new: str):
         return self.set(old, "name", new)
 
     def defaults(self):

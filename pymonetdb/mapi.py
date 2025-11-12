@@ -69,7 +69,7 @@ errors = {
 }
 
 
-def handle_error(error):
+def handle_error(error: str):
     """Return exception matching error code.
 
     args:
@@ -386,8 +386,7 @@ class Connection(object):
                 logger.debug("TLS certificate check was disabled")
 
     def _login(self) -> bool:  # noqa: C901
-        """ Reads challenge from line, generate response and check if
-        everything is okay """
+        """ Reads challenge from line, generate response and return True if everything is ok"""
 
         assert self.sock
         assert self.raw_sock
