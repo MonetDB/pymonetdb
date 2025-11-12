@@ -14,7 +14,12 @@ jobs:
       matrix:
         python-version: [ "3.7", "3.14" ]  # oldest and latest supported
         os: [ ubuntu-22.04, windows-latest, macos-14 ]  # oldest available but old windows runners are scarse
+        exclude:
+          - python-version: "3.7"
+            os: macos-14
         include:
+          - python-version: "3.8"
+            os: macos-14
           - python-version: "3.8"
             os: ubuntu-22.04
           - python-version: "3.9"
