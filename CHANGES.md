@@ -4,6 +4,10 @@ New features since 1.9.0
 
 Bug fixes
 
+* `inet4` and `inet6` values could be fetched into Python
+  [ipaddress](https://docs.python.org/3/library/ipaddress.html) values, but such values could not yet be passed to `Cursor.execute()`.
+
+
 
 # 1.9.0
 

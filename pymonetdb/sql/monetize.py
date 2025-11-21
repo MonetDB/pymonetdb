@@ -12,6 +12,7 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
+import ipaddress
 import uuid
 
 from pymonetdb.exceptions import ProgrammingError
@@ -92,6 +93,14 @@ def monet_unicode(data):
     return monet_escape(data.encode('utf-8'))
 
 
+def monet_inet4(data):
+    return f"inet4 '{data.compressed}'"
+
+
+def monet_inet6(data):
+    return f"inet6 '{data.compressed}'"
+
+
 mapping = [
     (str, monet_escape),
     (bytes, monet_bytes),
@@ -104,6 +113,8 @@ mapping = [
     (datetime.time, monet_time),
     (datetime.date, monet_date),
     (datetime.timedelta, monet_timedelta),
+    (ipaddress.IPv4Address, monet_inet4),
+    (ipaddress.IPv6Address, monet_inet6),
     (bool, monet_bool),
     (type(None), monet_none),
 ]

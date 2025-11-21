@@ -5,6 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 from datetime import datetime, timedelta, timezone
+import ipaddress
 import unittest
 import pymonetdb.sql.pythonize
 import pymonetdb
@@ -91,3 +92,15 @@ class TestPythonize(unittest.TestCase):
 
         self.assertEqual(row[0], raw)
         self.assertEqual(row[1], raw)
+
+    def test_roundtrip_inet4(self):
+        addr = ipaddress.IPv4Address('198.51.100.99')
+        self.cursor.execute('SELECT %s', [addr])
+        row = self.cursor.fetchone()
+        self.assertEqual(row[0], addr)
+
+    def test_roundtrip_inet6(self):
+        addr = ipaddress.IPv6Address('2001:db8::42')
+        self.cursor.execute('SELECT %s', [addr])
+        row = self.cursor.fetchone()
+        self.assertEqual(row[0], addr)

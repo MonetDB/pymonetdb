@@ -5,6 +5,7 @@
 # Copyright 1997 - July 2008 CWI, August 2008 - 2016 MonetDB B.V.
 
 import datetime
+import ipaddress
 import unittest
 import uuid
 from pymonetdb.sql.monetize import convert
@@ -53,3 +54,11 @@ class TestMonetize(unittest.TestCase):
     def test_uuids(self):
         x = uuid.UUID('334e6185-dd64-33d8-a052-d93371d3d20d')
         self.assertEqual(convert(x), "'334e6185-dd64-33d8-a052-d93371d3d20d'")
+
+    def test_inet4(self):
+        x = ipaddress.IPv4Address('127.0.0.1')
+        self.assertEqual(convert(x), "inet4 '127.0.0.1'")
+
+    def test_inet6(self):
+        x = ipaddress.IPv6Address('2001:db8::9999')
+        self.assertEqual(convert(x), "inet6 '2001:db8::9999'")
