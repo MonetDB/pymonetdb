@@ -24,6 +24,11 @@ class TestPythonize(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
 
+    def skip_unless_have_sqltype(self, sqltype):
+        self.cursor.execute('SELECT id FROM sys.types WHERE sqlname = %s', [sqltype])
+        if self.cursor.fetchone() is None:
+            raise unittest.SkipTest(f'need server with support for {sqltype}')
+
     def test_Binary(self):
         input1 = bytes(range(256)).hex()
         output1 = bytes(range(256))
@@ -94,12 +99,14 @@ class TestPythonize(unittest.TestCase):
         self.assertEqual(row[1], raw)
 
     def test_roundtrip_inet4(self):
+        self.skip_unless_have_sqltype('inet4')
         addr = ipaddress.IPv4Address('198.51.100.99')
         self.cursor.execute('SELECT %s', [addr])
         row = self.cursor.fetchone()
         self.assertEqual(row[0], addr)
 
     def test_roundtrip_inet6(self):
+        self.skip_unless_have_sqltype('inet6')
         addr = ipaddress.IPv6Address('2001:db8::42')
         self.cursor.execute('SELECT %s', [addr])
         row = self.cursor.fetchone()
