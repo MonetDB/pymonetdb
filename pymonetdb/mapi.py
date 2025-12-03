@@ -135,10 +135,14 @@ class Connection(object):
 
         self.set_deadline()
 
-        if self.target.connect_scan:
-            self.scan_sockdir()
-        else:
-            self.connect_target()
+        try:
+            if self.target.connect_scan:
+                self.scan_sockdir()
+            else:
+                self.connect_target()
+        except Exception as e:
+            logger.error(f"Could not connect to {self.target.summary_url()}: {e}")
+            raise
 
         self.clear_deadline()
 
@@ -207,11 +211,7 @@ class Connection(object):
             self.raw_sock = None
 
         # Enter a loop to deal with redirects.
-        try:
-            self.connect_loop()
-        except Exception as e:
-            logger.error(f"Could not connect to {self.target.summary_url()}: {e}")
-            raise
+        self.connect_loop()
         logger.debug("Login succeeded")
 
         # We have a working connection now. Take care of the options we couldn't
@@ -406,7 +406,7 @@ class Connection(object):
             logger.info("%s" % prompt[1:])
             return True
         elif prompt.startswith(MSG_ERROR):
-            logger.error(prompt[1:])
+            logger.debug('server error: ' + prompt[1:])
             raise DatabaseError(prompt[1:])
         elif prompt.startswith(MSG_REDIRECT):
             # a redirect can contain multiple redirects, we only use the first
@@ -488,7 +488,6 @@ class Connection(object):
         # Try to connect to each of them
         for sock in my_socks + strange_socks:
             try:
-                logger.debug(f"Trying {sock!r}")
                 self.target.sock = sock
                 self.validate_target()
                 self.connect_target()

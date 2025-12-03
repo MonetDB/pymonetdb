@@ -7,6 +7,8 @@ Bug fixes
 * `inet4` and `inet6` values could be fetched into Python
   [ipaddress](https://docs.python.org/3/library/ipaddress.html) values, but such values could not yet be passed to `Cursor.execute()`.
 
+* It is normal to encounter some No-such-database errors while scanning /tmp
+  for the right server socket. These errors should not be logged at level ERROR.
 
 
 # 1.9.0
@@ -105,7 +107,7 @@ Bug fixes
   * Support result set format of PREPARE statements on older MonetDB versions.
 
 * Restore connect_timeout=-1 to how it was before 1.8.0. However, avoid setting
-  the socket to non-blocking mode. 
+  the socket to non-blocking mode.
   See [Issue #127](https://github.com/MonetDB/pymonetdb/issues/127).
 
 
