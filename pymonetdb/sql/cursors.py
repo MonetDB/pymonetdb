@@ -525,6 +525,11 @@ class Cursor(object):
                 self._rows = []
                 self.description = None
                 self.rowcount = -1
+                self._query_id = None
+                if not update_existing:
+                    self._next_result_sets.append(
+                        (self._query_id, self.rowcount, self.description, self._rows)
+                    )
 
             elif line.startswith(mapi.MSG_QUPDATE):
                 (affected, identity) = line[2:].split()[:2]
@@ -534,6 +539,10 @@ class Cursor(object):
                 self.rowcount = int(affected)
                 self.lastrowid = int(identity)
                 self._query_id = None
+                if not update_existing:
+                    self._next_result_sets.append(
+                        (self._query_id, self.rowcount, self.description, self._rows)
+                    )
 
             elif line.startswith(mapi.MSG_QTRANS):
                 self._offset = 0
