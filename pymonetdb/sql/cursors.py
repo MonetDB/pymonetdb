@@ -49,7 +49,7 @@ class Cursor(object):
     lastrowid: Optional[int]
     _unpack_int64: str
 
-    _next_result_sets: List[Tuple[str, int, Optional[List[Description]], List[Tuple]]]
+    _next_result_sets: List[Tuple[Optional[str], int, Optional[List[Description]], List[Tuple]]]
 
     def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
