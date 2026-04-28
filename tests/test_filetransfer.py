@@ -208,13 +208,13 @@ class Common:
         try:
             if self.cursor:
                 self.cursor.close()
-        except (MonetError, IOError):
+        except (MonetError, OSError):
             pass
         try:
             if self.conn:
                 self.conn.rollback()
                 self.conn.close()
-        except (MonetError, IOError):
+        except (MonetError, OSError):
             pass
 
     def fill_foo(self, nrows):

@@ -87,7 +87,7 @@ class SafeDirectoryHandler(Uploader, Downloader):
             return upload.send_error(str(e))
         try:
             f = opener(p, mode=mode, encoding=encoding, newline=newline)
-        except IOError as e:
+        except OSError as e:
             return upload.send_error(str(e))
 
         with f:
@@ -135,7 +135,7 @@ class SafeDirectoryHandler(Uploader, Downloader):
             return download.send_error(str(e))
         try:
             f = opener(p, mode=mode, encoding=encoding, newline=newline)
-        except IOError as e:
+        except OSError as e:
             return download.send_error(str(e))
 
         with f:
