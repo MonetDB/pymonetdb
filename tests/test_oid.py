@@ -9,6 +9,7 @@ class TestOid(TestCase):
         self.cursor = self.connection.cursor()
 
     def test_oid(self):
-        q = "select tag from sys.queue()"
+        q = "SELECT CAST(10 AS OID)"
         self.cursor.execute(q)
-        self.cursor.fetchall()
+        x = self.cursor.fetchone()[0]
+        self.assertEqual("10@0", x)
