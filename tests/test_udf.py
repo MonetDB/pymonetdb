@@ -40,7 +40,7 @@ class TestUdf(TestCase):
         try:
             self.cursor.execute('SELECT test_python_udf(1);')
         except pymonetdb.exceptions.OperationalError:
-            raise SkipTest("Don't know if MonetDB has with embedded Python support enabled")
+            raise SkipTest("Don't know if MonetDB has embedded Python support enabled")
 
         else:
             result = self.cursor.fetchall()

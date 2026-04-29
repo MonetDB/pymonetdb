@@ -417,7 +417,7 @@ class Cursor(object):
         return self.next()
 
     def _store_result(self, block, *, update_existing: bool):  # noqa: C901
-        """ parses the mapi result into a resultset"""
+        """ parses the mapi result into result sets"""
 
         if not update_existing:
             self._next_result_sets = []
