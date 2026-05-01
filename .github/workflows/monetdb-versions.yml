@@ -39,7 +39,7 @@ jobs:
           - 50000:50000
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up tests
         run: make setup
       - name: Run tests

@@ -20,7 +20,7 @@ jobs:
         run: sudo apt-get -qq update && sudo apt-get -qq install -y tzdata python3 python3-venv curl xz-utils build-essential ninja-build bison cmake gcc pkg-config libbz2-dev liblz4-dev libpcre2-dev libreadline-dev liblzma-dev libssl-dev zlib1g-dev libasan5 libcfitsio-dev libcmocka-dev libcurl4-gnutls-dev libgdal-dev libgeos-dev libnetcdf-dev libproj-dev libxml2-dev python3-dev python3-numpy r-base-dev unixodbc-dev valgrind
 
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Which Python do we have today?
         run: python3 --version
@@ -45,7 +45,7 @@ jobs:
 
       - name: Store mtest output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mtest-output
           path: INST/mTests
