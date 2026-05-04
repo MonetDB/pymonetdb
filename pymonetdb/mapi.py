@@ -302,7 +302,12 @@ class Connection(object):
         host = self.target.connect_tcp
         if host:
             port = self.target.connect_port
-            addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            try:
+                addrs = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            except OSError as e:
+                if hasattr(e, "add_note"):
+                    e.add_note(f"While trying to resolve host '{host}'")
+                raise
             for fam, typ, proto, cname, addr in addrs:
                 s = socket.socket(fam, typ, proto)
                 try:
