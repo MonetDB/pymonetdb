@@ -18,6 +18,10 @@ Bug fixes
   It used to be -1 on Cursor creation and whatever the last result set left it
   at afterward.
 
+* The `Connection.autocommit` field now reflects changes in the autocommit
+  status caused by SQL statements such as`START TRANSACTION`, `COMMIT` or
+  `ROLLBACK`.
+
 * Fetching OID columns would return function objects instead of values.
   Now it returns a string representation ("10@0") of the OID.
 

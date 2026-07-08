@@ -544,6 +544,7 @@ class Cursor(object):
                 self._rows = []
                 self.description = None
                 self.rowcount = -1
+                self.connection.autocommit = (line[3] == 't')
 
             elif line == mapi.MSG_PROMPT:
                 return
