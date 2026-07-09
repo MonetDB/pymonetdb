@@ -40,6 +40,8 @@ jobs:
       - name: Install MonetDB
         id: install-monetdb
         uses: MonetDB/install-monetdb@v0.8
+        with:
+          version: Dec2025-SP2    # Can't use the default "Latest" because Homebrew doesn't have it yetZ
 
       - name: Install Python
         uses: actions/setup-python@v6
