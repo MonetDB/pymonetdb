@@ -83,8 +83,6 @@ class Connection:
         to be performed.
         """
         if self.mapi:
-            if not self.autocommit:
-                self.rollback()
             self.mapi.disconnect()
             self.mapi = None
         else:
