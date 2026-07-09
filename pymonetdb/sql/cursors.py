@@ -49,7 +49,7 @@ class Cursor(object):
     lastrowid: Optional[int]
     _unpack_int64: str
 
-    _next_result_sets: List[Tuple[str, int, List[Description], List[Tuple]]]
+    _next_result_sets: List[Tuple[Optional[str], int, Optional[List[Description]], List[Tuple]]]
 
     def __init__(self, connection: 'pymonetdb.sql.connections.Connection'):
         """This read-only attribute return a reference to the Connection
@@ -528,6 +528,11 @@ class Cursor(object):
                 self._rows = []
                 self.description = None
                 self.rowcount = -1
+                self._query_id = None
+                if not update_existing:
+                    self._next_result_sets.append(
+                        (self._query_id, self.rowcount, self.description, self._rows)
+                    )
 
             elif line.startswith(mapi.MSG_QUPDATE):
                 (affected, identity) = line[2:].split()[:2]
@@ -537,6 +542,10 @@ class Cursor(object):
                 self.rowcount = int(affected)
                 self.lastrowid = int(identity)
                 self._query_id = None
+                if not update_existing:
+                    self._next_result_sets.append(
+                        (self._query_id, self.rowcount, self.description, self._rows)
+                    )
 
             elif line.startswith(mapi.MSG_QTRANS):
                 self._offset = 0

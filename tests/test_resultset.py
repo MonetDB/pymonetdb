@@ -402,6 +402,48 @@ class BaseTestCases(TestCase):
 
         self.assertFalse(self.cursor.nextset())
 
+    def test_multiple_with_dml_dql(self):
+        self.do_connect()
+
+        queries = 'SELECT 1;'
+        queries += 'CREATE TABLE IF NOT EXISTS bar (n int);'
+        queries += 'SELECT 10 UNION SELECT 20;'
+        queries += 'INSERT INTO bar values (10), (20);'
+        queries += "SELECT 'alice', 'bob';"
+        self.cursor.execute(queries)
+
+        self.assertEqual(self.cursor.rowcount, 1)
+        self.assertEqual(self.cursor.fetchall(), [(1,)])
+        self.assertTrue(self.cursor.description is not None)
+        self.assertTrue(self.cursor.nextset())
+
+        self.assertEqual(self.cursor.rowcount, -1)
+        try:
+            self.cursor.fetchall()
+        except Exception as e:
+            self.assertTrue(isinstance(e, pymonetdb.ProgrammingError))
+        self.assertTrue(self.cursor.description is None)
+        self.assertTrue(self.cursor.nextset())
+
+        self.assertEqual(self.cursor.rowcount, 2)
+        self.assertEqual(self.cursor.fetchall(), [(10,), (20,)])
+        self.assertTrue(self.cursor.description is not None)
+        self.assertTrue(self.cursor.nextset())
+
+        self.assertEqual(self.cursor.rowcount, 2)
+        try:
+            self.cursor.fetchall()
+        except Exception as e:
+            self.assertTrue(isinstance(e, pymonetdb.ProgrammingError))
+        self.assertTrue(self.cursor.description is None)
+        self.assertTrue(self.cursor.nextset())
+
+        self.assertEqual(self.cursor.rowcount, 1)
+        self.assertEqual(self.cursor.fetchall(), [('alice', 'bob')])
+        self.assertTrue(self.cursor.description is not None)
+
+        self.assertFalse(self.cursor.nextset())
+
     def test_huge(self):
         self.skip_unless_have_sqltype('hugeint')
         max_value = (1 << 127) - 1
