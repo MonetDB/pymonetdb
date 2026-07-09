@@ -1,29 +1,32 @@
 # unreleased
 
-New features since 1.9.0
+New features
 
 Bug fixes
 
-* The `inet4` and `inet6` MonetDB types correspond to the Python type
-  [`ipaddress`](https://docs.python.org/3/library/ipaddress.html).
-  This was already support in result sets, but now they can also be passed to
+
+# 1.9.1
+
+Bug fixes
+
+* The [`ipaddress`](https://docs.python.org/3/library/ipaddress.html) was
+  already supported by the `Cursor.fetch*` methods but was not yet supported by
   `Cursor.execute()`.
+
+* The `Connection.autocommit` field now correctly eflects changes in the
+  autocommit status caused by SQL statements such as`START TRANSACTION`,
+  `COMMIT` or `ROLLBACK`.
+
+* `Cursor.rownumber` is now set correctly. It used to be `-1` instead of `None`
+  when the Cursor was just created, and would sometimes not get reset when
+  the Cursor switched to a new result set.
+
+* Fetching OID columns would return function objects instead of values.
+  Now it returns a string representation of the OID, such as `10@0`
 
 * It is normal to encounter some No-such-database errors while scanning /tmp
   for the right server socket. These errors are no longer logged at level ERROR.
 
-* According to [PEP 249](https://peps.python.org/pep-0249/#rownumber),
-  `Cursor.rownumber` must be `None` when not in a result set.
-  This is now the case.
-  It used to be -1 on Cursor creation and whatever the last result set left it
-  at afterward.
-
-* The `Connection.autocommit` field now reflects changes in the autocommit
-  status caused by SQL statements such as`START TRANSACTION`, `COMMIT` or
-  `ROLLBACK`.
-
-* Fetching OID columns would return function objects instead of values.
-  Now it returns a string representation ("10@0") of the OID.
 
 # 1.9.0
 
