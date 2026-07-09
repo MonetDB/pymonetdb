@@ -23,7 +23,6 @@ jobs:
           - Jun2023
           - Sep2022
           - Jan2022
-          - Jun2020
     env:
       TSTHOSTNAME: "monetdb"
       TSTDB: "monetdb"
